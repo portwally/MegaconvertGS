@@ -1,0 +1,1407 @@
+*-------------------------------------------------------------
+* Formats.s - Super Hi-Res picture files
+*
+* The picture in memory (ScreenP) always has the layout of a
+* $C1 file: 200 lines of 160 bytes, 200 SCBs, 56 spare bytes,
+* then 16 colour tables of 32 bytes.
+*-------------------------------------------------------------
+
+* ClearScreen: zeroes the picture and gives every colour table
+* the standard 320 mode palette.
+ClearScreen lda   ScreenP
+            sta   p0
+            lda   ScreenP+2
+            sta   p0+2
+            lda   #0
+            ldy   #screenSize-2
+:zero       sta   [p0],y
+            dey
+            dey
+            bpl   :zero
+            ldy   #palOffset
+:table      ldx   #0
+:entry      lda   Std320,x
+            sta   [p0],y
+            iny
+            iny
+            inx
+            inx
+            cpx   #32
+            bcc   :entry
+            cpy   #screenSize
+            bcc   :table
+            rts
+
+* DecodeFile: turns the file in FileP/FileLen into the picture.
+*   out: carry clear and A = format (fmtC1...), or carry set
+DecodeFile  jsr   ClearScreen
+            jsr   FreeTrue              ; no true colour picture any more
+            stz   pw                    ; (a smaller picture says its size)
+            stz   ph
+            stz   p640
+            lda   ForceFmt              ; a format chosen in Load formats
+            beq   :auto
+            jmp   DecodeForced
+:auto       lda   FileType              ; the file type says which format it is
+            cmp   #$00C0
+            bne   :notC0
+            lda   FileAux
+            cmp   #3
+            bcs   :guess
+            asl
+            tax
+            jmp   (:byAux,x)
+:byAux      da    :pw,:packed,:apf
+:pw         jsr   DecodePW
+            bcs   :guess
+            lda   #fmtPaintWorks
+            clc
+            rts
+:packed     jsr   DecodePacked
+            bcs   :guess
+            lda   #fmtPacked
+            clc
+            rts
+:apf        jsr   IsAPF
+            bcs   :guess
+            jsr   DecodeAPF
+            bcs   :guess
+            lda   #fmtAPF
+            clc
+            rts
+:notC0      cmp   #$00C1
+            bne   :guess
+            lda   FileAux
+            bne   :guess
+            lda   FileLen+2
+            bne   :guess
+            lda   FileLen
+            cmp   #32000
+            bcc   :guess
+            jsr   CopyRaw32000
+            lda   #fmtC1
+            clc
+            rts
+:guess      jsr   DecodeTrue            ; PNG, GIF, JPEG, BMP?
+            bcs   :notTrue
+            rts
+:notTrue    cmp   #0
+            beq   :shr
+            sec                         ; one of them, but it could not be read
+            rts
+:shr        lda   #0                    ; Apple II and IIgs formats
+            jsr   CallApple
+            bcs   :notApple
+            rts
+:notApple   cmp   #0
+            beq   :shrGuess
+            sec
+            rts
+:shrGuess   jsr   IsIPIName             ; IPI: three files, .R .G .B
+            bcs   :notIPI
+            jmp   DecodeIPI
+:notIPI     lda   #0                    ; other computers' formats
+            jsr   CallOther
+            bcs   :notOther
+            rts
+:notOther   cmp   #0
+            beq   :shrGuess2
+            sec
+            rts
+:shrGuess2  jsr   ClearScreen           ; otherwise go by the contents
+            lda   FileLen+2
+            bne   :notRaw
+            lda   FileLen
+            cmp   #screenSize
+            beq   :raw
+            cmp   #32000
+            beq   :raw
+:notRaw     jsr   IsAPF
+            bcs   :notAPF
+            jsr   DecodeAPF
+            bcs   :fail
+            lda   #fmtAPF
+            clc
+            rts
+:notAPF     jsr   DecodePacked
+            bcs   :notPacked
+            lda   #fmtPacked
+            clc
+            rts
+:notPacked  jsr   ClearScreen
+            jsr   DecodePW
+            bcs   :fail
+            lda   #fmtPaintWorks
+            clc
+            rts
+:raw        jsr   CopyRaw
+            lda   #fmtC1
+            clc
+            rts
+:fail       lda   #errNotPicture
+            sec
+            rts
+
+* DecodeForced: reads the file as format A (ForceFmt).
+DecodeForced cmp  #fmtWOA              ; (Works of Art: the Apple segment)
+            bne   :notWOA
+            jmp   CallApple
+:notWOA     cmp   #fmtCount             ; (listed, not implemented yet)
+            bcc   :known
+            lda   #errNotImpl
+            sec
+            rts
+:known      cmp   #fmtPWGold
+            bne   :notGold
+            jmp   DecodePWGold
+:notGold    cmp   #fmtIPI
+            bne   :notIPI
+            jmp   DecodeIPI
+:notIPI     cmp   #fmtDegas
+            bcc   :notOther
+            jmp   CallOther
+:notOther   cmp   #fmtHGR
+            bcc   :here
+            jmp   CallApple
+:here       asl
+            tax
+            jmp   (:kinds,x)
+:kinds      da    :fail,:c1,:apf,:packed,:pw,:true,:true,:true,:true
+:c1         lda   FileLen+2
+            bne   :c1ok
+            lda   FileLen
+            cmp   #32000
+            bcc   :fail
+:c1ok       jsr   CopyRaw32000
+            lda   #fmtC1
+            clc
+            rts
+:apf        jsr   IsAPF
+            bcs   :fail
+            jsr   DecodeAPF
+            bcs   :fail
+            lda   #fmtAPF
+            clc
+            rts
+:packed     jsr   DecodePacked
+            bcs   :fail
+            lda   #fmtPacked
+            clc
+            rts
+:pw         jsr   DecodePW
+            bcs   :fail
+            lda   #fmtPaintWorks
+            clc
+            rts
+:true       jsr   DecodeTrue
+            bcc   :ok
+            cmp   #0
+            bne   :err
+:fail       lda   #errNotPicture
+:err        sec
+:ok         rts
+
+* CallOther: the other computers' loader segment, for format A (0: any).
+CallOther   ldx   #1
+            bra   CallSeg
+
+* CallApple: the Apple II and IIgs loader segment, for format A (0: any).
+CallApple   ldx   #0
+CallSeg     stx   SegNo
+            pha
+            lda   PathPtr
+            sta   pathp
+            lda   PathPtr+2
+            sta   pathp+2
+            lda   FileP
+            sta   fp
+            lda   FileP+2
+            sta   fp+2
+            lda   FileLen
+            sta   flen
+            lda   FileLen+2
+            sta   flen+2
+            lda   ScreenP
+            sta   scrp
+            lda   ScreenP+2
+            sta   scrp+2
+            lda   FileType
+            sta   ftype
+            lda   FileAux
+            sta   faux
+            lda   UserID
+            sta   uid
+            lda   #MonoBlk              ; (a loader may make a monochrome image)
+            sta   mblk
+            lda   #^MonoBlk
+            sta   mblk+2
+            pla
+            ldx   SegNo
+            bne   :other
+            jsl   DecodeApple
+            rts
+:other      jsl   DecodeOther
+            rts
+
+SegNo       dw    0
+
+*-------------------------------------------------------------
+* IPI: a picture in three files, name.R, name.G and name.B, each a
+* square of 8-bit samples (256 or 512 a side). Any one may be opened.
+*-------------------------------------------------------------
+
+* IsIPIName: carry clear if the path ends in .R, .G or .B (any case).
+IsIPIName   lda   PathPtr
+            sta   p0
+            lda   PathPtr+2
+            sta   p0+2
+            lda   [p0]                  ; length
+            cmp   #3
+            bcc   :no
+            tay                         ; the last character is at length + 1
+            iny
+            lda   [p0],y
+            and   #$00DF                ; (upper case)
+            cmp   #'R'
+            beq   :dot
+            cmp   #'G'
+            beq   :dot
+            cmp   #'B'
+            bne   :no
+:dot        dey
+            lda   [p0],y
+            and   #$00FF
+            cmp   #'.'
+            bne   :no
+            clc
+            rts
+:no         sec
+            rts
+
+* DecodeIPI: reads the other two files, then the Other segment builds the picture.
+DecodeIPI   jsr   IsIPIName
+            bcc   :name
+            jmp   :bad
+:name       lda   PathPtr               ; (put back afterwards)
+            sta   IpiPathP
+            lda   PathPtr+2
+            sta   IpiPathP+2
+            lda   FileH                 ; the file already read
+            sta   IpiOwn
+            lda   FileH+2
+            sta   IpiOwn+2
+            lda   FileP
+            sta   IpiOwnP
+            lda   FileP+2
+            sta   IpiOwnP+2
+            lda   FileLen
+            sta   IpiOwnL
+            lda   FileLen+2
+            sta   IpiOwnL+2
+            ldy   #2                    ; a copy of the path to change
+            lda   [p0]
+            clc
+            adc   #2
+            sta   t0
+:copy       lda   [p0],y
+            sta   IpiPath,y
+            iny
+            iny
+            cpy   t0
+            bcc   :copy
+            lda   [p0]
+            sta   IpiPath
+            inc
+            sta   IpiLast               ; index of the last character
+            tay
+            lda   [p0],y
+            and   #$00FF
+            sta   IpiOwnC               ; R, G or B as it was written
+            stz   IpiH
+            stz   IpiH+2
+            stz   IpiH+4
+            stz   IpiH+6
+            stz   IpiH+8
+            stz   IpiH+10
+            ldx   #0                    ; each colour: R, G, B
+:colour     stx   IpiC
+            lda   IpiOwnC
+            and   #$00DF
+            cmp   IpiLetters,x
+            bne   :read
+            txa                         ; this is the file already read
+            asl
+            tax
+            lda   IpiOwnP
+            sta   IpiP,x
+            lda   IpiOwnP+2
+            sta   IpiP+2,x
+            lda   IpiOwnL
+            sta   IpiL,x
+            lda   IpiOwnL+2
+            sta   IpiL+2,x
+            bra   :next
+:read       lda   IpiLetters,x          ; the same name with this letter,
+            ldy   IpiOwnC               ; in the same case
+            cpy   #'a'
+            bcc   :case
+            ora   #$0020
+:case       ldy   IpiLast
+            sep   #$20
+            mx    %10
+            sta   IpiPath,y
+            rep   #$20
+            mx    %00
+            lda   #IpiPath
+            sta   PathPtr
+            lda   #^IpiPath
+            sta   PathPtr+2
+            jsr   ReadFile
+            bcc   :jx1
+            jmp   :readErr
+:jx1
+            lda   IpiC
+            asl
+            tax
+            lda   FileH
+            sta   IpiH,x
+            lda   FileH+2
+            sta   IpiH+2,x
+            lda   FileP
+            sta   IpiP,x
+            lda   FileP+2
+            sta   IpiP+2,x
+            lda   FileLen
+            sta   IpiL,x
+            lda   FileLen+2
+            sta   IpiL+2,x
+:next       ldx   IpiC
+            inx
+            inx
+            cpx   #6
+            bcs   :jx2
+            jmp   :colour
+:jx2
+            ldx   #8                    ; each at least side x side bytes
+            lda   IpiL+2                ; (512 if red has 262144 or more, else 256)
+            cmp   #4
+            bcs   :side
+            ldx   #0
+:side       stx   t1
+            ldx   #0
+:size       lda   IpiL+2,x
+            cmp   #4
+            bcs   :sizeOK
+            ldy   t1
+            bne   :short
+            cmp   #1
+            bcs   :sizeOK
+:short      lda   #errNotPicture
+            bra   :fail
+:sizeOK     inx
+            inx
+            inx
+            inx
+            cpx   #12
+            bcc   :size
+            lda   IpiP                  ; the Other segment does the rest
+            sta   FileP
+            lda   IpiP+2
+            sta   FileP+2
+            lda   IpiL
+            sta   FileLen
+            lda   IpiL+2
+            sta   FileLen+2
+            lda   IpiP+4
+            sta   ipg
+            lda   IpiP+6
+            sta   ipg+2
+            lda   IpiP+8
+            sta   ipb
+            lda   IpiP+10
+            sta   ipb+2
+            lda   #fmtIPI
+            jsr   CallOther
+            bcs   :fail
+            jsr   :restore
+            lda   #fmtIPI
+            clc
+            rts
+:readErr    cmp   #0
+            bne   :fail
+:bad        lda   #errNotPicture
+:fail       pha
+            jsr   :restore
+            pla
+            sec
+            rts
+:restore    lda   IpiPathP
+            sta   PathPtr
+            lda   IpiPathP+2
+            sta   PathPtr+2
+            ldx   #IpiH                 ; free the other two, and put back the first
+            jsr   FreeHandleAt
+            ldx   #IpiH+4
+            jsr   FreeHandleAt
+            ldx   #IpiH+8
+            jsr   FreeHandleAt
+            lda   IpiOwn
+            sta   FileH
+            lda   IpiOwn+2
+            sta   FileH+2
+            lda   IpiOwnP
+            sta   FileP
+            lda   IpiOwnP+2
+            sta   FileP+2
+            lda   IpiOwnL
+            sta   FileLen
+            lda   IpiOwnL+2
+            sta   FileLen+2
+            rts
+
+IpiLetters  dw    'R','G','B'
+IpiOwn      adrl  0
+IpiOwnP     adrl  0
+IpiOwnL     adrl  0
+IpiOwnC     dw    0
+IpiPathP    adrl  0
+IpiC        dw    0
+IpiLast     dw    0
+IpiH        adrl  0,0,0
+IpiP        adrl  0,0,0
+IpiL        adrl  0,0,0
+IpiPath     ds    260
+
+* DecodePWGold: Paintworks Gold's 640 mode pictures, saved with 320 mode
+* headers: as Apple Preferred, a screen, or a Paint file. 640 mode throughout.
+DecodePWGold jsr  IsAPF
+            bcs   :notAPF
+            inc   Force640
+            jsr   DecodeAPF
+            stz   Force640
+            bcc   :jx1
+            jmp   :fail
+:jx1
+            jmp   :ok
+:notAPF     lda   FileLen+2
+            bne   :paint
+            lda   FileLen
+            cmp   #32000
+            bcc   :paint
+            cmp   #33281
+            bcs   :paint
+            jsr   CopyRaw32000
+            lda   FileLen               ; no colour tables: 640 mode's if the
+            cmp   #32768                ; lines mostly say 640 mode
+            bcs   :all640
+            jsr   CountWide
+            cmp   #101
+            bcc   :all640
+            jsr   Table640
+:all640     jsr   Scbs640
+            lda   #640
+            sta   pw
+            lda   #200
+            sta   ph
+            lda   #1
+            sta   p640
+            bra   :ok
+:paint      lda   FileLen+2             ; Paint file: PackBytes from $222 on
+            bne   :unpack
+            lda   FileLen
+            cmp   #$223
+            bcc   :fail
+:unpack     lda   FileP
+            clc
+            adc   #$222
+            sta   UPSrc
+            lda   FileP+2
+            adc   #0
+            sta   UPSrc+2
+            lda   FileLen
+            sec
+            sbc   #$222
+            sta   n0
+            lda   FileLen+2
+            sbc   #0
+            sta   n0+2
+            lda   ScreenP
+            sta   UPStart
+            lda   ScreenP+2
+            sta   UPStart+2
+            lda   #32000
+            sta   UPSize
+            jsr   UnpackAll
+            lda   #32000                ; whole lines unpacked
+            sec
+            sbc   UPSize
+            ldx   #0
+:lines      cmp   #160
+            bcc   :counted
+            sbc   #160
+            inx
+            bra   :lines
+:counted    cpx   #0
+            beq   :fail
+            stx   t3
+            stx   ph
+            lda   #640
+            sta   pw
+            lda   #1
+            sta   p640
+            jsr   Table640
+            ldx   t3
+            jsr   ScbsX
+:ok         lda   #fmtPWGold
+            clc
+            rts
+:fail       lda   #errNotPicture
+            sec
+            rts
+
+* CountWide: how many of the picture's SCBs are for 640 mode.
+CountWide   jsr   PicP0
+            stz   t1
+            ldy   #scbOffset
+:scb        lda   [p0],y
+            and   #$0080
+            beq   :n
+            inc   t1
+:n          iny
+            cpy   #scbOffset+200
+            bcc   :scb
+            lda   t1
+            rts
+
+* Table640: colour table 0 = the standard 640 mode one.
+Table640    jsr   PicP0
+            ldy   #palOffset
+            ldx   #0
+:copy       lda   Std640,x
+            sta   [p0],y
+            iny
+            iny
+            inx
+            inx
+            cpx   #32
+            bcc   :copy
+            rts
+
+* Scbs640 / ScbsX: the first 200 (or X) lines in 640 mode, table 0.
+Scbs640     ldx   #200
+ScbsX       jsr   PicP0
+            ldy   #scbOffset
+            sep   #$20
+            mx    %10
+            lda   #$80
+:scb        sta   [p0],y
+            iny
+            dex
+            bne   :scb
+            rep   #$20
+            mx    %00
+            rts
+
+PicP0       lda   ScreenP
+            sta   p0
+            lda   ScreenP+2
+            sta   p0+2
+            rts
+
+* CopyRaw32000: copies a $C1 file of 32000 bytes or more (up to 32768).
+CopyRaw32000 lda  FileLen
+            cmp   #screenSize
+            bcc   CopyRaw
+            lda   #screenSize
+            sta   FileLen
+
+* CopyRaw: copies a 32000 or 32768 byte screen file as it is.
+CopyRaw     lda   FileP
+            sta   p0
+            lda   FileP+2
+            sta   p0+2
+            lda   ScreenP
+            sta   p1
+            lda   ScreenP+2
+            sta   p1+2
+            ldy   FileLen
+            dey
+            dey
+:copy       lda   [p0],y
+            sta   [p1],y
+            dey
+            dey
+            bpl   :copy
+            rts
+
+*-------------------------------------------------------------
+* Apple Preferred ($C0/0002): a chain of named blocks
+*-------------------------------------------------------------
+
+* IsAPF: carry clear if the file starts like an Apple Preferred
+* file (a sane block length and a printable block name).
+IsAPF       lda   FileLen+2
+            bne   :long
+            lda   FileLen
+            cmp   #11
+            bcc   :no
+:long       lda   FileP
+            sta   p0
+            lda   FileP+2
+            sta   p0+2
+            ldy   #4
+            lda   [p0],y
+            and   #$00FF
+            beq   :no
+            cmp   #16
+            bcs   :no
+            sta   t0
+            ldy   #2                    ; block length <= file length
+            lda   [p0],y
+            cmp   FileLen+2
+            bcc   :name
+            bne   :no
+            lda   [p0]
+            cmp   FileLen
+            beq   :name
+            bcs   :no
+:name       ldy   #5
+:char       lda   [p0],y
+            and   #$00FF
+            cmp   #$20
+            bcc   :no
+            cmp   #$7F
+            bcs   :no
+            iny
+            dec   t0
+            bne   :char
+            clc
+            rts
+:no         sec
+            rts
+
+* DecodeAPF: finds the MAIN block and unpacks it.
+DecodeAPF   lda   FileP
+            sta   p1                    ; p1 = current block
+            lda   FileP+2
+            sta   p1+2
+            clc                         ; p3 = end of file
+            lda   FileP
+            adc   FileLen
+            sta   p3
+            lda   FileP+2
+            adc   FileLen+2
+            sta   p3+2
+            stz   FoundMain
+:block      clc                         ; room for a block header?
+            lda   p1
+            adc   #5
+            sta   n0
+            lda   p1+2
+            adc   #0
+            sta   n0+2
+            jsr   PastEnd
+            bcs   :done
+            lda   [p1]                  ; n1 = block length
+            sta   n1
+            ldy   #2
+            lda   [p1],y
+            sta   n1+2
+            bne   :big
+            lda   n1
+            cmp   #5
+            bcc   :done
+:big        clc                         ; n0 = next block
+            lda   p1
+            adc   n1
+            sta   n0
+            lda   p1+2
+            adc   n1+2
+            sta   n0+2
+            jsr   PastEnd
+            bcs   :done
+            ldy   #4                    ; named "MAIN"?
+            lda   [p1],y
+            and   #$00FF
+            cmp   #4
+            bne   :next
+            ldy   #5
+            lda   [p1],y
+            cmp   #$414D                ; "MA"
+            bne   :next
+            ldy   #7
+            lda   [p1],y
+            cmp   #$4E49                ; "IN"
+            bne   :next
+            lda   n0                    ; ParseMain uses n0
+            pha
+            lda   n0+2
+            pha
+            jsr   ParseMain
+            pla
+            sta   n0+2
+            pla
+            sta   n0
+            inc   FoundMain
+:next       lda   n0
+            sta   p1
+            lda   n0+2
+            sta   p1+2
+            bra   :block
+:done       lda   FoundMain
+            beq   :fail
+            clc
+            rts
+:fail       sec
+            rts
+
+* PastEnd: carry set if n0 is beyond p3.
+PastEnd     lda   p3+2
+            cmp   n0+2
+            bne   :hi
+            lda   p3
+            cmp   n0
+:hi         bcs   :inside
+            sec
+            rts
+:inside     clc
+            rts
+
+* ParseMain: unpacks the MAIN block at p1 into the picture.
+* Lines beyond 200 and bytes beyond 160 per line are left out.
+ParseMain   clc                         ; p2 = block contents
+            lda   p1
+            adc   #9
+            sta   p2
+            lda   p1+2
+            adc   #0
+            sta   p2+2
+            lda   [p2]
+            sta   MasterMode
+            ldy   #2
+            lda   [p2],y
+            sta   PixPerLine
+            ldy   #4
+            lda   [p2],y
+            sta   NumTables
+            lda   #6
+            jsr   AddP2
+            lda   ScreenP               ; colour tables (at most 16)
+            sta   p0
+            lda   ScreenP+2
+            sta   p0+2
+            lda   NumTables
+            cmp   #17
+            bcc   :tables
+            lda   #16
+:tables     asl
+            asl
+            asl
+            asl
+            asl
+            beq   :noTables
+            sta   t0                    ; bytes to copy
+            ldx   #palOffset
+            ldy   #0
+:copyTab    lda   [p2],y
+            phy
+            txy
+            sta   [p0],y
+            ply
+            inx
+            inx
+            iny
+            iny
+            cpy   t0
+            bcc   :copyTab
+:noTables   lda   MasterMode            ; the picture's size, at most a screen
+            and   #$0080
+            ora   Force640
+            beq   :m
+            lda   #1
+:m          sta   p640
+            lda   PixPerLine
+            ldx   p640
+            bne   :w640
+            cmp   #321
+            bcc   :w
+            lda   #320
+            bra   :w
+:w640       cmp   #641
+            bcc   :w
+            lda   #640
+:w          ldx   Force640
+            beq   :w2
+            lda   #640
+:w2         sta   pw
+:noTables2  lda   NumTables             ; skip all the tables
+            asl
+            asl
+            asl
+            asl
+            asl
+            jsr   AddP2
+            lda   [p2]
+            sta   NumLines
+            cmp   #201
+            bcc   :lines
+            lda   #200
+:lines      sta   ph
+            lda   #2
+            jsr   AddP2
+            lda   p2                    ; Dir = scan line directory
+            sta   Dir
+            lda   p2+2
+            sta   Dir+2
+            lda   NumLines              ; p2 = packed data
+            asl
+            asl
+            jsr   AddP2
+            lda   Force640              ; Paintworks Gold: 640 pixels whatever it says
+            beq   :byMode
+            lda   #160
+            bra   :bprOK
+:byMode     lda   MasterMode            ; bytes per line: 4 pixels a byte in 640 mode
+            and   #$0080
+            beq   :narrow
+            lda   PixPerLine
+            lsr
+            lsr
+            bra   :bpr
+:narrow     lda   PixPerLine
+            lsr
+:bpr        cmp   #640
+            bcc   :bprOK
+            lda   #640
+:bprOK      sta   BytesPerLine
+            stz   LineNo
+:line       lda   LineNo
+            cmp   NumLines
+            bcc   :more
+            rts
+:more       lda   Dir                   ; directory entry: packed size, mode
+            sta   p0
+            lda   Dir+2
+            sta   p0+2
+            lda   LineNo
+            asl
+            asl
+            tay
+            lda   [p0],y
+            sta   PackedLen
+            iny
+            iny
+            lda   [p0],y
+            sta   LineMode
+            lda   Force640
+            beq   :mode
+            lda   #$80
+            sta   LineMode
+:mode       lda   LineNo
+            cmp   #200
+            bcs   :skip
+            lda   p2                    ; unpack the line into LineBuf
+            sta   UPSrc
+            lda   p2+2
+            sta   UPSrc+2
+            lda   PackedLen
+            sta   UPSrcLen
+            lda   #LineBuf
+            sta   UPStart
+            lda   #^LineBuf
+            sta   UPStart+2
+            lda   BytesPerLine
+            sta   UPSize
+            jsr   Unpack
+            jsr   PutLine
+:skip       lda   PackedLen
+            jsr   AddP2
+            inc   LineNo
+            bra   :line
+
+* PutLine: copies LineBuf to picture line LineNo and sets its SCB.
+PutLine     lda   ScreenP
+            sta   p0
+            lda   ScreenP+2
+            sta   p0+2
+            lda   LineNo                ; y = line * 160
+            asl
+            asl
+            asl
+            asl
+            asl
+            sta   t0
+            asl
+            asl
+            clc
+            adc   t0
+            tay
+            ldx   #0
+:copy       lda   LineBuf,x
+            sta   [p0],y
+            iny
+            iny
+            inx
+            inx
+            cpx   #160
+            bcs   :scb
+            cpx   BytesPerLine
+            bcc   :copy
+:scb        lda   LineNo
+            clc
+            adc   #scbOffset
+            tay
+            sep   #$20
+            mx    %10
+            lda   LineMode
+            sta   [p0],y
+            rep   #$20
+            mx    %00
+            rts
+
+* AddP2: p2 += A
+AddP2       clc
+            adc   p2
+            sta   p2
+            lda   p2+2
+            adc   #0
+            sta   p2+2
+            rts
+
+*-------------------------------------------------------------
+* PackBytes screen ($C0/0001) and PaintWorks ($C0/0000)
+*-------------------------------------------------------------
+
+* DecodePacked: unpacks the whole file as a $C1 screen.
+DecodePacked lda  FileP
+            sta   UPSrc
+            lda   FileP+2
+            sta   UPSrc+2
+            lda   FileLen
+            sta   n0
+            lda   FileLen+2
+            sta   n0+2
+            lda   ScreenP
+            sta   UPStart
+            lda   ScreenP+2
+            sta   UPStart+2
+            lda   #screenSize
+            sta   UPSize
+            jsr   UnpackAll
+            lda   UPSize                ; produced = 32768 - left over
+            cmp   #screenSize-32000+1
+            bcs   :short
+            clc
+            rts
+:short      sec
+            rts
+
+* DecodePW: PaintWorks: a palette, pattern data, then packed lines.
+DecodePW    lda   FileLen+2
+            bne   :size
+            lda   FileLen
+            cmp   #$0223
+            bcc   :fail
+:size       lda   FileP
+            sta   p0
+            lda   FileP+2
+            sta   p0+2
+            lda   ScreenP
+            sta   p1
+            lda   ScreenP+2
+            sta   p1+2
+            ldy   #0                    ; palette 0
+            ldx   #palOffset
+:pal        lda   [p0],y
+            phy
+            txy
+            sta   [p1],y
+            ply
+            inx
+            inx
+            iny
+            iny
+            cpy   #32
+            bcc   :pal
+            clc
+            lda   FileP
+            adc   #$0222
+            sta   UPSrc
+            lda   FileP+2
+            adc   #0
+            sta   UPSrc+2
+            sec
+            lda   FileLen
+            sbc   #$0222
+            sta   n0
+            lda   FileLen+2
+            sbc   #0
+            sta   n0+2
+            lda   ScreenP
+            sta   UPStart
+            lda   ScreenP+2
+            sta   UPStart+2
+            lda   #32000                ; first 200 lines only
+            sta   UPSize
+            jsr   UnpackAll
+            lda   UPSize
+            cmp   #32000-160+1          ; at least one line
+            bcs   :fail
+            clc
+            rts
+:fail       sec
+            rts
+
+* UnpackAll: unpacks n0 bytes from UPSrc, in pieces of at most
+* 32767 (the toolbox takes a 16-bit length), until the output
+* (UPStart/UPSize) is full or the input runs out.
+UnpackAll   lda   UPSize
+            beq   :done
+            lda   n0+2
+            bne   :piece
+            lda   n0
+            beq   :done
+            cmp   #32767
+            bcc   :len
+:piece      lda   #32767
+:len        sta   UPSrcLen
+            jsr   Unpack
+            cmp   #0
+            beq   :done                 ; nothing used: stop
+            sta   t0
+            clc
+            adc   UPSrc
+            sta   UPSrc
+            lda   UPSrc+2
+            adc   #0
+            sta   UPSrc+2
+            sec
+            lda   n0
+            sbc   t0
+            sta   n0
+            lda   n0+2
+            sbc   #0
+            sta   n0+2
+            bra   UnpackAll
+:done       rts
+
+* Unpack: one UnPackBytes call. A = packed bytes used.
+Unpack      pha
+            PushLongAt UPSrc
+            lda   UPSrcLen
+            pha
+            PushLong UPStart
+            PushLong UPSize
+            Tool  _UnPackBytes
+            pla
+            rts
+
+*-------------------------------------------------------------
+* Saving
+*-------------------------------------------------------------
+
+* BuildC1: the picture as it is. Sets WData/WLen/WType/WAux.
+BuildC1     lda   scrp                  ; (the screen image, or the size chosen
+            sta   WData                 ; when saving: one screen)
+            lda   scrp+2
+            sta   WData+2
+            lda   #screenSize
+            sta   WLen
+            stz   WLen+2
+            lda   #$00C1
+            sta   WType
+            stz   WAux
+            stz   WAux+2
+            clc
+            rts
+
+* BuildPacked: the picture packed with PackBytes, into OutHnd.
+BuildPacked lda   #34000
+            jsr   NewOut
+            bcs   :err
+            lda   scrp
+            sta   PKSrc
+            lda   scrp+2
+            sta   PKSrc+2
+            jsr   PackHalf              ; PackBytes takes 16-bit sizes:
+            jsr   PackHalf              ; two halves of 16K
+            lda   OutP
+            sta   WData
+            lda   OutP+2
+            sta   WData+2
+            lda   OutUsed
+            sta   WLen
+            stz   WLen+2
+            lda   #$00C0
+            sta   WType
+            lda   #1
+            sta   WAux
+            stz   WAux+2
+            clc
+:err        rts
+
+PackHalf    lda   #16384
+            sta   PKSize
+            lda   #17000
+            jmp   Pack
+
+* BuildAPF: Apple Preferred with a MAIN block, one packed line each.
+BuildAPF    lda   SvLines               ; room: the header, the directory,
+            asl                         ; each line packed (at most 3 more
+            asl                         ; bytes than its own, and 2 a 64)
+            clc
+            adc   #529+16
+            sta   t0
+            lda   SvBytes
+            lsr
+            lsr
+            lsr
+            lsr
+            lsr
+            lsr
+            clc
+            adc   SvBytes
+            adc   #4
+            ldx   SvLines
+            jsr   Mul16
+            lda   ProdLo
+            clc
+            adc   t0
+            sta   t0
+            lda   ProdHi
+            adc   #0
+            beq   :size
+            lda   #$FFF0                ; (at most 64K)
+            sta   t0
+:size       lda   t0
+            sta   APFRoom
+            jsr   NewOut
+            bcc   :room
+            rts
+:room       lda   OutP
+            sta   p1
+            lda   OutP+2
+            sta   p1+2
+            lda   scrp
+            sta   p0
+            lda   scrp+2
+            sta   p0+2
+            ldy   #4                    ; name: "MAIN"
+            lda   #$4D04
+            sta   [p1],y
+            ldy   #6
+            lda   #$4941
+            sta   [p1],y
+            ldy   #8
+            lda   #$004E                ; "N" and the low byte of master mode
+            sta   [p1],y
+            ldy   cscb                  ; master mode and width from line 0
+            lda   [p0],y
+            and   #$0080
+            sta   t0
+            ldy   #9
+            sta   [p1],y
+            lda   SvBytes               ; pixels: 2 or 4 a byte
+            asl
+            ldx   t0
+            beq   :width
+            asl
+:width      ldy   #11
+            sta   [p1],y
+            ldy   #13
+            lda   #16
+            sta   [p1],y
+            ldy   cpal                  ; 16 colour tables
+            ldx   #15
+:tab        lda   [p0],y
+            phy
+            txy
+            sta   [p1],y
+            ply
+            iny
+            iny
+            inx
+            inx
+            cpx   #15+512
+            bcc   :tab
+            ldy   #527                  ; the lines
+            lda   SvLines
+            sta   [p1],y
+            asl                         ; packed lines start after the
+            asl                         ; directory
+            clc
+            adc   #529
+            sta   OutUsed
+            stz   LineNo
+:line       lda   OutUsed               ; (room for one more?)
+            clc
+            adc   SvBytes
+            adc   #8
+            bcs   :full
+            cmp   APFRoom
+            bcc   :fits
+:full       lda   #errTooBig
+            sec
+            rts
+:fits       lda   LineNo                ; PKSrc = line start
+            jsr   TimesStrM
+            clc
+            adc   scrp
+            sta   PKSrc
+            lda   scrp+2
+            adc   #0
+            sta   PKSrc+2
+            lda   SvBytes
+            sta   PKSize
+            clc
+            adc   #8
+            jsr   Pack                  ; A = packed size
+            pha
+            lda   LineNo                ; directory entry
+            asl
+            asl
+            clc
+            adc   #529
+            tay
+            pla
+            sta   [p1],y
+            iny
+            iny
+            lda   LineNo
+            clc
+            adc   cscb
+            phy
+            tay
+            lda   [p0],y
+            ply
+            and   #$00FF
+            sta   [p1],y
+            inc   LineNo
+            lda   LineNo
+            cmp   SvLines
+            bcc   :line
+            lda   OutUsed               ; block length = file length
+            sta   [p1]
+            ldy   #2
+            lda   #0
+            sta   [p1],y
+            lda   OutP
+            sta   WData
+            lda   OutP+2
+            sta   WData+2
+            lda   OutUsed
+            sta   WLen
+            stz   WLen+2
+            lda   #$00C0
+            sta   WType
+            lda   #2
+            sta   WAux
+            stz   WAux+2
+            clc
+:err        rts
+
+* TimesStrM: A x the saved picture's bytes a line (cstr: 160 or 320).
+TimesStrM   asl
+            asl
+            asl
+            asl
+            asl
+            sta   t0
+            asl
+            asl
+            clc
+            adc   t0
+            ldx   cstr
+            cpx   #320
+            bne   :done
+            asl
+:done       rts
+
+APFRoom     dw    0
+
+* Pack: PackBytes from PKSrc/PKSize to OutP+OutUsed, at most A bytes.
+*   out: A = bytes written; OutUsed advanced
+Pack        sta   t1
+            clc
+            lda   OutP
+            adc   OutUsed
+            sta   PKDest
+            lda   OutP+2
+            adc   #0
+            sta   PKDest+2
+            pha                         ; result
+            PushLong PKSrc
+            PushLong PKSize
+            PushLongAt PKDest
+            lda   t1
+            pha
+            Tool  _PackBytes
+            pla
+            pha
+            clc
+            adc   OutUsed
+            sta   OutUsed
+            pla
+            rts
+
+* NewOut: allocates the output buffer (A bytes) as OutHnd/OutP.
+NewOut      sta   n0
+            stz   n0+2
+            jsr   NewBuffer
+            bcs   :err
+            lda   n1
+            sta   OutHnd
+            lda   n1+2
+            sta   OutHnd+2
+            lda   p0
+            sta   OutP
+            lda   p0+2
+            sta   OutP+2
+            stz   OutUsed
+            clc
+:err        rts
+
+FreeOut     lda   OutHnd
+            ora   OutHnd+2
+            beq   :none
+            PushLongAt OutHnd
+            Tool  _DisposeHandle
+            stz   OutHnd
+            stz   OutHnd+2
+:none       rts
+
+*-------------------------------------------------------------
+* Data
+*-------------------------------------------------------------
+Std640      dw    $0000,$0F00,$00F0,$0FFF,$0000,$000F,$0FF0,$0FFF
+            dw    $0000,$0F00,$00F0,$0FFF,$0000,$000F,$0FF0,$0FFF
+Std320      dw    $0000,$0777,$0841,$072C,$000F,$0080,$0F70,$0D00
+            dw    $0FA9,$0FF0,$00E0,$04DF,$0DAF,$078F,$0CCC,$0FFF
+
+FoundMain   dw    0
+Force640    dw    0
+ForceFmt    dw    0
+MasterMode  dw    0
+PixPerLine  dw    0
+NumTables   dw    0
+NumLines    dw    0
+BytesPerLine dw   0
+LineNo      dw    0
+LineMode    dw    0
+PackedLen   dw    0
+Dir         adrl  0
+
+UPSrc       adrl  0                     ; UnPackBytes: packed data
+UPSrcLen    dw    0
+UPStart     adrl  0                     ; output pointer (advanced by the toolbox)
+UPSize      dw    0                     ; output room (counted down)
+
+PKSrc       adrl  0                     ; PackBytes: input pointer (advanced)
+PKSize      dw    0                     ; input bytes (counted down)
+PKDest      adrl  0
+
+OutHnd        adrl  0
+OutP        adrl  0
+OutUsed     dw    0
+
+LineBuf     ds    640

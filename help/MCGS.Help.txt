@@ -1,0 +1,290 @@
+.
+=0
+ERROR
+This help page is missing from the file MCGS.Help.
+Choose Home to go back to the start.
+^~~~HOME
+.HOME
+.I265
+MegaconvertGS turns pictures from many computers and file formats into
+Apple IIgs Super Hi-Res screens, and saves them in the formats the IIgs and
+other computers read. It is a successor to SuperConvert.
+
+Choose a topic, or use Previous and Next in the bar above to page through
+the help. Back returns to the page you came from.
+\2~Loading pictures~LOADING~Saving pictures~SAVING
+\2~The image window~IMGWIN~The three kinds of image~KINDS
+\2~Remapping true color pictures~REMAP~Monochrome images~MONO
+\2~The menus, one by one~MENUS~Keys~KEYS
+=0
+^~~LOADING~HOME
+.LOADING
+Loading pictures
+
+In the Load formats window, choose the computer the picture comes from
+(Computer type), then its format (Specific type), and click Load...
+(or double-click the format). The file dialog lists only the files that
+format can read; several files may be chosen at once, and a folder's
+pictures can all be loaded one after another ("Load all pictures within
+selected folders"). Load next then loads the next file waiting.
+
+File > Load any picture... loads a file without choosing its format first:
+MegaconvertGS recognises most formats by their file type and contents.
+
+Info on format describes the format chosen in the list.
+\2~Saving pictures~SAVING~The file menu~MFILE
+^~HOME~SAVING~HOME
+.SAVING
+Saving pictures
+
+Choose a format in the Save formats window and click Save... (or use
+File > Save conversion..., Apple-S). Before the file dialog, MegaconvertGS
+may ask:
+- the size of the saved picture (the original, one screen, a page, two
+  screens high or wide, or the selection),
+- where a smaller picture goes in a larger area,
+- whether to go on when the format cannot hold everything the picture has
+  (640 mode, several color tables, mixed modes, dithering),
+- the format's own options (Hex data, a Finder icon's criteria; GIF shows
+  what to give when uploading the file).
+With only a true color or monochrome image, a screen image is made first.
+\2~Loading pictures~LOADING~The file menu~MFILE
+^~LOADING~IMGWIN~HOME
+.IMGWIN
+.KINDS
+The image window and the three kinds of image
+
+A picture can be held three ways at once: as a screen image (Super Hi-Res
+pixels and color tables), as a true color image (red, green and blue for
+every pixel) and as a monochrome image (one bit a pixel). The image window
+shows one of them: choose which in the pop-up at the left of its info bar.
+
+The other pop-ups choose the tool (selection, or pixel peek showing a
+pixel's color), the zoom, and actions: crop to the selection, discard this
+kind of image or the others, and use the image's own palette on the screen.
+
+Keys 1-9 and the space bar move around a picture larger than the window.
+\2~Remapping~REMAP~Monochrome images~MONO
+^~SAVING~REMAP~HOME
+.REMAP
+Remapping true color pictures
+
+A true color picture becomes a screen image through Remap (True color >
+Convert to screen, Apple-M). Its dialog chooses the graphic mode (320, 640,
+640 dithered, or a different palette for every line), the palette
+(calculated for the picture, the default, greys, another picture's, or a
+stored one), the rendering (closest color, a pattern, or error diffusion)
+and the size. Quick remap previews the result.
+\1~The True color menu~MTRUE
+^~IMGWIN~MONO~HOME
+.MONO
+Monochrome images
+
+Convert to monochrome (in the Screen and True color menus) makes a one bit
+a pixel image, enlarged two or four times if wanted, by error diffusion, a
+pattern dither, a 50% threshold or a halftone. The Monochrome menu turns it
+back into a screen or true color image (its aspect, scaling, mode and how
+greys are kept) and makes its negative.
+\1~The Monochrome menu~MMONO
+^~REMAP~KEYS~HOME
+.KEYS
+Keys
+
+Apple-L Load & convert, Apple-O Load any picture, Apple-R Re-convert last
+file, Apple-N Load next, Apple-S Save conversion, Apple-P Print (enhanced),
+Apple-Q Quit. Apple-I and Apple-T: image info; Apple-F, -H and -4: views;
+Apple-M: Remap; Apple-A: View approximation; Apple-? or Apple-/: Help.
+
+In the help window: H goes Home, the left and right arrows go to the
+previous and next pages, the up and down arrows go Back.
+^~MONO~MENUS~HOME
+.MENUS
+The menus
+
+Choose a menu to read about its commands. Apple > Menu item help, then any
+menu item (even a dimmed one), shows that command's page.
+\4~Apple~MAPPLE~File~MFILE~Edit~MEDIT~Screen~MSCREEN
+\4~True color~MTRUE~Monochrome~MMONO~Windows~MWIN~Extras~MEXTRAS
+^~KEYS~MAPPLE~HOME
+.DA
+A desk accessory
+
+This item opens a desk accessory: a small program that works beside
+MegaconvertGS. It is not part of MegaconvertGS.
+^~~~MENUS
+.MAPPLE
+.I257
+.I266
+.I267
+The Apple menu
+
+About MegaconvertGS... shows the program's name and version.
+
+Help! opens this window at its first page. Menu item help: choose it, then
+choose any menu item to read about it.
+
+Preferences... sets what happens after a picture is loaded or saved: save
+it at once, view it full screen or not, open the Remap dialog for true
+color pictures (or also after screen images), load the next file waiting
+after saving. Save keeps the options for the next time (MCGS.Prefs). "Clear
+all SKIP ME preferences" forgets the answers kept by the SKIP ME boxes.
+^~MENUS~MFILE~MENUS
+.MFILE
+.I280
+.I259
+.I281
+.I282
+.I283
+The File menu: loading
+
+Load & convert... loads files in the format chosen in Load formats; Load
+any picture... recognises the format itself. Re-convert last file loads the
+last file again (a Works of Art file asks for its page again). Load next
+loads the next of the files chosen together; Cancel remaining files forgets
+them.
+\2~Loading pictures~LOADING~More of the File menu~MFILE2
+^~MAPPLE~MFILE2~MENUS
+.MFILE2
+.I260
+.I285
+.I286
+.I287
+.I288
+.I289
+.I256
+The File menu: saving and more
+
+Save conversion... saves in the format chosen in Save formats (see Saving
+pictures). Exchange load/save paths swaps the folders the load and save
+dialogs open in.
+
+Print (normal), Print (enhanced) and Print alignment page are not here yet.
+
+Examine file... shows any files, one after another: their data or resource
+fork as hex and text, or a histogram of the data fork's byte values (point
+at a bar to read its count). Escape or Apple-W closes the window; the arrow
+keys scroll.
+
+Quit leaves MegaconvertGS.
+^~MFILE~MEDIT~MENUS
+.MEDIT
+.I250
+.I251
+.I252
+.I253
+.I254
+.I255
+The Edit menu
+
+Copy puts the screen image (or its selection) on the Clipboard as a picture
+with its color table; Cut does the same and discards the screen image.
+Paste and Clear are for desk accessories. Close discards every image and
+closes the image window (Apple-W closes the help window when it is in
+front).
+^~MFILE2~MSCREEN~MENUS
+.MSCREEN
+.I290
+.I291
+.I292
+.I270
+.I293
+.I294
+The Screen menu
+
+Screen image info... describes the screen image: its size, modes and
+colors. Convert to true color... makes a true color image from it (a 640
+mode picture can be taken exactly, or smoothed: dither patterns become solid
+colors). Convert to monochrome... makes a monochrome image.
+
+View full screen, View half size and View X4 magnified show the picture;
+a click or a key returns.
+\1~More of the Screen menu~MSCREEN2
+^~MEDIT~MSCREEN2~MENUS
+.MSCREEN2
+.I295
+.I296
+.I297
+.I344
+The Screen menu, continued
+
+Store palette keeps the picture's colors for Remap's Stored palette choice.
+
+Use as desktop background puts the picture behind the windows of the
+programs that use the IIgs desktop; Extras > Revert to normal desktop takes
+it away. To keep it, save it as Desktop background image INIT and put the
+file in the SYSTEM.SETUP folder of the startup disk.
+
+Oscilloscope Art makes a 320 mode picture to watch on an oscilloscope on
+the composite video output: each pair of lines gets its own brightness.
+^~MSCREEN~MTRUE~MENUS
+.MTRUE
+.I300
+.I271
+.I301
+.I302
+.I303
+The True color menu
+
+True color image info... shows the picture's size and its color
+histograms. Convert to screen (Remap)... makes the screen image (see
+Remapping). Convert to monochrome... makes a monochrome image. View
+approximation shows the true color picture as closely as the screen can.
+Rotate/flip image... turns the picture by quarter turns and mirrors it.
+\1~The filters~MFILTERS
+^~MSCREEN2~MFILTERS~MENUS
+.MFILTERS
+.I304
+.I305
+.I306
+.I307
+.I308
+.I309
+.I310
+.I311
+.I312
+.I313
+The True color filters
+
+Histogram equalization spreads the picture's brightness over the whole
+range. Median and Sigma filters remove noise. Emboss image makes it look
+raised. Blur image and Sharpen image soften or sharpen it by a factor.
+Solarize image inverts its brighter half. Find edges outlines it. Increase
+and Decrease contrast stretch or flatten its colors. Each works on the true
+color image; Remap then makes the screen image.
+^~MTRUE~MMONO~MENUS
+.MMONO
+.I320
+.I321
+.I322
+.I323
+The Monochrome menu
+
+Monochrome image info... gives the image's size. Convert to screen... and
+Convert to true color... make the other kinds of image from it: its aspect
+(square, tall or wide pixels), scaling, 320 or 640 mode, and how much of
+its greys to keep. Negative image swaps black and white.
+^~MFILTERS~MWIN~MENUS
+.MWIN
+.I330
+.I331
+.I332
+.I333
+The Windows menu
+
+Normal positions puts the windows back where they start. Load formats,
+Save formats and Current image bring those windows to the front.
+^~MMONO~MEXTRAS~MENUS
+.MEXTRAS
+.I340
+.I341
+.I342
+.I343
+.I345
+The Extras menu
+
+Available font list and More available fonts make pictures listing the
+installed fonts. Font key chart... draws a font's characters with their
+codes and keys. System info report... describes the computer: memory, the
+programs and tools in memory, versions; Save as text file keeps it.
+Print banner... is not here yet.
+^~MWIN~~MENUS

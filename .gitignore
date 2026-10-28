@@ -1,0 +1,11 @@
+build/
+*.img
+*.hdv
+*.2mg
+.DS_Store
+test/sc4save/.build/
+__pycache__/
+*.pyc
+*.prn
+src/*_Output*.txt
+src/error_output.txt

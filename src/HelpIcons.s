@@ -1,0 +1,43 @@
+* HelpIcons.s - the help window's info bar icons (32 x 9 pixels, 640 mode:
+* 0 black, 3 white), drawn for MegaconvertGS (made by hand).
+Icons
+* Home
+            hex   FFFFFFFCFFFFFFFF
+            hex   FFFFFFF03FFFFFFF
+            hex   FFFFFFC00FFFFFFF
+            hex   FFFFFF0003FFFFFF
+            hex   FFFFFC0000FFFFFF
+            hex   FFFFFF3FF3FFFFFF
+            hex   FFFFFF3033FFFFFF
+            hex   FFFFFF3333FFFFFF
+            hex   FFFFFF0303FFFFFF
+* Previous
+            hex   FFFFFCFFFFFFFFFF
+            hex   FFFFF0FFFFFFFFFF
+            hex   FFFFC00000FFFFFF
+            hex   FFFF000000FFFFFF
+            hex   FFFC000000FFFFFF
+            hex   FFFF000000FFFFFF
+            hex   FFFFC00000FFFFFF
+            hex   FFFFF0FFFFFFFFFF
+            hex   FFFFFCFFFFFFFFFF
+* Next
+            hex   FFFFFFFFFF3FFFFF
+            hex   FFFFFFFFFF0FFFFF
+            hex   FFFFFF000003FFFF
+            hex   FFFFFF000000FFFF
+            hex   FFFFFF0000003FFF
+            hex   FFFFFF000000FFFF
+            hex   FFFFFF000003FFFF
+            hex   FFFFFFFFFF0FFFFF
+            hex   FFFFFFFFFF3FFFFF
+* Back
+            hex   FFFFFFC0003FFFFF
+            hex   FFFFFFFFFF0FFFFF
+            hex   FFFFF3FFFFCFFFFF
+            hex   FFFFC3FFFFCFFFFF
+            hex   FFFF0000000FFFFF
+            hex   FFFFC3FFFFFFFFFF
+            hex   FFFFF3FFFFFFFFFF
+            hex   FFFFFFFFFFFFFFFF
+            hex   FFFFFFFFFFFFFFFF
