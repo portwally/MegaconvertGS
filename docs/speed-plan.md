@@ -618,9 +618,9 @@ Every decoded picture still matches GS Remap's (the true suite); the whole Open:
 
 | File | Before | Now |
 |---|---:|---:|
-| J420.JPG / J422.JPG / J444.JPG, 320 x 200 | 11.2 / 11.9 / 13.0 | 9.0 / 9.5 / 10.1 |
-| JOPT.JPG (optimised Huffman tables) | 14.7 | 10.5 |
-| JBIG.JPG, quality 90 | 41.0 | 28.3 |
+| J420.JPG / J422.JPG / J444.JPG, 320 x 200 | 11.2 / 11.9 / 13.0 | 8.5 / 8.9 / 9.6 |
+| JOPT.JPG (optimised Huffman tables) | 14.7 | 9.6 |
+| JBIG.JPG, quality 90 | 41.0 | 25.6 |
 
 - **The IDCT's multiplications** by 277, 362, 473 and 669 (and the colour tables' 359
   and 454): `|A| x K / 256` as `hi x K + lo x K / 256` (|A| = 256 hi + lo) from two
@@ -630,8 +630,15 @@ Every decoded picture still matches GS Remap's (the true suite); the whole Open:
 - **The colour rows:** one component or three decided once a row; the clamps and the
   pixel's store inline; the green part's signed / 128 by swapping bytes.
 - `FillBig` (every loader's new picture) fills two bytes at a time.
+- **Chroma half as wide** (4:2:0, 4:2:2): its red, blue and green parts once for each
+  pair of pixels.
+- **Range:** an IDCT output whose v + 16 lies from -4096 to 4095 needs no clamping: its
+  bits 5-12 with the top one flipped (three shifts and a byte swap); further out, 0 or 255.
+- **Huffman codes:** each table's limit and symbol offset for each length worked out once
+  a scan (`MakeLims`), so a bit costs a shift and a compare.
+- **The IDCT's multiplications** called with the constant's table, X kept once a pass.
 
-What is left of JBIG.JPG's decoding: the colour rows 6 s, the IDCT 6 s, the Huffman
+What is left of JBIG.JPG's decoding: the IDCT about 6 s, the colour rows 5 s, the Huffman
 decoding 3 s.
 
 ## Appendix A: the model against the measured times

@@ -18,6 +18,8 @@ CbG         =     Work+6656
 Coef        =     Work+7168             ; one block's coefficients (64 words)
 WS          =     Work+7296             ; IDCT work space (64 words)
 Blk         =     Work+7424             ; the block's samples (64 bytes)
+JLim        =     Work+14336            ; per table and length (as JHCnt): the
+JOff        =     Work+14608            ;   code limit, and symbol index - first
 MTab        =     Work+8192             ; MulK's tables, 1024 bytes for each
                                         ; constant: lo x K / 256, then hi x K
 
@@ -530,7 +532,8 @@ DecodeScan  lda   HMax                  ; MCUs across and down
             jsr   NewTrue
             bcc   :start
             rts
-:start      stz   JCnt
+:start      jsr   MakeLims
+            stz   JCnt
             stz   MarkerHit
             stz   Pred
             stz   Pred+2
@@ -644,38 +647,70 @@ GetBitsJ    stz   JVal
 :done       lda   JVal
             rts
 
-* DecodeJ: one Huffman symbol (code at hc, hs). Carry set if none matches.
-DecodeJ     stz   HCode
-            stz   HFirst
-            stz   HIndex
-            ldy   #2
-:loop       jsr   GetBitJ
-            rol   HCode
-            lda   (hc),y
-            sta   HCount
+* MakeLims: for each Huffman table and code length, DecodeJ's limit
+* (first code + count) and the symbol index less the first code.
+MakeLims    ldx   #0                    ; (X: table x 34 + length x 2, the
+:t          stz   t2                    ; same place in all three)
+            stz   t3
+            inx
+            inx
+            lda   #16
+            sta   MLCnt
+:l          lda   JHCnt,x
+            sta   t1
             clc
-            adc   HFirst
-            sta   HLimit
-            lda   HCode
-            cmp   HLimit
-            bcc   :found
-            lda   HIndex
+            adc   t2
+            sta   JLim,x
+            lda   t3
+            sec
+            sbc   t2
+            sta   JOff,x
+            lda   t3
             clc
-            adc   HCount
-            sta   HIndex
-            lda   HLimit
+            adc   t1
+            sta   t3
+            lda   JLim,x
             asl
-            sta   HFirst
+            sta   t2
+            inx
+            inx
+            dec   MLCnt
+            bne   :l
+            cpx   #272
+            bcc   :t
+            rts
+
+* DecodeJ: one Huffman symbol (code at hc, hs). Carry set if none matches.
+* Bit by bit against each length's limit (MakeLims).
+DecodeJ     lda   hc
+            sec
+            sbc   #JHCnt
+            clc
+            adc   #JLim
+            sta   u0
+            clc
+            adc   #JOff-JLim
+            sta   u3
+            stz   HCode
+            ldy   #2
+:loop       dec   JCnt                  ; (GetBitJ inline but for a new byte)
+            bmi   :refill
+            asl   JBuf
+:bit        rol   HCode
+            lda   HCode
+            cmp   (u0),y
+            bcc   :found
             iny
             iny
             cpy   #34
             bcc   :loop
             sec
             rts
-:found      sec
-            sbc   HFirst
-            clc
-            adc   HIndex
+:refill     inc   JCnt
+            jsr   GetBitJ
+            bra   :bit
+:found      clc
+            adc   (u3),y
             asl
             tay
             lda   (hs),y
@@ -1005,7 +1040,8 @@ IDCT        ldx   #0                    ; columns
 
 * Butterfly: one 8-point inverse DCT, In0-In7 -> T0-T7 (outputs paired).
 * Keeps X and Y.
-Butterfly   lda   In0                   ; even part
+Butterfly   phx                         ; (X back at the end: MulT uses it)
+            lda   In0                   ; even part
             clc
             adc   In4
             sta   T10
@@ -1020,7 +1056,8 @@ Butterfly   lda   In0                   ; even part
             lda   In2
             sec
             sbc   In6
-            jsr   M362
+            ldx   #1024
+            jsr   MulT
             sec
             sbc   T13
             sta   T12
@@ -1063,20 +1100,24 @@ Butterfly   lda   In0                   ; even part
             lda   Z11
             sec
             sbc   Z13
-            jsr   M362
+            ldx   #1024
+            jsr   MulT
             sta   T11
             lda   Z10
             clc
             adc   Z12
-            jsr   M473
+            ldx   #2048
+            jsr   MulT
             sta   Z5
             lda   Z12
-            jsr   M277
+            ldx   #0
+            jsr   MulT
             sec
             sbc   Z5
             sta   T10
             lda   Z10
-            jsr   M669
+            ldx   #3072
+            jsr   MulT
             eor   #$FFFF
             inc
             clc
@@ -1094,6 +1135,7 @@ Butterfly   lda   In0                   ; even part
             clc
             adc   T5
             sta   T4
+            plx
             rts
 
 * M277...M669: (A * constant) / 256, signed, the low 16 bits. Keep X and
@@ -1109,20 +1151,31 @@ M473        phx
             bra   MulK
 M669        phx
             ldx   #3072
+* MulT: as MulK, X = the constant's table (0, 1024, 2048 or 3072), and
+* X not kept.
+MulT        stx   MKt
+            cmp   #0
+            bpl   MKmag
+            eor   #$FFFF
+            inc
+            jsr   MKmag
+            eor   #$FFFF
+            inc
+            rts
 MulK        stx   MKt
             cmp   #0
             bpl   :pos
             eor   #$FFFF
             inc
-            jsr   :mag
+            jsr   MKmag
             eor   #$FFFF
             inc
             plx
             rts
-:pos        jsr   :mag
+:pos        jsr   MKmag
             plx
             rts
-:mag        sta   MKv
+MKmag       sta   MKv
             and   #$00FF
             asl
             adc   MKt                   ; (carry clear: lo x 2 < 512)
@@ -1182,20 +1235,24 @@ MulTables   ldx   #0
 MulKs       dw    277,362,473,669,359,454
 
 * Range: a sample from an IDCT output: v / 32 + 128, kept within 0-255.
-Range       clc
-            adc   #16
-            cmp   #$8000
-            ror
-            cmp   #$8000
-            ror
-            cmp   #$8000
-            ror
-            cmp   #$8000
-            ror
-            cmp   #$8000
-            ror
-            clc
-            adc   #128
+Range       clc                         ; (v + 16 from -4096 to 4095: the
+            adc   #16                   ; answer is its bits 5-12, with the
+            bmi   :neg                  ; top one flipped; further out it is
+            cmp   #4096                 ; 0 or 255)
+            bcc   :mid
+            lda   #255
+            rts
+:neg        cmp   #$F000
+            bcs   :mid
+            lda   #0
+            rts
+:mid        asl
+            asl
+            asl
+            xba
+            and   #$00FF
+            eor   #$0080
+            rts
 Clamp8      bmi   :zero
             cmp   #256
             bcc   :ok
@@ -1298,6 +1355,58 @@ ColourTables lda  JNComp
             bcc   :entry
 :done       rts
 
+* PairPix: pixel X of OutRows' line from its luma and the pair's chroma
+* parts (PRAdd, PBAdd, PGSub), as OutRows works it out for one pixel.
+PairPix     txy
+            lda   [p1],y
+            and   #$00FF
+            sta   JY
+            clc
+            adc   PRAdd
+            bmi   :r0
+            cmp   #256
+            bcc   :r1
+            lda   #255
+            bra   :r1
+:r0         lda   #0
+:r1         sta   CR
+            lda   JY
+            clc
+            adc   PBAdd
+            bmi   :b0
+            cmp   #256
+            bcc   :b1
+            lda   #255
+            bra   :b1
+:b0         lda   #0
+:b1         sta   CB
+            lda   JY
+            sec
+            sbc   PGSub
+            bmi   :g0
+            cmp   #256
+            bcc   :g1
+            lda   #255
+            bra   :g1
+:g0         lda   #0
+:g1         ldy   DestOff               ; green at +1, red, blue
+            sep   #$20
+            mx    %10
+            iny
+            sta   [q0],y
+            dey
+            lda   CR
+            sta   [q0],y
+            iny
+            iny
+            lda   CB
+            sta   [q0],y
+            iny
+            rep   #$20
+            mx    %00
+            sty   DestOff
+            rts
+
 M359        phx
             ldx   #4096
             jmp   MulK
@@ -1391,7 +1500,7 @@ OutRows     stz   SR
             ldx   #0
             lda   JNComp
             cmp   #3
-            beq   :pix
+            beq   :three
 :grey       txy                         ; one component: grey (each byte
             lda   [p1],y                ; three times)
             ldy   DestOff
@@ -1410,6 +1519,48 @@ OutRows     stz   SR
             cpx   TrueW
             bcc   :grey
             jmp   :rowDone
+:three      lda   ShX+2                 ; chroma half as wide: its parts
+            beq   :pix                  ; once for each pair of pixels
+            lda   ShX+4
+            beq   :pix
+:pair       txa
+            lsr
+            tay
+            lda   [p2],y
+            and   #$00FF
+            asl
+            sta   JCb
+            lda   [p3],y
+            and   #$00FF
+            asl
+            sta   JCr
+            tay
+            lda   CrR,y
+            sta   PRAdd
+            ldy   JCb
+            lda   CbB,y
+            sta   PBAdd
+            lda   CbG,y
+            ldy   JCr
+            clc
+            adc   CrG,y
+            clc
+            adc   #64
+            asl                         ; (/ 128, keeping the sign)
+            xba
+            and   #$00FF
+            bcc   :pg
+            ora   #$FF00
+:pg         sta   PGSub
+            jsr   PairPix
+            inx
+            cpx   TrueW
+            bcs   :pd
+            jsr   PairPix
+            inx
+            cpx   TrueW
+            bcc   :pair
+:pd         jmp   :rowDone
 :pix        txy
             lda   [p1],y
             and   #$00FF
@@ -1546,7 +1697,11 @@ MarkerHit   dw    0
 MKc         dw    0
 MKs         dw    0                     ; (MulK: lo x K / 256; MulTables: lo x
 MKv         dw    0                     ; K, 24 bits, with MKv after MKs)
-MKt         dw    0                     ; (MulK: the constant's table)
+MKt         dw    0
+MLCnt       dw    0                     ; (MakeLims: lengths left)
+PRAdd       dw    0                     ; (OutRows: a chroma pair's parts)
+PBAdd       dw    0
+PGSub       dw    0                     ; (MulK: the constant's table)
 JY          dw    0
 JCb         dw    0
 JCr         dw    0
