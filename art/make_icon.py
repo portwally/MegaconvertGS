@@ -1,5 +1,5 @@
 # Makes MegaconvertGS's Finder icon: the converter of the title screen (a grey box,
-# a beam into a prism on its screen, a rainbow out of its side), 32 x 24 icon pixels,
+# a beam into a prism on its screen, a rainbow out of its side), 28 x 16 icon pixels,
 # and a small icon for the Finder's list views. Writes a Finder icon file ($CA)
 # whose icon goes to files of type S16 ($B3) named MegaconvertGS, and a preview.
 #   python3 art/make_icon.py build/MegaconvertGS.Icons build/icon-preview.png [blended.png]
@@ -20,27 +20,27 @@ LEFT = [(0, 0, 0), (0, 0, 255), (255, 255, 0), (255, 255, 255)]
 RIGHT = [(0, 0, 0), (221, 0, 0), (0, 238, 0), (255, 255, 255)]
 
 def large():
-    W, H = 32, 24
+    W, H = 28, 16                                            # (as tall as the Finder's own)
     g = [["."] * W for _ in range(H)]
     def rect(c0, r0, c1, r1, ch):
         for r in range(r0, r1 + 1):
             for c in range(c0, c1 + 1): g[r][c] = ch
-    rect(10, 22, 23, 22, "K"); rect(23, 2, 23, 22, "K")      # the box's shadow
-    rect(9, 1, 22, 21, "K")                                  # the box, outlined,
-    for r in range(2, 21):                                   # in a checkerboard grey
-        rect(10, r, 21, r, "g" if r % 2 else "d")
-    rect(10, 2, 21, 2, "W")                                  # (its lit top edge)
-    rect(11, 4, 19, 13, "K")                                 # the screen
-    for r in range(5, 13):                                   # the prism
-        half = (r - 5) // 2
-        rect(15 - half, r, 15 + half, r, "W")
-    rect(0, 8, 9, 8, "K"); rect(0, 10, 9, 10, "K")           # the beam in, edged in black
-    rect(0, 9, 13, 9, "W")                                   # (so it shows on white too)
+    rect(9, 15, 20, 15, "K"); rect(20, 1, 20, 15, "K")       # the box's shadow
+    rect(8, 0, 19, 14, "K")                                  # the box, outlined,
+    for r in range(1, 14):                                   # in a checkerboard grey
+        rect(9, r, 18, r, "g" if r % 2 else "d")
+    rect(9, 1, 18, 1, "W")                                   # (its lit top edge)
+    rect(10, 2, 16, 9, "K")                                  # the screen
+    for r in range(3, 9):                                    # the prism
+        half = (r - 3) // 2
+        rect(13 - half, r, 13 + half, r, "W")
+    rect(0, 5, 8, 5, "K"); rect(0, 7, 8, 7, "K")             # the beam in, edged in black
+    rect(0, 6, 11, 6, "W")                                   # (so it shows on white too)
     for k, ch in enumerate("rOyGuP"):                        # the rainbow out
-        rect(17 + (k > 2), 7 + k, 31, 7 + k, ch)
-    rect(21, 4, 21, 4, "G"); rect(21, 6, 21, 6, "O")         # two lamps
-    for r in (16, 18):                                       # the vents
-        rect(12, r, 17, r, "K")
+        rect(15 + (k > 2), 4 + k, 27, 4 + k, ch)
+    rect(18, 3, 18, 3, "G")                                  # a lamp
+    for r in (11, 13):                                       # the vents
+        rect(10, r, 15, r, "K")
     return g
 
 def small():
