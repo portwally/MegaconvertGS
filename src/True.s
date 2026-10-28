@@ -554,6 +554,7 @@ FastLine    ldx   #0                    ; the line's colours
             beq   :n
             lsr
 :n          sta   t2
+            cmp   #0                    ; (LDX set the flags)
             bne   :copy
             stz   SX
             ldy   #0

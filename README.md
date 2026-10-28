@@ -353,7 +353,7 @@ or Auto; comments as a tEXt chunk). Help! and Menu item help, with MegaconvertGS
 into `build/MCGS.Help`, which goes beside the program). File > Print alignment page.
 
 Remapping is several times faster than before, with the same results (the
-remap2 suite's 43 remaps: 1585 s → 426 s in MAME at 2.8 MHz; `docs/speed-plan.md`,
+remap2 suite's 43 remaps: 1585 s → 387 s in MAME at 2.8 MHz; `docs/speed-plan.md`,
 section 4).
 
 Next: more speed (`docs/speed-plan.md`), Print (normal) and (enhanced) (copying the

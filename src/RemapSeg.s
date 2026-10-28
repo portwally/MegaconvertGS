@@ -993,7 +993,17 @@ PlaneFill   stz   P50OK                 ; (XA3, XN: Reduce's tables go)
             inx
             cpx   ROutW2
             bcc   :col
-            stz   AllOne                ; every span across one pixel?
+            stz   AllTwo                ; every span across two pixels?
+            ldx   #0
+:a2         lda   XN,x
+            cmp   #2
+            bne   :one1
+            inx
+            inx
+            cpx   ROutW2
+            bcc   :a2
+            inc   AllTwo
+:one1       stz   AllOne                ; every span across one pixel?
             ldx   #0
 :a1         lda   XN,x
             cmp   #1
@@ -1340,13 +1350,23 @@ ScaleRow     ldx   #SpCur-SpQ            ; the row's span (its stepping state)
             cpx   ROutW2
             bcc   :unit
             rts
-:general    stz   LastXN                ; (no box size known for this row)
+:general    stz   LastXN                ; (no box size known for this row,
+            ldx   #30                   ; nor any in DivFor's cache)
+:cz         stz   CN,x
+            dex
+            dex
+            bpl   :cz
             lda   RowN                  ; one source line and one pixel for
             cmp   #1                    ; each: the quicker loop
             bne   :gen
             lda   AllOne
-            beq   :gen
+            beq   :t2
             jmp   :wide
+:t2         lda   AllTwo                ; (or two pixels each, colours only)
+            beq   :gen
+            lda   NoGrey
+            beq   :gen
+            jmp   :two
 :gen        ldx   #0
 :pix        stx   PixX
             lda   RowN                  ; one source pixel: read, or the same as
@@ -1458,8 +1478,8 @@ ScaleRow     ldx   #SpCur-SpQ            ; the row's span (its stepping state)
             cmp   LastXN
             beq   :k1
             sta   LastXN
-            sta   Divisor
-            jsr   DivWay
+            jsr   DivFor
+            ldx   PixX
 :k1         ldy   XA3,x
             stz   SumR
             stz   SumG
@@ -1509,19 +1529,65 @@ ScaleRow     ldx   #SpCur-SpQ            ; the row's span (its stepping state)
             ldx   PixX
             jsr   SetLine
             jmp   :nextPix
-:box32
-            stz   SumR
-            stz   SumR+2
-            stz   SumG
-            stz   SumG+2
-            stz   SumB
-            stz   SumB+2
-            lda   q0
+:box32      ldx   PixX                  ; the box's way of dividing first
+            lda   XN,x
+            cmp   LastXN
+            beq   :kn
+            sta   LastXN
+            jsr   DivFor
+:kn         lda   q0
             sta   q1
             lda   q0+2
             sta   q1+2
             lda   RowN
             sta   u1
+            stz   SumR
+            stz   SumG
+            stz   SumB
+            lda   Divisor               ; at most 257 pixels: 16-bit sums
+            cmp   #258
+            bcc   :r16
+            jmp   :b32
+:r16        ldx   PixX
+            lda   XN,x
+            sta   u2
+            ldy   XA3,x
+:p16        lda   [q1],y
+            and   #$00FF
+            clc
+            adc   SumR
+            sta   SumR
+            iny
+            lda   [q1],y
+            and   #$00FF
+            clc
+            adc   SumG
+            sta   SumG
+            iny
+            lda   [q1],y
+            and   #$00FF
+            clc
+            adc   SumB
+            sta   SumB
+            iny
+            dec   u2
+            bne   :p16
+            lda   q1
+            clc
+            adc   tstride
+            sta   q1
+            lda   q1+2
+            adc   #0
+            sta   q1+2
+            dec   u1
+            bne   :r16
+            lda   DMeth                 ; (a power of two: shifts)
+            cmp   #1
+            bne   :known
+            jmp   :sh1
+:b32        stz   SumR+2
+            stz   SumG+2
+            stz   SumB+2
 :srcRow     ldx   PixX
             lda   XN,x
             sta   u2
@@ -1561,16 +1627,6 @@ ScaleRow     ldx   #SpCur-SpQ            ; the row's span (its stepping state)
             sta   q1+2
             dec   u1
             bne   :srcRow
-            ldx   PixX                  ; divide by the pixel count (its
-            lda   XN,x                  ; quickest exact way, worked out
-            cmp   LastXN                ; again only when the count changes)
-            beq   :known
-            sta   LastXN
-            ldx   RowN
-            jsr   Mul16
-            lda   MLo
-            sta   Divisor
-            jsr   DivWay
 :known      lda   SumR
             ldx   SumR+2
             jsr   Avg
@@ -1679,6 +1735,104 @@ ScaleRow     ldx   #SpCur-SpQ            ; the row's span (its stepping state)
             bcs   :jx9
             jmp   :wLoop
 :jx9
+            rts
+
+:two        ldx   #0                    ; each pixel the average of two (a
+:tw         ldy   XA3,x                 ; shift: rounded down), as SetLine
+            lda   [q0],y                ; makes its colour
+            sta   t1                    ; (G1 R1)
+            iny
+            iny
+            iny
+            lda   [q0],y                ; (G2 R2)
+            sta   t3
+            and   #$00FF
+            sta   t2
+            lda   t1
+            and   #$00FF
+            clc
+            adc   t2
+            lsr
+            and   #$00F0                ; red
+            asl
+            asl
+            asl
+            asl
+            sta   t2
+            lda   t1
+            xba
+            and   #$00FF
+            sta   t1
+            lda   t3
+            xba
+            and   #$00FF
+            clc
+            adc   t1
+            lsr
+            and   #$00F0                ; green
+            ora   t2
+            sta   t2
+            iny                         ; (B2)
+            iny
+            lda   [q0],y
+            and   #$00FF
+            sta   t1
+            dey                         ; (B1)
+            dey
+            dey
+            lda   [q0],y
+            and   #$00FF
+            clc
+            adc   t1
+            lsr
+            lsr
+            lsr
+            lsr
+            lsr                         ; blue
+            ora   t2
+            sta   LineC,x
+            inx
+            inx
+            cpx   ROutW2
+            bcs   :twd
+            jmp   :tw
+:twd        rts
+
+* DivFor: DivWay's answer for a box A pixels across and RowN down
+* (Divisor, DMeth, DShift, DD16), kept for 16 sizes (the low 4 bits of
+* A) along a line.
+DivFor      pha
+            and   #$000F
+            asl
+            tay
+            pla
+            cmp   CN,y
+            beq   :hit
+            sta   CN,y
+            phy
+            ldx   RowN
+            jsr   Mul16
+            lda   MLo
+            sta   Divisor
+            jsr   DivWay
+            ply
+            lda   Divisor
+            sta   CV,y
+            lda   DMeth
+            sta   CM,y
+            lda   DShift
+            sta   CS,y
+            lda   DD16
+            sta   CD,y
+            rts
+:hit        lda   CV,y
+            sta   Divisor
+            lda   CM,y
+            sta   DMeth
+            lda   CS,y
+            sta   DShift
+            lda   CD,y
+            sta   DD16
             rts
 
 * DivWay: how to divide by Divisor: DMeth 0 not at all (1), 1 a shift
@@ -1802,6 +1956,8 @@ SetLine     lda   CR
             lsr
             ora   t1
             sta   LineC,x
+            lda   NoGrey                ; (the grey only if wanted)
+            bne   :ng
             lda   CR                    ; (5R + 8G + 3B) / 16
             asl
             asl
@@ -1827,6 +1983,7 @@ SetLine     lda   CR
             lsr
             sta   LineY,x
             rts
+:ng         rts
 
 *-------------------------------------------------------------
 * 2. Histogram and palette

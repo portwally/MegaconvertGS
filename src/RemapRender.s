@@ -2056,6 +2056,12 @@ PrevN       dw    0
 PlHist      dw    0
 NoGrey      dw    0                     ; (MakePlanes: no greys this time;
 GreyMade    dw    0                     ; the planes have them)                     ; (MakePlanes: count Hist too)
+CN          ds    32                    ; (DivFor: box widths, and for each
+CV          ds    32                    ; the divisor, method, shift, 16-bit
+CM          ds    32                    ; divisor)
+CS          ds    32
+CD          ds    32
+AllTwo      dw    0                     ; (every span across two pixels)
 AllOne      dw    0                     ; (every span across one pixel)
 LastXN      dw    0                     ; the box size worked out last
 DMeth       dw    0
