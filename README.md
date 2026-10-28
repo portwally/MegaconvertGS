@@ -344,7 +344,10 @@ A test run stops by itself once the test commands are done.
   the original does. Save as Desktop background image INIT: MegaconvertGS's own INIT, which
   puts the picture on the desktop at start-up from SYSTEM.SETUP.
 
-Next: Help! and Menu item help (with MegaconvertGS's own help text), printing (and the System
-info report's Print), the PNG and TIFF save options and the "more than one way" window, then
-speed (`docs/speed-plan.md`: box averaging without division, faster rendering and
+Help! and Menu item help, with MegaconvertGS's own help text (`help/MCGS.Help.txt`, built
+into `build/MCGS.Help`, which goes beside the program). File > Print alignment page.
+
+Next: Print (normal) and (enhanced) (copying the picture to the printer port fails with
+error $1212 under MAME's System 6.0.4 driver, except for small areas), Print banner, the
+PNG and TIFF save options and the "more than one way" window, then speed (`docs/speed-plan.md`: box averaging without division, faster rendering and
 palette search) and progressive JPEG.

@@ -332,7 +332,9 @@ PrintPic    ent
             PushLong 0
             Tool  _PrOpenPage
             jsr   PrOK
-            bcs   :pageEnd
+            bcc   :jx9
+            jmp   :pageEnd
+:jx9
             lda   PY0                   ; the part of the image on it
             sta   PSrc
             clc
@@ -349,14 +351,37 @@ PrintPic    ent
             bcc   :r
             lda   pw
 :r          sta   PSrc+6
+            lda   PSrc+4                ; in strips of 8 lines (a whole page at
+            sta   PBot                  ; once is too much for the printer port)
+            lda   PRect
+            sta   PDestY
+:strip      lda   PSrc
+            clc
+            adc   #8
+            cmp   PBot
+            bcc   :sb
+            lda   PBot
+:sb         sta   PSrc+4
             PushLong PLoc
             PushLong PSrc
             lda   PRect+2
             pha
-            lda   PRect
+            lda   PDestY
             pha
             pea   0
             Tool  _PPToPort
+            jsr   PrOK
+            bcs   :pageEnd
+            lda   PSrc+4
+            sec
+            sbc   PSrc
+            clc
+            adc   PDestY
+            sta   PDestY
+            lda   PSrc+4
+            sta   PSrc
+            cmp   PBot
+            bcc   :strip
 :pageEnd    PushLongAt PrPort
             Tool  _PrClosePage
             jsr   PrOK
@@ -366,7 +391,9 @@ PrintPic    ent
             adc   PageH
             sta   PY0
             cmp   ph
-            bcc   :row
+            bcs   :jx10
+            jmp   :row
+:jx10
             lda   PX0
             clc
             adc   PageW
@@ -460,6 +487,8 @@ PageW       dw    0
 PX0         dw    0                     ; the page's place in the image
 PY0         dw    0
 PSrc        ds    8                     ; the part of the image on it
+PBot        dw    0                     ; (its last line, the strip's place)
+PDestY      dw    0
 PLoc        dw    0                     ; the image's LocInfo
             adrl  0
             dw    160
