@@ -668,9 +668,19 @@ saved file and monochrome result still matches GS Remap's (the save and mono sui
   the used part of the next row's error buffer cleared; `Value` keeps an output row's
   block rows and steps its first column along the row.
 
+**The true colour filters** (same image; every result still matches, the filters suite):
+equalize 12.9 -> 10.6 s and more or less contrast 7.8 -> 5.4 s, from applying their maps
+three channels at a time in 8 bits with the map's bank set once a row. The 3 x 3 filters
+are unchanged: median 30.3, blur and sharpen about 20, sigma 16, emboss 14, find edges
+12 s.
+
 Tried and dropped: the median from sorted columns of three (the largest of the smallest,
 the middle of the middles, the smallest of the largest), reusing each column's sort as
-the window moves: in 8 bits the 19 compare-and-swaps are cheap, and it came out slower.
+the window moves: in 8 bits the 19 compare-and-swaps are cheap, and it came out slower. Column sums
+kept in a ring of six for blur, sharpen, sigma and find edges (each byte adding only the
+new column) came out slower too: the calls and the ring cost more than the loads saved.
+Faster 3 x 3 filters would want each row worked as a whole, with column sums in a buffer
+of their own.
 
 ## Appendix A: the model against the measured times
 

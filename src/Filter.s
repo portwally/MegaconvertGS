@@ -992,47 +992,49 @@ TopAt       lda   [RowP],y
 * ByPixel: each channel c of each pixel becomes Map[key x 256 + c], the
 * key from routine X (Keys: 0 the grey, 2 the largest channel).
 ByPixel     stx   KeyX
+            stx   fk                    ; (and on the direct page: the loop runs
             lda   tp
             sta   RowP
             lda   tp+2
             sta   RowP+2
             stz   RowY
-:row        ldy   #0
-:pix        ldx   KeyX
-            jsr   (Keys,x)
-            xba
-            sta   fk                    ; key x 256
-            phb                         ; (the map's bank)
+:row        phb                         ; (the map's bank, for the row)
             lda   MapP+1
             pha
             plb
             plb
-            jsr   :chan
+            ldy   #0
+:pix        ldx   fk                    ; with the data bank the map's)
+            jsr   (Keys,x)
+            sep   #$20                  ; each channel c: Map[key x 256 + c]
+            mx    %10                   ; (the key in B, c in A: TAX takes both)
+            xba
+            lda   [RowP],y
+            tax
+            lda   |0,x
+            sta   [RowP],y
             iny
-            jsr   :chan
+            lda   [RowP],y
+            tax
+            lda   |0,x
+            sta   [RowP],y
             iny
-            jsr   :chan
+            lda   [RowP],y
+            tax
+            lda   |0,x
+            sta   [RowP],y
             iny
-            plb
+            rep   #$20
+            mx    %00
             cpy   tstride
             bcc   :pix
+            plb
             lda   RowY
             jsr   ProgRow
             bcs   :stop
             jsr   NextRow
             bcc   :row
 :stop       clc
-            rts
-:chan       lda   [RowP],y
-            and   #$00FF
-            ora   fk
-            tax
-            sep   #$20
-            mx    %10
-            lda   |0,x
-            sta   [RowP],y
-            rep   #$20
-            mx    %00
             rts
 Keys        da    GreyAt,TopAt
 
