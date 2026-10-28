@@ -13,4 +13,5 @@ grep -iE "error" "$ROOT/build/merlin.log" && exit 1
 mv -f MegaconvertGS "$ROOT/build/MegaconvertGS"
 mv -f MegaconvertGS_*_Output.txt MegaconvertGS_Symbols.txt _FileInformation.txt "$ROOT/build/" 2>/dev/null || true
 tr '\n' '\r' < "$ROOT/help/MCGS.Help.txt" > "$ROOT/build/MCGS.Help"   # (the help text, beside the program)
+python3 -I "$ROOT/art/make_title.py" "$ROOT/art/MegaconvertGS_Title.shr" "$ROOT/build/MCGS.Title"   # (the title picture, beside it too)
 echo "built build/MegaconvertGS ($(wc -c < "$ROOT/build/MegaconvertGS") bytes)"

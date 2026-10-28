@@ -30,6 +30,7 @@ Copies the boot disk (`System604.img` by default, or `BOOT_DISK=...`), puts Mega
 in place of the Finder on the copy, boots it in MAME from Ample in a window, and saves the
 Super Hi-Res screen every 30 emulated seconds to `build/test/screens/`. Needs cadius, and
 the GS Remap command-line tool (`SC4=...`) to turn the screen dumps into PNG files.
+`TITLE=1` puts the title picture beside it too (the test suites start without it).
 
 Checks against GS Remap (run `./test/fixtures.sh` once first to make the test pictures):
 
@@ -210,7 +211,9 @@ A test run stops by itself once the test commands are done.
   other computers' formats (a segment of its own)
 - `src/SegLib.s` — helpers each loader segment includes
 - `src/Save.s` — the save formats (a segment of its own)
-- `src/Screen.s` — full-screen view
+- `src/Screen.s` — full-screen view, and the title picture at start-up
+- `art/MegaconvertGS_Title.shr` — the title screen; `art/make_title.py` adds the credits
+  and writes `build/MCGS.Title`
 - `src/RemapSeg.s` with `src/RemapRender.s`, `src/RemapUI.s` and `src/UILib.s` — Remap:
   scaling, palettes, rendering, multipalette and the Remap dialog (a segment of its own)
 - `src/Desk.s` with `src/DeskLists.s`, `src/FormatInfo.s`, `src/ImgWin.s` and
@@ -368,7 +371,9 @@ TIFF Save Options (the screen image as a palette image, the true colour image as
 Intel or Motorola order; the fewest palette bits or 1, 4 or 8; the resolution's unit; a
 description; `src/TiffOpt.s`). PNG save options (compression level: from 6, matches against the line above; filter None
 or Auto; comments as a tEXt chunk). Help! and Menu item help, with MegaconvertGS's own help text (`help/MCGS.Help.txt`, built
-into `build/MCGS.Help`, which goes beside the program). File > Print alignment page.
+into `build/MCGS.Help`, which goes beside the program). A title picture at start-up
+(`build/MCGS.Title`, a $C1 screen beside the program: until a click, a key or 3 seconds;
+none if the file isn't there). File > Print alignment page.
 
 Remapping is several times faster than before, with the same results (the
 remap2 suite's 43 remaps: 1585 s → 387 s in MAME at 2.8 MHz), and PNG files open about

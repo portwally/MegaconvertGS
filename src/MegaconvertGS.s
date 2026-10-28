@@ -127,6 +127,7 @@ Start       phk
             bcc   :buffers
             jmp   Fatal
 :buffers    Tool  _InitCursor           ; arrow instead of the launch watch
+            jsr   ShowTitle             ; (the title picture, if it is there)
             jsr   MakeMenus
             jsr   CheckDesk             ; (Revert to normal desktop)
             lda   #Prefs                ; the options saved with Preferences

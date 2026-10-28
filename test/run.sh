@@ -8,6 +8,7 @@
 #               (type and aux type, default C00002: Apple Preferred); a file
 #               saved as OUT, also at the top of the disk, is copied back to build/test/results
 #   KEYS        keys to press, see dump.lua
+#   TITLE       1: the title picture (MCGS.Title) beside the program
 #   COMMANDS    test command file to run (copied to the disk as MC.TEST); its pictures
 #               come from build/fixtures (folder MCTEST) and build/fixtures/true (folder
 #               MCTRUE), and results go to folder MCOUT
@@ -37,6 +38,11 @@ disk ADDFILE "$DISK" "${VOLUME}System" "$OUT/stage/Finder#B3DB03"
 # Its help text beside it (prefix 1 is the program's folder).
 cp "$ROOT/build/MCGS.Help" "$OUT/stage/MCGS.Help#040000"
 disk ADDFILE "$DISK" "${VOLUME}System" "$OUT/stage/MCGS.Help#040000"
+# The title picture only when asked for (TITLE=1): the tests start without it.
+if [ -n "$TITLE" ]; then
+    cp "$ROOT/build/MCGS.Title" "$OUT/stage/MCGS.Title#C10000"
+    disk ADDFILE "$DISK" "${VOLUME}System" "$OUT/stage/MCGS.Title#C10000"
+fi
 
 if [ -n "$COMMANDS" ]; then
     disk CREATEFOLDER "$DISK" "${VOLUME}MCTEST"
