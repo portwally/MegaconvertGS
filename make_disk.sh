@@ -1,6 +1,7 @@
 #!/bin/bash
-# Makes build/MegaconvertGS.po, an 800K ProDOS disk with the program, its help text and its
-# title picture, as released. Run ./build.sh first. Needs cadius.
+# Makes build/MegaconvertGS.po, an 800K ProDOS disk with the program, its help text, its
+# title picture, and its Finder icon in an Icons folder (where the Finder looks for icon
+# files), as released. Run ./build.sh first. Needs cadius.
 set -e
 ROOT="$(cd "$(dirname "$0")" && pwd)"
 B="$ROOT/build"
@@ -14,9 +15,14 @@ rm -rf "$STAGE" "$DISK"; mkdir -p "$STAGE"
 cp "$B/MegaconvertGS" "$STAGE/MegaconvertGS#B3DB03"     # S16 (GS/OS application)
 cp "$B/MCGS.Help" "$STAGE/MCGS.Help#040000"             # TXT
 cp "$B/MCGS.Title" "$STAGE/MCGS.Title#C10000"           # PIC (a $C1 screen)
+python3 -I "$ROOT/art/make_icon.py" "$B/MegaconvertGS.Icons" "$B/icon-preview.png"
+mkdir -p "$STAGE/Icons"
+cp "$B/MegaconvertGS.Icons" "$STAGE/Icons/MCGS.Icons#CA0000"   # ICN (Finder icons)
 # cadius exits 0 even when it fails, so look for its error lines instead.
 disk() { local out; out="$(cadius "$@" 2>&1)"; if grep -q "Error" <<< "$out"; then echo "$out" >&2; exit 1; fi; }
 disk CREATEVOLUME "$DISK" MegaconvertGS 800KB
-for f in "$STAGE"/*; do disk ADDFILE "$DISK" /MegaconvertGS "$f"; done
+for f in "$STAGE"/*#*; do disk ADDFILE "$DISK" /MegaconvertGS "$f"; done
+disk CREATEFOLDER "$DISK" /MegaconvertGS/Icons
+disk ADDFILE "$DISK" /MegaconvertGS/Icons "$STAGE/Icons/MCGS.Icons#CA0000"
 rm -rf "$STAGE"
 cadius CATALOG "$DISK"

@@ -119,12 +119,14 @@ How it was done: [docs/speed-plan.md](docs/speed-plan.md).
 
 Download **MegaconvertGS.po** from the
 [Releases](https://github.com/portwally/MegaconvertGS/releases) page: an 800K ProDOS disk
-with three files:
+with three files and the program's Finder icon:
 
 - **MegaconvertGS:** the program (GS/OS type S16)
 - **MCGS.Help:** the help text, for Help! and Menu item help
 - **MCGS.Title:** the title picture shown at start-up (a click or a key skips it; without
   the file there is none)
+- **Icons/MCGS.Icons:** the Finder icon (the Finder reads icon files from a disk's Icons
+  folder; on a hard disk, copy it into the Icons folder there)
 
 **You need** an Apple IIgs with GS/OS (it is tested with System 6.0.4) and enough memory
 for the pictures you open; it is tested in MAME with 4 MB. The disk doesn't start by

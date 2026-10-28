@@ -36,7 +36,8 @@ under one global label (`test/labels.py`), which Merlin 32 accepts silently.
 ```
 
 Makes `build/MegaconvertGS.po`, an 800K ProDOS disk with the three files and their file
-types (needs Cadius). Run `./build.sh` first.
+types, and the Finder icon in an Icons folder (`art/make_icon.py` draws it and writes
+`build/icon-preview.png`; needs Cadius). Run `./build.sh` first.
 
 ## Run it in MAME
 
