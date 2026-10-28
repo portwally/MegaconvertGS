@@ -23,6 +23,24 @@ FmtInfo     da    FiSHR,FiC1,FiAPF,FiPacked,FiPW,FiBMP,FiGIF,FiPNG,FiJPEG,FiHGR,
             da    FiMacMono,FiMacSM,FiGEM,FiPCX,FiFli,FiSun,FiSGI,FiPNM,FiRLE,FiIPI,FiQRT
             da    FiTIFF,0,FiWOA,FiBabelTC,FiBabelPM,FiTGA,FiPICT
             da    FiZX,FiMS2,FiMS5,FiMS7,FiMS8,FiArtSt,FiAAS,FiCPC0,FiCPC1,FiCPC2
+            da    FiFLI,FiAmica,FiMIC,FiGR8,FiGR9
+
+FiFLI       asc   '93/FLI Graph (.FLI): Commodore 64 multicolor pictures with new screen colors '
+            asc   'on every line, 17409 bytes.',0D,'It becomes a screen image in the C64',27,'s 16 '
+            asc   'colors; the first three columns, which the C64 can',27,'t show, are black./^#0',00
+
+FiAmica     asc   '93/Amica Paint (.AMI): packed Commodore 64 multicolor pictures, as Koala '
+            asc   'pictures.',0D,'It becomes a screen image in the C64',27,'s 16 colors./^#0',00
+
+FiMIC       asc   '93/MicroPainter (.MIC): Atari 8-bit pictures, 160 x 192 in 4 colors (7680 '
+            asc   'bytes, and the 4 color registers if the file has them; else grays).',0D,'It '
+            asc   'becomes a screen image in close to the Atari',27,'s colors./^#0',00
+
+FiGR8       asc   '93/Atari Graphics 8 screen (.GR8): 320 x 192 in 2 colors, 7680 bytes.',0D,'It '
+            asc   'becomes a black and white screen image./^#0',00
+
+FiGR9       asc   '93/Atari Graphics 9 screen (.GR9): 80 x 192 in 16 grays, 7680 bytes.',0D,'It '
+            asc   'becomes a screen image in 16 grays, its dots four times as wide./^#0',00
 
 FiArtSt     asc   '93/Art Studio (OCP): hires pictures from the Commodore 64',27,'s Art Studio, '
             asc   '9009 bytes: 320 x 200 dots, a color pair for each 8 x 8 cell.',0D,'It becomes '
@@ -33,17 +51,19 @@ FiAAS       asc   '93/Advanced Art Studio (OCP): multicolor pictures from the Co
             asc   'cell.',0D,'It becomes a screen image in the C64',27,'s 16 colors./^#0',00
 
 FiCPC0      asc   '93/Amstrad CPC mode 0 screen (.SCR): the CPC',27,'s 16K of screen memory, with '
-            asc   'or without its AMSDOS header, as mode 0: 160 x 200 in 16 colors.',0D,'It '
-            asc   'becomes a screen image in the inks',27,' colors as the CPC starts up./^#0',00
+            asc   'or without its AMSDOS header or packed by OCP Art Studio, as mode 0: 160 x 200 '
+            asc   'in 16 colors.',0D,'It becomes a screen image in the colors of the .PAL file '
+            asc   'beside it, or the CPC',27,'s start-up colors./^#0',00
 
 FiCPC1      asc   '93/Amstrad CPC mode 1 screen (.SCR): the CPC',27,'s 16K of screen memory, with '
-            asc   'or without its AMSDOS header, as mode 1: 320 x 200 in 4 colors (Open reads a '
-            asc   'CPC screen this way).',0D,'It becomes a screen image in the inks',27,' colors '
-            asc   'as the CPC starts up./^#0',00
+            asc   'or without its AMSDOS header or packed by OCP Art Studio, as mode 1: 320 x 200 '
+            asc   'in 4 colors (Open reads a CPC screen this way, unless a .PAL file beside it '
+            asc   'says another mode).',0D,'It becomes a screen image in the colors of the .PAL '
+            asc   'file, or the CPC',27,'s start-up colors./^#0',00
 
 FiCPC2      asc   '93/Amstrad CPC mode 2 screen (.SCR): the CPC',27,'s 16K of screen memory, with '
-            asc   'or without its AMSDOS header, as mode 2: 640 x 200 in 2 colors.',0D,'It '
-            asc   'becomes a 640 mode screen image./^#0',00
+            asc   'or without its AMSDOS header or packed by OCP Art Studio, as mode 2: 640 x 200 '
+            asc   'in 2 colors.',0D,'It becomes a 640 mode screen image./^#0',00
 
 FiZX        asc   '93/ZX Spectrum screen (.SCR): the Sinclair ZX Spectrum',27,'s screen, 6912 '
             asc   'bytes: 256 x 192 dots and a color pair for each 8 x 8 cell (a 6144-byte file: '

@@ -37,7 +37,8 @@ TYPES = [
 # MegaconvertGS's own: TIFF, TGA and PICT to load (their file filters: types $06 or
 # $04, or none, at least 8, 18 or 10 bytes).
 EXTRA_FORMATS = {"Commodore 64/128": [("fmtArtSt", S, "Art Studio (OCP)"),
-                                      ("fmtAAS", S, "Advanced Art Studio (OCP)")],
+                                      ("fmtAAS", S, "Advanced Art Studio (OCP)"),
+                                      ("fmtFLI", S, "FLI Graph (.FLI)"), ("fmtAmica", S, "Amica Paint (.AMI)")],
                  "Computer-independent": [("fmtTIFF", C, "TIFF (Tagged Image File Format)"),
                                           ("fmtTGA", C, "Truevision Targa (.TGA)")],
                  "Macintosh": [("fmtPICT", C, "QuickDraw picture (PICT)")]}
@@ -49,11 +50,13 @@ RENAMED = {"PC Paintbrush (.PCX, .PCC) ???": "PC Paintbrush (.PCX, .PCC)"}
 # Save numbers in SuperConvert's order; "Icon resource (HyperCard, etc.)" adds to a file.
 SAVES = [4, 3, 2, 1, 5, 6, 8, 13, 9, 10, 11, 12, 14, 15]
 DROPPED = {"51"}
-# MegaconvertGS's own computer types (Amstrad CPC, MSX, ZX Spectrum), after Unix machines (so the rows above stay where
+# MegaconvertGS's own computer types (Amstrad CPC, Atari 8-bit, MSX, ZX Spectrum), after Unix machines (so the rows above stay where
 # they were): their formats and file filters (types $06 or $04, or none; EOF 6144-6912
 # for the Spectrum, 8 or more for a BSAVE file).
 EXTRA_TYPES = [("Amstrad CPC", [("fmtCPC0", S, "Mode 0 screen (.SCR)"), ("fmtCPC1", S, "Mode 1 screen (.SCR)"),
                                 ("fmtCPC2", S, "Mode 2 screen (.SCR)")]),
+               ("Atari 8-bit", [("fmtMIC", S, "MicroPainter (.MIC)"), ("fmtGR8", S, "Graphics 8 screen (.GR8)"),
+                                ("fmtGR9", S, "Graphics 9 screen (.GR9)")]),
                ("MSX", [("fmtMS2", S, "Screen 2 (.SC2)"), ("fmtMS5", C, "Screen 5 (.SC5, .GE5)"),
                         ("fmtMS7", C, "Screen 7 (.SC7)"), ("fmtMS8", C, "Screen 8 (.SC8)")]),
                ("ZX Spectrum", [("fmtZX", S, "Screen (.SCR)")])]
@@ -64,6 +67,10 @@ for fmt in ("fmtCPC0", "fmtCPC1", "fmtCPC2"):
     EXTRA_FILTERS[fmt] = bytes.fromhex("000000000000060400000000" + "d03f0000" + "00000100" + "0000ffff")
 EXTRA_FILTERS["fmtArtSt"] = bytes.fromhex("000000000000060400000000" + "31230000" + "31230000" + "0000ffff")
 EXTRA_FILTERS["fmtAAS"] = bytes.fromhex("000000000000060400000000" + "22270000" + "22270000" + "0000ffff")
+for fmt in ("fmtMIC", "fmtGR8", "fmtGR9"):
+    EXTRA_FILTERS[fmt] = bytes.fromhex("000000000000060400000000" + "28000000" + "65250000" + "0000ffff")
+EXTRA_FILTERS["fmtFLI"] = bytes.fromhex("000000000000060400000000" + "01440000" + "01440000" + "0000ffff")
+EXTRA_FILTERS["fmtAmica"] = bytes.fromhex("000000000000060400000000" + "04000000" + "13270000" + "0000ffff")
 EXTRA_FILTERS["fmtZX"] = bytes.fromhex("000000000000060400000000" + "00180000" + "001b0000" + "0000ffff")
 EXTRA_SAVES = [(7, "Icon resource (new file)"), (16, "BMP (Windows bitmap)")]
 

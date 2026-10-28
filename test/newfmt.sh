@@ -6,7 +6,7 @@ cd "$(dirname "$0")/.."
 python3 -I test/make_newfmt.py build/fixtures
 python3 -I - > build/newfmt.test <<'PY'
 for line in open("build/fixtures/newfmt.list"):
-    name, fmt = line.split()
+    name, fmt, *_ = line.split()
     print(f"LOAD AS {fmt} *:MCNEWFMT:{name}")
     print(f"SAVE RGB *:MCOUT:{name}.R")
     print(f"SAVE C1 *:MCOUT:{name}.C")

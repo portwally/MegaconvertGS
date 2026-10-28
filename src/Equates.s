@@ -199,7 +199,12 @@ fmtAAS              =     63
 fmtCPC0             =     64                 ; Amstrad CPC screen, mode 0, 1, 2 (Other.s CPC.s)
 fmtCPC1             =     65
 fmtCPC2             =     66
-fmtLast             =     66                 ; (the last format number)
+fmtFLI              =     67                 ; C64 FLI Graph, Amica Paint (Other.s)
+fmtAmica            =     68
+fmtMIC              =     69                 ; Atari 8-bit: MicroPainter, Graphics 8, 9 (Atari8.s)
+fmtGR8              =     70
+fmtGR9              =     71
+fmtLast             =     71                 ; (the last format number)
 saveCount           =     17                 ; save numbers 1-16 (but 14, 15: Babelfish)
 
 * The True color menu's filters (Filter.s), in menu order
@@ -270,6 +275,7 @@ outp                =     $76                ; Save.s: what to write (long), its
 outl                =     $7A                ;   file type and aux type (long), and its handle
 otype               =     $7E
 oaux                =     $80                ;   ($80-$83)
+opal                =     $84                ; an Amstrad CPC screen's .PAL file: its length (0: none), at ipg
 ohnd                =     $A0                ;   (long; not after oaux, which is a long too)
 
 * Resource Manager and others (Save.s)

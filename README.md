@@ -4,8 +4,8 @@
 
 An image converter for the Apple IIgs, written from scratch in 65816 assembly for GS/OS.
 It opens pictures from the Apple II and IIgs, the Atari ST, the Amiga, the Commodore 64,
-the Macintosh, the PC, Unix machines, the Amstrad CPC, the MSX, the ZX Spectrum and
-today's computers (PNG, JPEG, GIF, BMP, TIFF),
+the Macintosh, the PC, Unix machines, the Amstrad CPC, the Atari 8-bit, the MSX, the ZX
+Spectrum and today's computers (PNG, JPEG, GIF, BMP, TIFF),
 remaps them to Super Hi-Res in 320 or 640 mode or with a palette for every line, and
 saves them in IIgs and modern formats.
 
@@ -16,7 +16,7 @@ same result pixel for pixel.
 
 ## Features
 
-- **Over 60 load formats** from thirteen computer types, chosen in the Load formats window or
+- **Nearly 70 load formats** from fourteen computer types, chosen in the Load formats window or
   recognised by File > Open from the file's type, size or contents.
 - **Remap** true colour pictures to the screen: 320 x 200 in 16 colours, 640 x 200 in 4,
   640 dither mode, or multipalette (a palette for each line); a calculated, default,
@@ -68,11 +68,12 @@ New in MegaconvertGS (not in SuperConvert) are marked with ★.
 | Apple IIgs | Super Hi-Res ($C0 PackBytes and Apple Preferred, $C1), PaintWorks and Paintworks Gold, DreamGrafix (256 and 3200 colours), Print Shop IIgs colour graphics and library, Finder icons, AST and ComputerEyes digitizer files, "3200 color" pictures (plain, .3201 and compressed) |
 | Atari ST | Degas, Degas Elite, Neochrome, Tiny, Spectrum 512 (plain and compressed) |
 | Amiga | IFF ILBM (with HAM, Extra HalfBrite and 24-bit) |
-| Commodore 64/128 | Doodle, Koala, Print Shop screens, ★ Art Studio, ★ Advanced Art Studio |
+| Commodore 64/128 | Doodle, Koala, Print Shop screens, ★ Art Studio, ★ Advanced Art Studio, ★ FLI Graph, ★ Amica Paint |
 | Macintosh | MacPaint (three ways), ScreenMaker, ★ QuickDraw PICT (version 1 and 2, 1 to 32 bits) |
 | PC | BMP (1 to 32 bits, Windows and OS/2), GEM/Ventura IMG, PC Paintbrush, DeluxePaint LBM, FliAway frames |
 | Unix | Sun Rasterfile, SGI, PBM/PGM/PPM |
-| ★ Amstrad CPC | Screens (.SCR, 16K, with or without the AMSDOS header) in mode 0, 1 or 2 |
+| ★ Amstrad CPC | Screens (.SCR, with or without the AMSDOS header, or packed by OCP Art Studio) in mode 0, 1 or 2, with the colours and mode of the .PAL file beside them |
+| ★ Atari 8-bit | MicroPainter (.MIC), Graphics 8 and Graphics 9 screens |
 | ★ MSX | Screen 2 (MSX1, 256 x 192), Screen 5, 7 and 8 (MSX2, 256 or 512 x 212, with the file's palette): BSAVE files |
 | ★ ZX Spectrum | Screen (.SCR, 6912 bytes, or 6144 without colours) |
 | Any computer | JPEG (baseline and ★ progressive), GIF (87a, 89a, interlaced, transparent), PNG (every kind), CompuServe RLE, IPI, QRT, ★ TIFF, ★ Truevision Targa (TGA) |

@@ -9,7 +9,8 @@
 * Rasterfile, SGI, PBM/PGM/PPM. And CompuServe RLE, IPI, QRT
 * and TIFF (OtherPC.s); Truevision Targa (TGA.s), Macintosh PICT
 * (PICT.s), ZX Spectrum screens (ZX.s), MSX screens (MSX.s) and
-* Amstrad CPC screens (CPC.s); and C64 Art Studio pictures.
+* Amstrad CPC screens (CPC.s), Atari 8-bit screens (Atari8.s); and C64
+* Art Studio, Advanced Art Studio, FLI Graph and Amica Paint pictures.
 *
 * As in GS Remap, black & white pictures taller than a screen
 * (Atari ST high resolution, MacPaint, ScreenMaker) become true
@@ -51,6 +52,7 @@ OLoaders    da    LoadDegas,LoadDegasE,LoadNeo,LoadTiny,LoadSPU,LoadSPC,LoadIFF
             da    LoadIPI,LoadQRT,LoadTIFF,LoadNone,LoadNone,LoadNone,LoadNone
             da    LoadTGA,LoadPICT,LoadZX,LoadMS2,LoadMS5,LoadMS7,LoadMS8
             da    LoadArtSt,LoadAAS,LoadCPC0,LoadCPC1,LoadCPC2
+            da    LoadFLI,LoadAmica,LoadMIC,LoadGR8,LoadGR9
 LoadNone    lda   #errNotImpl           ; (51-54: not in this segment)
             sec
             rts
@@ -273,6 +275,16 @@ ExtList     asc   'PI1',00
             dw    fmtAAS
             asc   'MPIC'
             dw    fmtAAS
+            asc   'FLI',00
+            dw    fmtFLI
+            asc   'AMI',00
+            dw    fmtAmica
+            asc   'MIC',00
+            dw    fmtMIC
+            asc   'GR8',00
+            dw    fmtGR8
+            asc   'GR9',00
+            dw    fmtGR9
             dw    0
 
 SizeList    dw    32034,fmtDegas
@@ -284,6 +296,8 @@ SizeList    dw    32034,fmtDegas
             dw    6912,fmtZX
             dw    9009,fmtArtSt
             dw    10018,fmtAAS
+            dw    17409,fmtFLI
+            dw    7684,fmtMIC
 SizeEnd
 
 * ExtFix: format A from a name's ending, put right where two computers
@@ -1407,7 +1421,7 @@ LoadKoala   lda   #10003
             sta   KColAt
             lda   #10002
             sta   KBackAt
-            bra   C64Multi
+            bra   KoalaParts
 
 * Advanced Art Studio (OCP): load address, bitmap, screen colours, border
 * and background, 14 unused bytes, colour memory (10018 bytes).
@@ -1419,10 +1433,17 @@ LoadAAS     lda   #10018
             sta   KColAt
             lda   #9003
             sta   KBackAt
+KoalaParts  lda   #2                    ; (bitmap, screen colours as Koala's)
+            sta   KBmAt
+            lda   #8002
+            sta   KScrAt
+            stz   KFli
 
-* C64Multi: a multicolour picture: load address, bitmap, 1000 screen
-* colours (from 8002), 1000 bytes of colour memory (from KColAt) and the
-* background colour (at KBackAt).
+* C64Multi: a multicolour picture: the bitmap (from KBmAt), 1000 screen
+* colours (from KScrAt), 1000 bytes of colour memory (from KColAt) and the
+* background colour (at KBackAt). FLI (KFli): each line its own screen
+* colours, the 1024 bytes from $402 + (y & 7) x 1024, a black background,
+* and the first three columns black (the FLI bug).
 C64Multi    jsr   ScrBegin
             ldx   #C64Pal
             jsr   SetTable0
@@ -1433,9 +1454,28 @@ C64Multi    jsr   ScrBegin
             lda   [fp],y
             and   #$000F
             sta   KBack
-            stz   RowY
-:row        ldx   #0                    ; X = wide pixel
-:pix        lda   RowY                  ; cell = (y >> 3) * 40 + (x >> 2)
+            lda   KFli
+            beq   :rows
+            stz   KBack
+:rows       stz   RowY
+:row        lda   KFli                  ; FLI: this line's screen colours
+            beq   :row0
+            lda   RowY
+            and   #$0007
+            xba
+            asl
+            asl
+            clc
+            adc   #$402
+            sta   KScrAt
+:row0       ldx   #0                    ; X = wide pixel
+:pix        lda   KFli                  ; (FLI: the first 3 columns black)
+            beq   :cell
+            cpx   #12
+            bcs   :cell
+            lda   #0
+            jmp   :set
+:cell       lda   RowY                  ; cell = (y >> 3) * 40 + (x >> 2)
             lsr
             lsr
             lsr
@@ -1454,7 +1494,7 @@ C64Multi    jsr   ScrBegin
             clc
             adc   t1
             sta   t2
-            asl                         ; bitmap byte: 2 + cell * 8 + (y & 7)
+            asl                         ; bitmap byte: KBmAt + cell * 8 + (y & 7)
             asl
             asl
             sta   t1
@@ -1462,8 +1502,8 @@ C64Multi    jsr   ScrBegin
             and   #$0007
             clc
             adc   t1
-            inc
-            inc
+            clc
+            adc   KBmAt
             tay
             lda   [fp],y
             sta   t1
@@ -1485,7 +1525,7 @@ C64Multi    jsr   ScrBegin
             pha
             lda   t2
             clc
-            adc   #8002
+            adc   KScrAt
             tay
             lda   [fp],y
             sta   t1
@@ -1528,6 +1568,100 @@ C64Multi    jsr   ScrBegin
             bcs   :done
             jmp   :row
 :done       clc
+            rts
+
+* FLI Graph: load address, 1000 bytes of colour memory (from 2), eight
+* screens of colours (from $402, 1024 bytes each, one for each line of a
+* cell) and the bitmap (from $2402): 17409 bytes.
+LoadFLI     lda   #17409
+            jsr   NeedLen
+            bcc   :ok
+            rts
+:ok         lda   #$2402
+            sta   KBmAt
+            lda   #2
+            sta   KColAt
+            stz   KBackAt
+            lda   #1
+            sta   KFli
+            jmp   C64Multi
+
+* Amica Paint: a Koala picture packed: after the load address, bytes as
+* they are, or $C2, count, byte for a run (as RECOIL reads it, a count of 0
+* makes nothing). Unpacked into a buffer that stands for a Koala file.
+LoadAmica   lda   flen+2
+            bne   :ok
+            lda   flen
+            cmp   #4
+            bcs   :ok
+            lda   #errNotPicture
+            sec
+            rts
+:ok         lda   #10004
+            jsr   NewOut
+            bcc   :got
+            rts
+:got        lda   fp                    ; (the file, put back afterwards)
+            sta   AmFile
+            lda   fp+2
+            sta   AmFile+2
+            lda   flen
+            sta   AmFileL
+            lda   flen+2
+            sta   AmFileL+2
+            lda   #2
+            jsr   SAtA
+            ldy   #2                    ; (Y: in the Koala layout, after its
+:next       cpy   #10003                ; load address)
+            bcs   :done
+            jsr   SByte
+            bcs   :done
+            cmp   #$C2
+            beq   :run
+            jsr   :put
+            bra   :next
+:run        jsr   SByte                 ; a run: count, byte
+            tax
+            jsr   SByte
+:rep        cpx   #0
+            beq   :next
+            jsr   :put
+            dex
+            bra   :rep
+:put        cpy   #10003
+            bcs   :full
+            sep   #$20
+            mx    %10
+            sta   [OutDP],y
+            rep   #$20
+            mx    %00
+            iny
+:full       rts
+:done       lda   OutP                  ; the buffer as the file: Koala's parts
+            sta   fp
+            lda   OutP+2
+            sta   fp+2
+            lda   #10003
+            sta   flen
+            stz   flen+2
+            lda   #9002
+            sta   KColAt
+            lda   #10002
+            sta   KBackAt
+            jsr   KoalaParts
+            php
+            pha
+            lda   AmFile
+            sta   fp
+            lda   AmFile+2
+            sta   fp+2
+            lda   AmFileL
+            sta   flen
+            lda   AmFileL+2
+            sta   flen+2
+            jsr   FreeOut
+            pla
+            plp
             rts
 
 *-------------------------------------------------------------
@@ -1956,6 +2090,11 @@ HFixed      dw    0
 KBack       dw    0
 KColAt      dw    0
 KBackAt     dw    0
+KBmAt       dw    0
+KScrAt      dw    0
+KFli        dw    0
+AmFile      adrl  0
+AmFileL     adrl  0
 HCol        dw    0
 RLEH        dw    0
 RLEX        dw    0
@@ -1975,4 +2114,5 @@ MacBuf      ds    144
             put   ZX.s
             put   MSX.s
             put   CPC.s
+            put   Atari8.s
             put   SegLib.s

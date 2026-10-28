@@ -8,13 +8,13 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 F = os.path.join(ROOT, "build", "fixtures")
 CASES = [  # computer type, format, folder
     (1, 0, "MCTEST"), (1, 1, "MCTEST"), (1, 1, "MCAPPLE"), (1, 4, "MCTEST"), (0, 0, "MCAPPLE"),
-    (0, 1, "MCAPPLE"), (0, 3, "MCAPPLE"), (1, 7, "MCAPPLE"), (1, 5, "MCAPPLE"), (11, 0, "MCTRUE"),
-    (11, 1, "MCTRUE"), (11, 2, "MCOTHER"), (2, 0, "MCOTHER"), (2, 2, "MCOTHER"), (6, 0, "MCOTHER"),
-    (5, 0, "MCOTHER"), (4, 1, "MCOTHER"), (11, 7, "MCOTHER"),
+    (0, 1, "MCAPPLE"), (0, 3, "MCAPPLE"), (1, 7, "MCAPPLE"), (1, 5, "MCAPPLE"), (12, 0, "MCTRUE"),
+    (12, 1, "MCTRUE"), (12, 2, "MCOTHER"), (2, 0, "MCOTHER"), (2, 2, "MCOTHER"), (6, 0, "MCOTHER"),
+    (5, 0, "MCOTHER"), (4, 1, "MCOTHER"), (12, 7, "MCOTHER"),
 ]
-# Load formats' computer types are SuperConvert's with MegaconvertGS's Amstrad CPC, MSX and
-# ZX Spectrum after Unix machines (8-10): the place of each in SuperConvert's list.
-SC_TYPE = {0: 0, 1: 1, 2: 2, 3: 3, 4: 4, 5: 5, 6: 6, 7: 7, 11: 8, 12: 9}
+# Load formats' computer types are SuperConvert's with MegaconvertGS's Amstrad CPC, Atari
+# 8-bit, MSX and ZX Spectrum after Unix machines (8-11): each one's place in SuperConvert's list.
+SC_TYPE = {0: 0, 1: 1, 2: 2, 3: 3, 4: 4, 5: 5, 6: 6, 7: 7, 12: 8, 13: 9}
 
 def folder(name):
     """The folder's files in the order they were added: (NAME, type, aux, eof)."""

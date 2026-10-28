@@ -217,8 +217,19 @@ DecodeForced cmp  #fmtWOA              ; (Works of Art: the Apple segment)
 :ok         rts
 
 * CallOther: the other computers' loader segment, for format A (0: any).
-CallOther   ldx   #1
-            bra   CallSeg
+* A file named .SCR may be an Amstrad CPC screen: its .PAL file goes along.
+CallOther   pha
+            jsr   PalRead
+            pla
+            ldx   #1
+            jsr   CallSeg
+            php
+            pha
+            ldx   #PalH
+            jsr   FreeHandleAt
+            pla
+            plp
+            rts
 
 * CallApple: the Apple II and IIgs loader segment, for format A (0: any).
 CallApple   ldx   #0
@@ -292,6 +303,117 @@ IsIPIName   lda   PathPtr
             rts
 :no         sec
             rts
+
+* PalRead: for a name ending in .SCR, the .PAL file beside it (an Amstrad
+* CPC screen's mode and palette, from OCP Art Studio): its data at ipg and
+* its length in opal (0: none). The picture's own file stays as it was.
+PalRead     stz   opal
+            lda   PathPtr
+            sta   p0
+            lda   PathPtr+2
+            sta   p0+2
+            lda   [p0]                  ; at least "x.SCR", and room for a copy
+            cmp   #5
+            bcs   :jx3
+            jmp   :no
+:jx3
+            cmp   #258
+            bcc   :jx4
+            jmp   :no
+:jx4
+            tay                         ; (the last character: length + 1)
+            iny
+            ldx   #6
+:end        lda   [p0],y                ; ".SCR" in any case
+            and   #$00FF
+            cpx   #0
+            beq   :dot
+            and   #$00DF
+:dot        cmp   PalScr,x
+            beq   :jx5
+            jmp   :no
+:jx5
+            dey
+            dex
+            dex
+            bpl   :end
+            ldy   #0                    ; the same name ending in .PAL
+            lda   [p0]
+            clc
+            adc   #2
+            sta   t0
+:copy       lda   [p0],y
+            sta   IpiPath,y
+            iny
+            iny
+            cpy   t0
+            bcc   :copy
+            lda   [p0]
+            inc
+            tay
+            dey
+            dey
+            lda   [p0],y                ; (lower case if the S was)
+            and   #$0020
+            sta   t0
+            ldx   #0
+:pal        lda   PalPal,x
+            ora   t0
+            sep   #$20
+            mx    %10
+            sta   IpiPath,y
+            rep   #$20
+            mx    %00
+            iny
+            inx
+            inx
+            cpx   #6
+            bcc   :pal
+            ldx   #14                   ; keep the picture's file (handle, pointer,
+:keep       lda   FileH,x               ; length, type, aux type)
+            sta   PalKeep,x
+            dex
+            dex
+            bpl   :keep
+            lda   PathPtr
+            sta   PalPathP
+            lda   PathPtr+2
+            sta   PalPathP+2
+            lda   #IpiPath
+            sta   PathPtr
+            lda   #^IpiPath
+            sta   PathPtr+2
+            jsr   ReadFile
+            bcs   :back
+            lda   FileH
+            sta   PalH
+            lda   FileH+2
+            sta   PalH+2
+            lda   FileP
+            sta   ipg
+            lda   FileP+2
+            sta   ipg+2
+            lda   FileLen+2
+            bne   :back
+            lda   FileLen
+            sta   opal
+:back       ldx   #14
+:put        lda   PalKeep,x
+            sta   FileH,x
+            dex
+            dex
+            bpl   :put
+            lda   PalPathP
+            sta   PathPtr
+            lda   PalPathP+2
+            sta   PathPtr+2
+:no         rts
+
+PalScr      dw    '.','S','C','R'
+PalPal      dw    'P','A','L'
+PalH        adrl  0
+PalPathP    adrl  0
+PalKeep     ds    16
 
 * DecodeIPI: reads the other two files, then the Other segment builds the picture.
 DecodeIPI   jsr   IsIPIName

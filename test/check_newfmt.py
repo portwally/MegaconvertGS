@@ -6,9 +6,10 @@ root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 fix = os.path.join(root, "build", "fixtures", "newfmt")
 res = os.path.join(root, "build", "test", "results")
 CODES = {"tga": 55, "pict": 56, "pnm": 46, "zx": 57, "msx2": 58, "msx5": 59, "msx7": 60, "msx8": 61,
-         "artst": 62, "aas": 63, "cpc0": 64, "cpc1": 65, "cpc2": 66}
+         "artst": 62, "aas": 63, "cpc0": 64, "cpc1": 65, "cpc2": 66, "fli": 67, "amica": 68,
+         "mic": 69, "gr8": 70, "gr9": 71}
 AUTO = {"cpc0": "cpc1", "cpc2": "cpc1"}   # what Open makes of each by itself, where it differs
-SCREEN = {"zx", "msx2", "artst", "aas", "cpc0", "cpc1", "cpc2"}   # screen images: in the saved screen's colours
+SCREEN = {"zx", "msx2", "artst", "aas", "cpc0", "cpc1", "cpc2", "fli", "amica", "mic", "gr8", "gr9"}   # screen images: in the saved screen's colours
 
 def screen_rgb(c1, w, h):
     """The top left w x h of a $C1 screen as RGB (w 640: 640 mode lines)."""
@@ -38,7 +39,7 @@ def result(name):
             return open(os.path.join(res, "MCOUT", f), "rb").read()
 ok = True
 for line in open(os.path.join(root, "build", "fixtures", "newfmt.list")):
-    name, fmt = line.split()
+    name, fmt, *auto_fmt = line.split()
     problems = []
     entry = forced.get(name, "")
     if not entry.startswith("ok"):
@@ -59,7 +60,7 @@ for line in open(os.path.join(root, "build", "fixtures", "newfmt.list")):
         first = next(i for i, (a, b) in enumerate(zip(got, want)) if a != b) // 3
         worst = max(abs(a - b) for a, b in zip(got, want))
         problems.append(f"{n} samples differ (largest {worst}), first at x={first % w} y={first // w}")
-    by_name = f"format ${CODES[AUTO.get(fmt, fmt)]:04X}"     # (a CPC screen opens as mode 1)
+    by_name = f"format ${CODES[auto_fmt[0] if auto_fmt else AUTO.get(fmt, fmt)]:04X}"   # (a CPC screen: mode 1, or its .PAL's)
     if by_name not in auto.get(name, ""): problems.append(f"by name: {auto.get(name, 'not loaded')}")
     m = re.search(r"ticks \$([0-9A-F]+)", entry)
     t = f"  {int(m.group(1), 16) / 60:5.1f} s" if m else ""

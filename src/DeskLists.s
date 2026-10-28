@@ -4,7 +4,7 @@
 * screen, 2 true color, 3 both, 4 monochrome), and for a load format its file filter
 * (Load & convert's file dialog: docs/superconvert-file.md 3.4): 12 bytes each.
 
-NTypes      =     13
+NTypes      =     14
 TypeMems    =     *
             adrl  TyName0
             db    0,0
@@ -45,9 +45,12 @@ TypeMems    =     *
             adrl  TyName12
             db    0,0
             dw    12,0,0
+            adrl  TyName13
+            db    0,0
+            dw    13,0,0
 * Each type's formats: where its members are, how many.
-TypeFmts    da    FmMems0,FmMems1,FmMems2,FmMems3,FmMems4,FmMems5,FmMems6,FmMems7,FmMems8,FmMems9,FmMems10,FmMems11,FmMems12
-TypeCount   dw    9,12,6,1,5,5,5,3,3,4,1,9,2
+TypeFmts    da    FmMems0,FmMems1,FmMems2,FmMems3,FmMems4,FmMems5,FmMems6,FmMems7,FmMems8,FmMems9,FmMems10,FmMems11,FmMems12,FmMems13
+TypeCount   dw    9,12,6,1,7,5,5,3,3,3,4,1,9,2
 FmMems0     =     *
             adrl  FmName0x0
             db    $80,0
@@ -152,6 +155,12 @@ FmMems4     =     *
             adrl  FmName4x4
             db    0,0
             dw    fmtAAS,1,Filt4x4
+            adrl  FmName4x5
+            db    0,0
+            dw    fmtFLI,1,Filt4x5
+            adrl  FmName4x6
+            db    0,0
+            dw    fmtAmica,1,Filt4x6
 FmMems5     =     *
             adrl  FmName5x0
             db    $80,0
@@ -207,55 +216,65 @@ FmMems8     =     *
 FmMems9     =     *
             adrl  FmName9x0
             db    $80,0
-            dw    fmtMS2,1,Filt9x0
+            dw    fmtMIC,1,Filt9x0
             adrl  FmName9x1
             db    0,0
-            dw    fmtMS5,2,Filt9x1
+            dw    fmtGR8,1,Filt9x1
             adrl  FmName9x2
             db    0,0
-            dw    fmtMS7,2,Filt9x2
-            adrl  FmName9x3
-            db    0,0
-            dw    fmtMS8,2,Filt9x3
+            dw    fmtGR9,1,Filt9x2
 FmMems10     =     *
             adrl  FmName10x0
             db    $80,0
-            dw    fmtZX,1,Filt10x0
+            dw    fmtMS2,1,Filt10x0
+            adrl  FmName10x1
+            db    0,0
+            dw    fmtMS5,2,Filt10x1
+            adrl  FmName10x2
+            db    0,0
+            dw    fmtMS7,2,Filt10x2
+            adrl  FmName10x3
+            db    0,0
+            dw    fmtMS8,2,Filt10x3
 FmMems11     =     *
             adrl  FmName11x0
             db    $80,0
-            dw    fmtJPEG,2,Filt11x0
-            adrl  FmName11x1
-            db    0,0
-            dw    fmtGIF,2,Filt11x1
-            adrl  FmName11x2
-            db    0,0
-            dw    fmtPNG,2,Filt11x2
-            adrl  FmName11x3
-            db    0,0
-            dw    fmtRLE,1,Filt11x3
-            adrl  FmName11x4
-            db    0,0
-            dw    fmtIPI,2,Filt11x4
-            adrl  FmName11x5
-            db    0,0
-            dw    fmtIPI,2,Filt11x5
-            adrl  FmName11x6
-            db    0,0
-            dw    fmtQRT,2,Filt11x6
-            adrl  FmName11x7
-            db    0,0
-            dw    fmtTIFF,2,Filt11x7
-            adrl  FmName11x8
-            db    0,0
-            dw    fmtTGA,2,Filt11x8
+            dw    fmtZX,1,Filt11x0
 FmMems12     =     *
             adrl  FmName12x0
             db    $80,0
-            dw    53,2,Filt12x0
+            dw    fmtJPEG,2,Filt12x0
             adrl  FmName12x1
             db    0,0
-            dw    54,1,Filt12x1
+            dw    fmtGIF,2,Filt12x1
+            adrl  FmName12x2
+            db    0,0
+            dw    fmtPNG,2,Filt12x2
+            adrl  FmName12x3
+            db    0,0
+            dw    fmtRLE,1,Filt12x3
+            adrl  FmName12x4
+            db    0,0
+            dw    fmtIPI,2,Filt12x4
+            adrl  FmName12x5
+            db    0,0
+            dw    fmtIPI,2,Filt12x5
+            adrl  FmName12x6
+            db    0,0
+            dw    fmtQRT,2,Filt12x6
+            adrl  FmName12x7
+            db    0,0
+            dw    fmtTIFF,2,Filt12x7
+            adrl  FmName12x8
+            db    0,0
+            dw    fmtTGA,2,Filt12x8
+FmMems13     =     *
+            adrl  FmName13x0
+            db    $80,0
+            dw    53,2,Filt13x0
+            adrl  FmName13x1
+            db    0,0
+            dw    54,1,Filt13x1
 NSaves      =     16
 SaveMems    =     *
             adrl  SvName0
@@ -382,6 +401,10 @@ FmName4x3   dfb   16
             asc   'Art Studio (OCP)'
 FmName4x4   dfb   25
             asc   'Advanced Art Studio (OCP)'
+FmName4x5   dfb   16
+            asc   'FLI Graph (.FLI)'
+FmName4x6   dfb   18
+            asc   'Amica Paint (.AMI)'
 TyName5     dfb   9
             asc   'Macintosh'
 FmName5x0   dfb   30
@@ -422,45 +445,53 @@ FmName8x1   dfb   20
             asc   'Mode 1 screen (.SCR)'
 FmName8x2   dfb   20
             asc   'Mode 2 screen (.SCR)'
-TyName9     dfb   3
+TyName9     dfb   11
+            asc   'Atari 8-bit'
+FmName9x0   dfb   19
+            asc   'MicroPainter (.MIC)'
+FmName9x1   dfb   24
+            asc   'Graphics 8 screen (.GR8)'
+FmName9x2   dfb   24
+            asc   'Graphics 9 screen (.GR9)'
+TyName10    dfb   3
             asc   'MSX'
-FmName9x0   dfb   15
+FmName10x0  dfb   15
             asc   'Screen 2 (.SC2)'
-FmName9x1   dfb   21
+FmName10x1  dfb   21
             asc   'Screen 5 (.SC5, .GE5)'
-FmName9x2   dfb   15
+FmName10x2  dfb   15
             asc   'Screen 7 (.SC7)'
-FmName9x3   dfb   15
+FmName10x3  dfb   15
             asc   'Screen 8 (.SC8)'
-TyName10    dfb   11
+TyName11    dfb   11
             asc   'ZX Spectrum'
-FmName10x0  dfb   13
+FmName11x0  dfb   13
             asc   'Screen (.SCR)'
-TyName11    dfb   20
+TyName12    dfb   20
             asc   'Computer-independent'
-FmName11x0  dfb   11
+FmName12x0  dfb   11
             asc   'JPEG (JFIF)'
-FmName11x1  dfb   33
+FmName12x1  dfb   33
             asc   'GIF (Graphics Interchange Format)'
-FmName11x2  dfb   31
+FmName12x2  dfb   31
             asc   'PNG (Portable Network Graphics)'
-FmName11x3  dfb   25
+FmName12x3  dfb   25
             asc   'RLE (Run Length Encoding)'
-FmName11x4  dfb   32
+FmName12x4  dfb   32
             asc   'IPI 256x256 image (.R + .G + .B)'
-FmName11x5  dfb   32
+FmName12x5  dfb   32
             asc   'IPI 512x512 image (.R + .G + .B)'
-FmName11x6  dfb   18
+FmName12x6  dfb   18
             asc   'QRT raw image file'
-FmName11x7  dfb   31
+FmName12x7  dfb   31
             asc   'TIFF (Tagged Image File Format)'
-FmName11x8  dfb   23
+FmName12x8  dfb   23
             asc   'Truevision Targa (.TGA)'
-TyName12    dfb   21
+TyName13    dfb   21
             asc   'External (Babelfish',AA,')'
-FmName12x0  dfb   28
+FmName13x0  dfb   28
             asc   'Babelfish',AA,' True Color Import'
-FmName12x1  dfb   26
+FmName13x1  dfb   26
             asc   'Babelfish',AA,' PixelMap Import'
 SvName0     dfb   32
             asc   '$C0,0 PaintWorks+ 1.0 (obsolete)'
@@ -571,6 +602,10 @@ Filt4x3     dw    $0406,$0000,$FFFF
             adrl  $2331,$2331
 Filt4x4     dw    $0406,$0000,$FFFF
             adrl  $2722,$2722
+Filt4x5     dw    $0406,$0000,$FFFF
+            adrl  $4401,$4401
+Filt4x6     dw    $0406,$0000,$FFFF
+            adrl  $4,$2713
 Filt5x0     dw    $0406,$0000,$FFFF
             adrl  $3E8,$FFFF
 Filt5x1     dw    $0406,$0000,$FFFF
@@ -604,26 +639,32 @@ Filt8x1     dw    $0406,$0000,$FFFF
 Filt8x2     dw    $0406,$0000,$FFFF
             adrl  $3FD0,$10000
 Filt9x0     dw    $0406,$0000,$FFFF
-            adrl  $8,$10006
+            adrl  $28,$2565
 Filt9x1     dw    $0406,$0000,$FFFF
-            adrl  $8,$10006
+            adrl  $28,$2565
 Filt9x2     dw    $0406,$0000,$FFFF
-            adrl  $8,$10006
-Filt9x3     dw    $0406,$0000,$FFFF
-            adrl  $8,$10006
+            adrl  $28,$2565
 Filt10x0     dw    $0406,$0000,$FFFF
+            adrl  $8,$10006
+Filt10x1     dw    $0406,$0000,$FFFF
+            adrl  $8,$10006
+Filt10x2     dw    $0406,$0000,$FFFF
+            adrl  $8,$10006
+Filt10x3     dw    $0406,$0000,$FFFF
+            adrl  $8,$10006
+Filt11x0     dw    $0406,$0000,$FFFF
             adrl  $1800,$1B00
-Filt11x0     dw    $FFFF
-            da    FList11x0
-FList11x0   =     *
+Filt12x0     dw    $FFFF
+            da    FList12x0
+FList12x0   =     *
             dw    $04
             adrl  $0,$FFFF,$8,$FFFFFF
             dw    $06
             adrl  $0,$FFFF,$8,$FFFFFF
             dw    $FFFF
-Filt11x1     dw    $FFFF
-            da    FList11x1
-FList11x1   =     *
+Filt12x1     dw    $FFFF
+            da    FList12x1
+FList12x1   =     *
             dw    $04
             adrl  $0,$FFFF,$D,$FFFFFF
             dw    $06
@@ -631,29 +672,29 @@ FList11x1   =     *
             dw    $C0
             adrl  $8006,$8006,$D,$FFFFFF
             dw    $FFFF
-Filt11x2     dw    $FFFF
-            da    FList11x2
-FList11x2   =     *
+Filt12x2     dw    $FFFF
+            da    FList12x2
+FList12x2   =     *
             dw    $04
             adrl  $0,$FFFF,$8,$FFFFFF
             dw    $06
             adrl  $0,$FFFF,$8,$FFFFFF
             dw    $FFFF
-Filt11x3     dw    $0406,$0000,$FFFF
+Filt12x3     dw    $0406,$0000,$FFFF
             adrl  $2,$61A8
-Filt11x4     dw    $0406,$0000,$FFFF
+Filt12x4     dw    $0406,$0000,$FFFF
             adrl  $10000,$10200
-Filt11x5     dw    $0406,$0000,$FFFF
+Filt12x5     dw    $0406,$0000,$FFFF
             adrl  $40000,$40200
-Filt11x6     dw    $0000,$0000,$FFFF
+Filt12x6     dw    $0000,$0000,$FFFF
             adrl  $6,$FFFFFF
-Filt11x7     dw    $0406,$0000,$FFFF
+Filt12x7     dw    $0406,$0000,$FFFF
             adrl  $8,$FF0000
-Filt11x8     dw    $0406,$0000,$FFFF
+Filt12x8     dw    $0406,$0000,$FFFF
             adrl  $12,$FF0000
-Filt12x0     dw    $FFFE,$0000,$0000
+Filt13x0     dw    $FFFE,$0000,$0000
             adrl  $0,$0
-Filt12x1     dw    $FFFD,$0000,$0000
+Filt13x1     dw    $FFFD,$0000,$0000
             adrl  $0,$0
 * The icons (SuperConvert's), by number; 8: the chosen type's open folder.
 ListIcons   da    ListIcon0,ListIcon1,ListIcon2,ListIcon3,ListIcon4,ListIcon5,ListIcon6,ListIcon7,ListIcon8

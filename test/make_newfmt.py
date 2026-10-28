@@ -12,12 +12,19 @@ out = os.path.join(sys.argv[1], "newfmt")
 os.makedirs(out, exist_ok=True)
 types, listing = [], []
 
-def save(name, data, fid, pixels, w, h, ftype="060000"):
+def save(name, data, fid, pixels, w, h, ftype="060000", auto=None):
+    """A test file, what it must load as, and (auto) the format Open must take it for, if
+    another than fid."""
     open(os.path.join(out, name), "wb").write(data)
     open(os.path.join(out, name + ".exp"), "wb").write(struct.pack("<HH", w, h) +
         bytes(c for row in pixels for p in row for c in p))
     types.append((name, ftype))
-    listing.append((name, fid))
+    listing.append((name, fid) + ((auto,) if auto else ()))
+
+def companion(name, data, ftype="060000"):
+    """A file that goes on the disk beside a test file (a CPC screen's .PAL)."""
+    open(os.path.join(out, name), "wb").write(data)
+    types.append((name, ftype))
 
 def scene(w, h):
     """Colours that change across and down, with some flat areas for runs."""
@@ -471,9 +478,121 @@ for mode, name, head in ((0, "CPC0.SCR", False), (1, "CPC1.SCR", True), (2, "CPC
         rows.append(row)
     save(name, amsdos(bytes(cpc)) if head else bytes(cpc), "cpc%d" % mode, rows, 640 if mode == 2 else 320, 200)
 
+
+# ---- Amstrad CPC: with a .PAL file beside it, and packed by OCP Art Studio ----
+CPCHW = [0x888, 0x888, 0x0F8, 0xFF8, 0x008, 0xF08, 0x088, 0xF88, 0xF08, 0xFF8, 0xFF0, 0xFFF, 0xF00, 0xF0F,
+         0xF80, 0xF8F, 0x008, 0x0F8, 0x0F0, 0x0FF, 0x000, 0x00F, 0x080, 0x08F, 0x808, 0x8F8, 0x8F0, 0x8FF,
+         0x800, 0x80F, 0x880, 0x88F]
+def cpc_pal(mode, inks):
+    """OCP Art Studio's .PAL: mode, animation off, delay, 16 inks x 12 frames, border, 32 more."""
+    d = bytearray([mode, 0, 0])
+    for i in range(16): d += bytes([0x40 | inks[i]]) * 12
+    return bytes(d + bytes([0x54]) * 12 + bytes(32))
+def cpc_rows(scr, mode, colours):
+    rows = []
+    for y in range(200):
+        row = []
+        for xb in range(80):
+            b = scr[line(y) + xb]
+            if mode == 0:
+                for sh in (0, 1):
+                    v = b << sh & 255
+                    i = (v >> 7 & 1) | (v >> 3 & 1) << 1 | (v >> 5 & 1) << 2 | (v >> 1 & 1) << 3
+                    row += [shr(colours[i])] * 2
+            else:
+                for k in range(4): row.append(shr(colours[(b >> (7 - k) & 1) | (b >> (3 - k) & 1) << 1]))
+        rows.append(row)
+    return rows
+inks = [(i * 7 + 3) % 32 for i in range(16)]
+save("CPCPAL.SCR", bytes(cpc), "cpc0", cpc_rows(cpc, 0, [CPCHW[k] for k in inks]), 320, 200, auto="cpc0")
+companion("CPCPAL.PAL", cpc_pal(0, inks))
+# packed: two blocks, runs (marker 1) and a literal 1 written as a run of one
+flat = bytearray(cpc)
+for i in range(0, 16384, 97): flat[i:i + 40] = bytes([flat[i]]) * 40
+flat[5] = 1
+def mjh(block):
+    o, i = bytearray(), 0
+    while i < len(block):
+        n = 1
+        while i + n < len(block) and n < 255 and block[i + n] == block[i]: n += 1
+        if n >= 4 or block[i] == 1:
+            o += bytes([1, n, block[i]]); i += n
+        else:
+            o.append(block[i]); i += 1
+    return b"MJH" + struct.pack("<H", len(block)) + bytes(o)
+packed = mjh(flat[:8192]) + mjh(flat[8192:])
+assert len(packed) < 16384
+inks1 = [26, 0, 6, 18] + [0] * 12
+save("CPCMJH.SCR", packed, "cpc1", cpc_rows(flat, 1, [CPCHW[k] for k in inks1[:4]]), 320, 200)
+companion("CPCMJH.PAL", cpc_pal(1, [k for k in inks1]))
+
+# ---- Atari 8-bit ----
+from make_atari8_pal import atari_shr
+mic = bytes((i * 29 + (i // 40) * 3) & 255 for i in range(7680))
+def mic_rows(regs):
+    cols = [atari_shr(r) for r in regs]
+    rows = []
+    for y in range(192):
+        row = []
+        for b in mic[y * 40:(y + 1) * 40]:
+            for k in range(4): row += [shr(cols[b >> (6 - 2 * k) & 3])] * 2
+        rows.append(row)
+    return rows
+regs = [0x00, 0x46, 0xC8, 0x1E]
+save("PIC.MIC", mic + bytes(regs), "mic", mic_rows(regs), 320, 192)
+save("GREY.MIC", mic, "mic", mic_rows([0x00, 0x04, 0x08, 0x0C]), 320, 192)
+save("PIC.GR8", mic, "gr8", [[shr(0xFFF if mic[y * 40 + x // 8] >> (7 - x % 8) & 1 else 0) for x in range(320)]
+                             for y in range(192)], 320, 192)
+save("PIC.GR9", mic, "gr9", [[shr(0x111 * (mic[y * 40 + x // 8] >> (4 if x % 8 < 4 else 0) & 15)) for x in range(320)]
+                             for y in range(192)], 320, 192)
+
+# ---- Commodore 64: FLI Graph and Amica Paint ----
+fli = bytearray(17409)
+fli[0:2] = b"\x00\x3c"
+fli[2:1002] = bytes((i * 5 + 1) & 15 for i in range(1000))
+for k in range(8): fli[0x402 + k * 1024:0x402 + k * 1024 + 1000] = bytes((i * 13 + k * 37) & 255 for i in range(1000))
+fli[0x2402:0x2402 + 8000] = bytes((i * 71 + (i >> 6)) & 255 for i in range(8000))
+rows = []
+for y in range(200):
+    row = []
+    for x in range(160):
+        if x < 12: row += [shr(C64PAL[0])] * 2; continue
+        cell = (y >> 3) * 40 + (x >> 2)
+        pair = fli[0x2402 + cell * 8 + (y & 7)] >> (6 - 2 * (x & 3)) & 3
+        scr = fli[0x402 + (y & 7) * 1024 + cell]
+        row += [shr(C64PAL[(0, scr >> 4, scr & 15, fli[2 + cell] & 15)[pair]])] * 2
+    rows.append(row)
+save("PIC.FLI", bytes(fli), "fli", rows, 320, 200)
+koala = bytearray(10001)
+koala[0:8000] = bytes(((i // 37) * 0x55) & 255 for i in range(8000))
+koala[8000:9000] = bytes((i // 9 * 7 + 0x12) & 255 for i in range(1000))
+koala[9000:10000] = bytes((i // 11) & 15 for i in range(1000))
+koala[10000] = 6
+koala[17] = 0xC2                       # (an escape byte in the data)
+def amica(d):
+    o, i = bytearray(b"\x00\x60"), 0
+    while i < len(d):
+        n = 1
+        while i + n < len(d) and n < 255 and d[i + n] == d[i]: n += 1
+        if n >= 4 or d[i] == 0xC2:
+            o += bytes([0xC2, n, d[i]]); i += n
+        else:
+            o.append(d[i]); i += 1
+    return bytes(o)
+rows = []
+for y in range(200):
+    row = []
+    for x in range(160):
+        cell = (y >> 3) * 40 + (x >> 2)
+        pair = koala[cell * 8 + (y & 7)] >> (6 - 2 * (x & 3)) & 3
+        scr = koala[8000 + cell]
+        row += [shr(C64PAL[(koala[10000] & 15, scr >> 4, scr & 15, koala[9000 + cell] & 15)[pair]])] * 2
+    rows.append(row)
+save("PIC.AMI", amica(koala), "amica", rows, 320, 200)
+
 # Named as a PICT, but a PPM: Open goes on to what it is.
 ppm_rows = scene(40, 30)
 save("NOTPICT.PCT", b"P6 40 30 255\n" + bytes(c for r in ppm_rows for p in r for c in p), "pnm", ppm_rows, 40, 30)
 
 open(os.path.join(sys.argv[1], "newfmt.types"), "w").write("".join(f"{n} {t}\n" for n, t in types))
-open(os.path.join(sys.argv[1], "newfmt.list"), "w").write("".join(f"{n} {f}\n" for n, f in listing))
+open(os.path.join(sys.argv[1], "newfmt.list"), "w").write("".join(" ".join(e) + "\n" for e in listing))
