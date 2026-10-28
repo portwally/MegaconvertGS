@@ -63,6 +63,8 @@
 *                        the window)
 *   BPARAM n v           battery RAM parameter n set to v (tests: the printer port's
 *                        handshaking off, as MAME's null modem gives none)
+*   PNGOPT l f text      the next PNG saved with the options window's choices: level
+*                        l (1-9), filter f (0 None, 1 Auto), text as comments
 *   HELP label           the help window at that page; HELPLOG logs the page shown
 *                        (its label, navigation labels, buttons, height)
 *   HEXOPT s|t|e         Hex data's options: s before each line, t between its bytes,
@@ -947,7 +949,23 @@ DoCommand   lda   #CmdBuf
             lda   #TxtOK
             jsr   LogC
             jmp   LogCR
-:notBP      lda   #CmdHelpLogTxt
+:notBP      lda   #CmdPngOptTxt
+            jsr   Match
+            bcs   :notPO
+            jsr   ParseArgs             ; PNGOPT l f text
+            tya
+            clc
+            adc   #CmdBuf
+            sta   dctl
+            lda   #^CmdBuf
+            sta   dctl+2
+            lda   Args
+            ldx   Args+2
+            jsl   PngSet
+            lda   #TxtOK
+            jsr   LogC
+            jmp   LogCR
+:notPO      lda   #CmdHelpLogTxt
             jsr   Match
             bcs   :notHLog
             lda   #HelpBuf              ; HELPLOG: the help page shown
@@ -1576,6 +1594,7 @@ CmdExamineTxt asc 'EXAMINE ',00
 CmdHexOptTxt asc 'HEXOPT ',00
 CmdWoaTxt   asc 'WOAPAGE ',00
 CmdBParamTxt asc 'BPARAM ',00
+CmdPngOptTxt asc 'PNGOPT ',00
 CmdHelpLogTxt asc 'HELPLOG',00
 CmdHelpTxt  asc 'HELP ',00
 HelpLab     ds    40

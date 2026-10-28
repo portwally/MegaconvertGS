@@ -678,6 +678,200 @@ IdDrawn     plb
             rtl
 
 *-------------------------------------------------------------
+* PNG save options
+*-------------------------------------------------------------
+
+* PngOpts: the PNG options window (SuperConvert's rWindParam1 2): the
+* compression level (a slider, "More speed" to "More compression"), the
+* filter (None or Auto) and comments. PngUse then says to follow them;
+* without the window (a test's save), the usual PNG (as GS Remap's),
+* unless PngSet gave them.
+*   out: carry set, A = errCancel, if cancelled
+PngOpts     lda   PngSetOn              ; (a test gave them)
+            beq   :dlg
+            stz   PngSetOn
+            lda   #1
+            sta   PngUse
+            clc
+            rts
+:dlg        stz   PngUse
+            lda   DlgOn
+            bne   :show
+            clc
+            rts
+:show       lda   #5                    ; level 6, filter None, no comments
+            sta   PgSVal                ; (nothing kept from the last time)
+            pha
+            pha
+            PushLong 0
+            PushLong 0
+            PushLong PgDraw
+            PushLong 0
+            pea   0
+            PushLong PgParms
+            pea   $800E
+            Tool  _NewWindow2
+            pla
+            sta   PgWin
+            pla
+            sta   PgWin+2
+            lda   PgSVal
+            sta   PgLast
+:loop       pha
+            pha
+            PushLong PgEvent
+            PushLong 0
+            PushLong 0
+            PushLong 0
+            pea   $0008
+            Tool  _DoModalWindow
+            pla
+            plx
+            cmp   #1
+            beq   :ok
+            cmp   #2
+            beq   :cancel
+            cmp   #6
+            bne   :loop
+            jsr   PgSlider
+            bra   :loop
+:cancel     jsr   :close
+            lda   #errCancel
+            sec
+            rts
+:ok         pha                         ; the level: the slider + 1
+            PushLongAt PgWin
+            PushLong 6
+            Tool  _GetCtlValueByID
+            pla
+            inc
+            sta   PngLevel
+            pha                         ; the filter: Auto on?
+            PushLongAt PgWin
+            PushLong 21
+            Tool  _GetCtlValueByID
+            pla
+            sta   PngFilter
+            pha                         ; the comments
+            pha
+            pea   $0005                 ; (a text block, by pointer)
+            PushLong PngTBuf
+            PushLong 2000
+            pea   0
+            PushLong 0
+            pha
+            pha
+            PushLongAt PgWin
+            PushLong 9
+            Tool  _GetCtlHandleFromID
+            Tool  _TEGetText
+            pla
+            plx
+            cmp   #2000
+            bcc   :len
+            lda   #2000
+:len        sta   PngTLen
+            jsr   :close
+            lda   #1
+            sta   PngUse
+            clc
+            rts
+:close      PushLongAt PgWin
+            Tool  _CloseWindow
+            rts
+
+* PgSlider: the slider clicked: dragged (a new value), or one step for
+* an arrow and two for its page parts (the part under the click),
+* within 0-8.
+PgSlider    pha
+            PushLongAt PgWin
+            PushLong 6
+            Tool  _GetCtlValueByID
+            pla
+            cmp   PgLast
+            bne   :set
+            pha                         ; the part clicked
+            PushLong PgWhich
+            lda   PgEvent+$0C
+            pha
+            lda   PgEvent+$0A
+            pha
+            PushLongAt PgWin
+            Tool  _FindControl
+            pla
+            ldx   #-1
+            cmp   #5
+            beq   :step
+            ldx   #1
+            cmp   #6
+            beq   :step
+            ldx   #-2
+            cmp   #7
+            beq   :step
+            ldx   #2
+            cmp   #8
+            beq   :step
+            rts
+:step       txa
+            clc
+            adc   PgLast
+            bpl   :lo
+            lda   #0
+:lo         cmp   #9
+            bcc   :set
+            lda   #8
+:set        sta   PgLast
+            pha
+            PushLongAt PgWin
+            PushLong 6
+            Tool  _SetCtlValueByID
+            rts
+
+* PgDraw: the window's contents: its controls, a line under the title.
+PgDraw      phb
+            phk
+            plb
+            pha
+            pha
+            Tool  _GetPort
+            Tool  _DrawControls
+            Tool  _PenNormal
+            pea   12
+            pea   14
+            Tool  _MoveTo
+            pea   292
+            pea   14
+            Tool  _LineTo
+            plb
+            rtl
+
+* PngSet: for tests: the next PNG saved with level A, filter X (0 None,
+* 1 Auto) and the C string at dctl as comments, without the window.
+PngSet      ent
+            phb
+            phk
+            plb
+            sta   PngLevel
+            stx   PngFilter
+            ldy   #0
+:c          lda   [dctl],y
+            and   #$00FF
+            beq   :e
+            sep   #$20
+            mx    %10
+            sta   PngTBuf,y
+            rep   #$20
+            mx    %00
+            iny
+            cpy   #2000
+            bcc   :c
+:e          sty   PngTLen
+            lda   #1
+            sta   PngSetOn
+            plb
+            rtl
+
+*-------------------------------------------------------------
 * Desktop background image INIT ($B7)
 *-------------------------------------------------------------
 
@@ -1057,3 +1251,138 @@ TxId17      str   'Auxilliary type is:'
 TxId18      str   'Filename is:'
 TxId19      str   'Run the program:'
 TxIdNone    db    0
+PngUse      dw    0                     ; the window's choices (or PngSet's)
+PngSetOn    dw    0
+PngLevel    dw    6
+PngFilter   dw    0
+PngTLen     dw    0
+PngTBuf     ds    2002
+PgWin       adrl  0
+PgLast      dw    0
+PgWhich     adrl  0
+PgEvent     dw    0
+            adrl  0,0
+            dw    0,0,0
+            adrl  0
+            adrl  $001FFFFF
+            adrl  0
+            dw    0
+            adrl  0,0,0
+            ds    16
+* The window (SuperConvert's rWindParam1 2): content 29,166,184,472
+PgParms     dw    $50,$2020
+            adrl  0,0
+            dw    0,0,0,0
+            adrl  0
+            dw    0,0,0,0,0,0,0,0,0,0
+            adrl  0
+            dw    0
+            adrl  0,0,0
+            dw    29,166,184,472
+            adrl  $FFFFFFFF
+            adrl  PgCtls
+            dw    $0003
+PgCtls      adrl  PgTitle,PgSpeed,PgComp,PgBar,PgNone,PgAuto,PgComLab,PgTE
+            adrl  PgCancel,PgOK,0
+PgTitle     dw    9
+            adrl  3
+            dw    4,12,14,284
+            adrl  $81000000
+            dw    0,$1000
+            adrl  0
+            adrl  TxPgTitle
+            dw    16,0
+PgSpeed     dw    9
+            adrl  7
+            dw    21,12,31,91
+            adrl  $81000000
+            dw    0,$1000
+            adrl  0
+            adrl  TxPgSpeed
+            dw    10,0
+PgComp      dw    9
+            adrl  8
+            dw    21,172,31,297
+            adrl  $81000000
+            dw    0,$1000
+            adrl  0
+            adrl  TxPgComp
+            dw    16,0
+PgBar       dw    9                     ; the level: 0-8 (+ 1)
+            adrl  6
+            dw    31,13,42,295
+            adrl  $86000000
+            dw    $001C,$1000
+            adrl  0
+            dw    9,1
+PgSVal      dw    5
+PgNone      dw    8                     ; the filter: None or Auto (as two
+            adrl  20                    ; buttons, where SuperConvert has a
+            dw    44,12,0,0             ; pop-up menu)
+            adrl  $84000000
+            dw    1,$1000
+            adrl  0
+            adrl  TxPgNone
+            dw    1
+PgAuto      dw    8
+            adrl  21
+            dw    44,150,0,0
+            adrl  $84000000
+            dw    1,$1000
+            adrl  0
+            adrl  TxPgAuto
+            dw    0
+PgComLab    dw    9
+            adrl  10
+            dw    59,12,69,88
+            adrl  $81000000
+            dw    0,$1000
+            adrl  0
+            adrl  TxPgCom
+            dw    9,0
+PgTE        dw    17                    ; the comments (TextEdit)
+            adrl  9
+            dw    68,11,126,294
+            adrl  $85000000
+            dw    0,$7400
+            adrl  0
+            adrl  $03800000
+            dw    $FFFF,$FFFF,$FFFF,$FFFF
+            adrl  $FFFFFFFF
+            dw    0
+            adrl  0
+            dw    0
+            adrl  0
+            dw    $0004
+            adrl  PgTEText
+            adrl  0
+            adrl  2000
+PgTEText    db    0
+PgCancel    dw    9
+            adrl  2
+            dw    137,130,150,207
+            adrl  $80000000
+            dw    0,$3000
+            adrl  0
+            adrl  TxPgCancel
+            adrl  0
+            db    $1B,$1B
+            dw    0,0
+PgOK        dw    9
+            adrl  1
+            dw    137,219,150,290
+            adrl  $80000000
+            dw    $0001,$3000
+            adrl  0
+            adrl  TxPgOK
+            adrl  0
+            db    $0D,$0D
+            dw    0,0
+TxPgTitle   asc   'PNG save options'
+TxPgSpeed   asc   'More speed'
+TxPgComp    asc   'More compression'
+TxPgCom     asc   'Comments:'
+TxPgNone    str   'Filter: None'
+TxPgAuto    str   'Auto'
+TxPgCancel  str   'Cancel'
+TxPgOK      str   'OK'

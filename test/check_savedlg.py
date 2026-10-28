@@ -69,4 +69,39 @@ else:
            None if (n1, t1, a1) == ("S640.C1", 0xC1, 0) and p1.endswith(":System:Finder") else repr((p1, n1, t1, a1)))
     report("Finder icon without the dialog: any file, no program, same icons",
            None if (p0, n0, t0, a0) == ("", "*", 0, 0) and icons0 == icons1 else repr((p0, n0, t0, a0)))
+import zlib, struct
+def png(d):
+    if d is None or d[:8] != b"\x89PNG\r\n\x1a\n": return None
+    i, chunks = 8, []
+    while i < len(d):
+        n = struct.unpack(">I", d[i:i + 4])[0]
+        chunks.append((d[i + 4:i + 8], d[i + 8:i + 8 + n])); i += 12 + n
+    hdr = dict(chunks)[b"IHDR"]
+    w, h = struct.unpack(">II", hdr[:8])
+    try: raw = zlib.decompress(b"".join(c for t, c in chunks if t == b"IDAT"))
+    except zlib.error: return None
+    rows, prev, filters = [], bytes(w), []
+    for y in range(h):
+        f, line = raw[y * (w + 1)], bytearray(raw[y * (w + 1) + 1:(y + 1) * (w + 1)])
+        filters.append(f)
+        if f == 2: line = bytearray((a + b) & 255 for a, b in zip(line, prev))
+        elif f != 0: return None
+        rows.append(bytes(line)); prev = rows[-1]
+    return rows, filters, [c for t, c in chunks if t == b"tEXt"], dict(chunks)[b"PLTE"]
+base = png(result("PNGDEF"))
+for name, label, want_f, want_t, same in (
+        ("PNGOPT9", "PNG level 9, filter None, comments", {0}, [b"Comment\x00Made by MegaconvertGS"], False),
+        ("PNGOPT1", "PNG level 1, filter Auto: as without options", None, [], True),
+        ("PNGWIN", "PNG through its options window (OK): level 6, None", {0}, [], False)):
+    d = result(name)
+    p = png(d)
+    if base is None or p is None:
+        report(label, "no file or not readable"); continue
+    prob = None
+    if (p[0], p[3]) != (base[0], base[3]): prob = "pixels differ"
+    elif want_f is not None and set(p[1]) != want_f: prob = f"filters {sorted(set(p[1]))}"
+    elif p[2] != want_t: prob = f"tEXt {p[2]!r}"
+    elif same and d != result("PNGDEF"): prob = "bytes differ"
+    elif not same and len(d) >= len(result("PNGDEF")) and name != "PNGWIN": prob = f"{len(d)} bytes, not smaller"
+    report(label, prob)
 sys.exit(0 if ok else 1)

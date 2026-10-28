@@ -440,6 +440,7 @@ _GetFileInfoGS      =     $2006
 _SFShowInvisible    =     $1217
 _SetCtlAction       =     $2010
 _GetCtlValue        =     $1A10
+_FindControl        =     $1310
 _SetCtlValue        =     $1910
 _GetCtlID           =     $2A10
 _GetCtlHandleFromID =     $3010

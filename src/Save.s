@@ -1015,7 +1015,10 @@ Times17     sta   t0
 * PNG: 8-bit palette picture; zlib data in one fixed-code block,
 * each line filtered None (the doubled ones Up), runs as copies
 *-------------------------------------------------------------
-SavePNG     jsr   Shown
+SavePNG     jsr   PngOpts               ; (the options window: its choices)
+            bcc   :go
+            rts
+:go         jsr   Shown
             jsr   CrcTable
             lda   OW                    ; room: (OW + 1) * OH * 9 / 8 + 2048
             inc
@@ -1094,9 +1097,15 @@ SavePNG     jsr   Shown
             cmp   NCol
             bcc   :p
             jsr   ChunkEnd
+            jsr   PngText               ; the comments (tEXt)
             lda   #0                    ; IDAT: its length filled in afterwards
             jsr   ChunkStartIDAT
-            jsr   Deflate
+            lda   PngUse
+            beq   :std
+            jsr   DeflateM              ; (the options window's choices)
+            bra   :idat
+:std        jsr   Deflate
+:idat
             lda   outl                  ; its length, now known
             sec
             sbc   DataAt
@@ -1247,6 +1256,224 @@ Deflate     lda   #$78                  ; zlib: deflate, 32K window; no dictiona
             lda   AdA
             jsr   PutWBC
             rts
+
+* DeflateM: as Deflate, with the PNG options window's choices: filter
+* None on every line (PngFilter 0) or Up for the repeated ones (1, Auto);
+* from level 6, matches against the line above too (copies from a line
+* back).
+DeflateM    lda   #$78                  ; zlib header, block header (as Deflate)
+            jsr   CPut
+            lda   #$01
+            jsr   CPut
+            lda   #1
+            sta   AdA
+            stz   AdB
+            stz   BitBuf
+            stz   BitCnt
+            stz   RunLen
+            lda   #1
+            ldx   #1
+            jsr   Bits
+            lda   #1
+            ldx   #2
+            jsr   Bits
+            stz   LineNo
+            stz   HavePrev
+            lda   OW                    ; a line: its filter byte and pixels
+            inc
+            sta   RowLen
+:line       lda   LineNo
+            and   #$0001
+            beq   :new
+            lda   PngFilter             ; a repeated line: as it is (None),
+            beq   :code                 ; or Up and zeros (Auto)
+            ldx   #0
+            lda   #2
+:z          sep   #$20
+            mx    %10
+            sta   CurRaw,x
+            rep   #$20
+            mx    %00
+            lda   #0
+            inx
+            cpx   RowLen
+            bcc   :z
+            bra   :code
+:new        lda   LineNo
+            jsr   ShownRow
+            sep   #$20
+            mx    %10
+            stz   CurRaw
+            ldx   #0
+:c          lda   ShowLine,x
+            sta   CurRaw+1,x
+            inx
+            cpx   OW
+            bcc   :c
+            rep   #$20
+            mx    %00
+:code       jsr   RowOut
+            ldx   #0                    ; (the line above, for the next)
+:p          lda   CurRaw,x
+            sta   PrevRaw,x
+            inx
+            inx
+            cpx   RowLen
+            bcc   :p
+            lda   #1
+            sta   HavePrev
+            inc   LineNo
+            lda   LineNo
+            cmp   OH
+            bcc   :line
+            jsr   Flush                 ; the end (as Deflate)
+            lda   #256
+            jsr   Sym
+            lda   BitCnt
+            beq   :adler
+            lda   BitBuf
+            jsr   CPut
+:adler      lda   AdB
+            jsr   PutWBC
+            lda   AdA
+            jmp   PutWBC
+
+* RowOut: line CurRaw coded: from level 6 a copy where 3 or more bytes
+* are as in the line above, else bytes (and runs) as Deflate codes them.
+RowOut      stz   RI
+:b          lda   RI
+            cmp   RowLen
+            bcc   :more
+            rts
+:more       lda   HavePrev
+            beq   :lit
+            lda   PngLevel
+            cmp   #6
+            bcc   :lit
+            ldx   RI                    ; how many as above
+            ldy   #0
+:m          cpx   RowLen
+            bcs   :mend
+            cpy   #258
+            bcs   :mend
+            lda   CurRaw,x
+            eor   PrevRaw,x
+            and   #$00FF
+            bne   :mend
+            inx
+            iny
+            bra   :m
+:mend       cpy   #3
+            bcc   :lit
+            sty   MatchN
+            jsr   Flush                 ; (the run waiting first; it uses CopyN)
+            lda   MatchN
+            sta   CopyN
+            ldx   RI                    ; (the bytes in the checksum)
+            ldy   CopyN
+:ad         lda   CurRaw,x
+            and   #$00FF
+            sta   t2
+            jsr   Adler
+            inx
+            dey
+            bne   :ad
+            lda   RowLen
+            sta   CopyDist
+            jsr   CopyD
+            lda   RI
+            clc
+            adc   CopyN
+            sta   RI
+            bra   :b
+:lit        ldx   RI
+            lda   CurRaw,x
+            and   #$00FF
+            jsr   Raw
+            inc   RI
+            jmp   :b
+
+* CopyD: a copy of CopyN bytes (3-258) from CopyDist back.
+CopyD       ldx   #0                    ; its length code and extra bits
+:find       lda   LenBase+2,x
+            cmp   CopyN
+            beq   :next
+            bcs   :got
+:next       inx
+            inx
+            cpx   #56
+            bcc   :find
+:got        lda   CopyN
+            sec
+            sbc   LenBase,x
+            sta   CopyX
+            txa
+            lsr
+            clc
+            adc   #257
+            phx
+            jsr   Sym
+            plx
+            lda   LenExt,x
+            tax
+            lda   CopyX
+            jsr   Bits
+            ldx   #0                    ; its distance code and extra bits
+:df         lda   DistBase+2,x
+            cmp   CopyDist
+            beq   :dn
+            bcs   :dg
+:dn         inx
+            inx
+            cpx   #58
+            bcc   :df
+:dg         lda   CopyDist
+            sec
+            sbc   DistBase,x
+            sta   CopyX
+            phx
+            txa
+            lsr
+            ldx   #5
+            jsr   BitsRev
+            plx
+            lda   DistExt,x
+            tax
+            lda   CopyX
+            jmp   Bits
+
+DistBase    dw    1,2,3,4,5,7,9,13,17,25,33,49,65,97,129,193,257,385,513,769
+            dw    1025,1537,2049,3073,4097,6145,8193,12289,16385,24577,32769
+DistExt     dw    0,0,0,0,1,1,2,2,3,3,4,4,5,5,6,6,7,7,8,8,9,9,10,10,11,11,12,12,13,13
+
+* PngText: the comments as a tEXt chunk ("Comment", a zero, the text),
+* if there are any.
+PngText     lda   PngUse
+            beq   :out
+            lda   PngTLen
+            beq   :out
+            clc
+            adc   #8
+            ldx   #TextTag
+            jsr   ChunkStart
+            ldx   #0
+:k          lda   TxComment,x
+            and   #$00FF
+            jsr   CPut
+            inx
+            cpx   #8
+            bcc   :k
+            ldx   #0
+:t          lda   PngTBuf,x
+            and   #$00FF
+            jsr   CPut
+            inx
+            cpx   PngTLen
+            bcc   :t
+            jsr   ChunkEnd
+:out        rts
+TextTag     asc   'tEXt'
+TxComment   asc   'Comment',00
 
 PutWBC      pha
             xba
@@ -2192,6 +2419,13 @@ PalR        ds    512
 PalG        ds    512
 PalB        ds    512
 ShowLine    ds    1284
+CurRaw      ds    1286                  ; PNG lines (DeflateM): this one,
+PrevRaw     ds    1286                  ; the one above
+RowLen      dw    0
+RI          dw    0
+HavePrev    dw    0
+CopyDist    dw    0
+MatchN      dw    0
 CrcLo       ds    1024                  ; (low and high words, 4 bytes apart)
 CrcHi       =     CrcLo+2
 CIdx        ds    8192

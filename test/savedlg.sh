@@ -13,6 +13,6 @@ cd "$(dirname "$0")/.."
 cp System604.img build/vol.po                          # (cadius goes by the extension)
 VOL=$(cadius CATALOG build/vol.po | awk '/^\//{print $1; exit}' | tr / :); rm -f build/vol.po
 sed "s/:VOL:/$VOL/g" test/savedlg.test > build/savedlg.test
-KEYS=$(python3 -I -c "print(','.join(f'{t}:return' for t in range(50, 600, 4)))")
-COMMANDS=build/savedlg.test KEYS="$KEYS" RUN_SECONDS=600 DUMP_EVERY=100 ./test/run.sh > /dev/null
+KEYS=$(python3 -I -c "print(','.join(f'{t}:return' for t in range(50, 900, 4)))")
+COMMANDS=build/savedlg.test KEYS="$KEYS" RUN_SECONDS=900 DUMP_EVERY=100 ./test/run.sh > /dev/null
 python3 -I test/check_savedlg.py
