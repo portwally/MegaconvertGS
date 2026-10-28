@@ -5,9 +5,9 @@
 An image converter for the Apple IIgs, written from scratch in 65816 assembly for GS/OS.
 It opens pictures from the Apple II and IIgs, the Atari ST, the Amiga, the Commodore 64,
 the Macintosh, the PC, Unix machines, the Amstrad CPC, the Atari 8-bit, the MSX, the ZX
-Spectrum and today's computers (PNG, JPEG, GIF, BMP, TIFF),
-remaps them to Super Hi-Res in 320 or 640 mode or with a palette for every line, and
-saves them in IIgs and modern formats.
+Spectrum and today's computers (PNG, JPEG, GIF, BMP, TIFF), remaps them to Super Hi-Res
+in 320 or 640 mode or with a palette for every line, and saves them in IIgs and modern
+formats.
 
 MegaconvertGS is a successor to SuperConvert, the IIgs image converter by Jason Harper
 and Ian Brumby, and follows its windows, menus and conversions. Where GS Remap (a modern
