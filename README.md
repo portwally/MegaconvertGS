@@ -113,6 +113,9 @@ IIgs's 2.8 MHz:
 | Monochrome image back to a screen | 75.3 s | 19.8 s | 3.8x |
 | Histogram equalization | 12.9 s | 10.6 s | 1.2x |
 | More or less contrast | 7.8 s | 5.4 s | 1.4x |
+| Median filter | 30.3 s | 18.4 s | 1.6x |
+| Blur | 19.6 s | 13.9 s | 1.4x |
+| Sigma filter | 16.0 s | 10.1 s | 1.6x |
 
 How it was done: [docs/speed-plan.md](docs/speed-plan.md).
 

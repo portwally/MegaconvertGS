@@ -670,17 +670,36 @@ saved file and monochrome result still matches GS Remap's (the save and mono sui
 
 **The true colour filters** (same image; every result still matches, the filters suite):
 equalize 12.9 -> 10.6 s and more or less contrast 7.8 -> 5.4 s, from applying their maps
-three channels at a time in 8 bits with the map's bank set once a row. The 3 x 3 filters
-are unchanged: median 30.3, blur and sharpen about 20, sigma 16, emboss 14, find edges
-12 s.
+three channels at a time in 8 bits with the map's bank set once a row.
 
-Tried and dropped: the median from sorted columns of three (the largest of the smallest,
-the middle of the middles, the smallest of the largest), reusing each column's sort as
-the window moves: in 8 bits the 19 compare-and-swaps are cheap, and it came out slower. Column sums
-kept in a ring of six for blur, sharpen, sigma and find edges (each byte adding only the
-new column) came out slower too: the calls and the ring cost more than the loads saved.
-Faster 3 x 3 filters would want each row worked as a whole, with column sums in a buffer
-of their own.
+**The 3 x 3 filters** (same image; every result still matches GS Remap's byte for byte,
+the filters suite):
+
+| Filter | Before | Now |
+|---|---:|---:|
+| Median | 30.3 | 18.4 |
+| Sigma | 16.0 | 10.1 |
+| Blur | 19.6 | 13.9 |
+| Sharpen | 19.9 | 14.1 |
+| Find edges | 12.1 | 10.2 |
+| Emboss | 14.0 | 12.4 |
+
+- **A row at a time:** each filter works a whole row in its own loop instead of a routine
+  called for every byte through a table; the loops read and write through `ldal`/`stal`
+  (absolute long, indexed), their addresses put into the instructions at the start of
+  each row (`PutAddr`).
+- **Column values once a row:** blur and sharpen take the 1-2-1 square as two 1-2-1 passes
+  (the column sums above + 2 x here + below, then sum i + 2 x sum i + 3 + sum i + 6), the
+  middle's weight table taking 4 less (blur) or 4 more (sharpen); sigma sums columns of
+  three, find edges columns of above + below. Each output byte then reads three column
+  values instead of eight or nine bytes. The same sums in another order, so the same
+  results.
+- **The median from sorted columns:** each column of three sorted once a row (low, middle,
+  high in buffers of their own); a byte's median is the middle of the largest low, the
+  middle of the middles and the smallest high, an exact identity for nine values. (Tried
+  before as a ring reused along the row, it came out slower; worked a row at a time, with
+  the two medians of three inline, it is 1.65 times faster.)
+- **Emboss** keeps its six loads, in a tight loop.
 
 ### The image window
 

@@ -9,6 +9,7 @@
 *       0 1 2
 *       3 4 5
 *       6 7 8
+* (n0-n8 in the comments below)
 * In: tp, tstride, rw, rh (the picture), uid. Rotate/flip with a
 * turn makes a new picture: fhnd is then its handle, tp its pointer.
 *-------------------------------------------------------------
@@ -17,21 +18,14 @@
             use   macros/Macs.s
             put   Equates.s
 
-N0          =     $D0                   ; the neighbours: N0-N2 the row above,
-N1          =     $D4                   ; N3-N5 this row, N6-N8 the row below,
-N2          =     $D8                   ; each pointing at the pixel to the
-N3          =     $DC                   ; left, this one and the one to the
-N4          =     $E0                   ; right (longs; Y = the byte)
-N5          =     $E4
-N6          =     $E8
-N7          =     $EC
-N8          =     $F0
+ColP        =     $D0                   ; the column values (long)
+HcP         =     $D4                   ; the middle of the row here (long)
 OutR        =     $F4                   ; the picture row being written
 fs          =     $F8                   ; work words (fs, ft also a pointer)
 ft          =     $FA
 fu          =     $FC
 fk          =     $FE
-V0          =     $5A                   ; the median's nine values (bytes)
+V0          =     $5A                   ; the median's work bytes (V0-V0+4)
 RowP        =     q0                    ; a picture row (long)
 MapP        =     q1                    ; the 64K table (long)
 DstP        =     q2                    ; where a copy goes (long)
@@ -101,6 +95,13 @@ Blur        lda   #100
             sta   Weight
             clc
             adc   #12
+            pha                         ; (the divisor)
+            lda   Weight                ; the table: Weight - 4 (the 1-2-1
+            sec                         ; square counts the middle 4 times)
+            sbc   #4
+            sta   Weight
+            stz   SharpNeg
+            pla
             jsr   Weights
             ldx   #6
             jmp   Around
@@ -116,6 +117,14 @@ Sharpen     lda   #100
             sta   Weight
             sec
             sbc   #12
+            pha                         ; (the divisor)
+            lda   Weight                ; the table: Weight + 4, less the
+            clc                         ; 1-2-1 square
+            adc   #4
+            sta   Weight
+            lda   #$8000
+            sta   SharpNeg
+            pla
             jsr   Weights
             ldx   #8
             jmp   Around
@@ -220,11 +229,10 @@ Edges       lda   #130
 :done       ldx   #10
             jmp   Around
 
-* Around: runs body X (Bodies) for every byte of the picture with its
-* neighbours set (N0-N8, Y = the byte), and puts its result (A, 0-255)
-* in the byte's place. Each row is first copied to a buffer with its
-* first and last pixels repeated at the ends, so the bodies see the
-* picture as it was.
+* Around: runs row X (Rows) for every row of the picture, which writes
+* each byte's new value from its 3 x 3 neighbours. Each row is first
+* copied to a buffer with its first and last pixels repeated at the ends,
+* so the rows see the picture as it was.
 *   out: carry clear, or carry set and A = error
 Around      stx   BodyX
             lda   tstride
@@ -259,30 +267,12 @@ Around      stx   BodyX
             sta   Bufs+8
             lda   Bufs+6
             sta   Bufs+10
-:set        ldy   #0                    ; N0-N2: the row above
-            ldx   #N0
-            jsr   SetN
-            ldy   #4
-            ldx   #N3
-            jsr   SetN
-            ldy   #8
-            ldx   #N6
-            jsr   SetN
-            lda   RowP
+:set        lda   RowP
             sta   OutR
             lda   RowP+2
             sta   OutR+2
-            ldy   #0
-:byte       ldx   BodyX
-            jsr   (Bodies,x)
-            sep   #$20
-            mx    %10
-            sta   [OutR],y
-            rep   #$20
-            mx    %00
-            iny
-            cpy   RowLen
-            bcc   :byte
+            ldx   BodyX                 ; the row
+            jsr   (Rows,x)
             lda   Bufs                  ; rotate: above <- here <- below
             ldx   Bufs+4
             stx   Bufs
@@ -313,23 +303,7 @@ Around      stx   BodyX
 :stop       jsr   FreeBufs
             clc
             rts
-Bodies      da    BMedian,BEmboss,BSigma,BBlur,BSharpen,BEdges
-
-* SetN: the three neighbour pointers at X (on the direct page) for the
-* buffer whose pointer is at Bufs+Y: the buffer + 0, + 3 and + 6.
-SetN        lda   Bufs,y
-            sta   0,x
-            clc
-            adc   #3
-            sta   4,x
-            clc
-            adc   #3
-            sta   8,x
-            lda   Bufs+2,y
-            sta   2,x
-            sta   6,x
-            sta   10,x
-            rts
+Rows        da    RMedian,REmboss,RSigma,RBlur,RSharpen,REdges
 
 * CopyRow: the row at RowP into buffer X (Bufs+X). CopyFrom: the row
 * at SrcP. The row goes from the buffer's 4th byte, with its first
@@ -394,16 +368,18 @@ CopyFrom    lda   Bufs,x
             mx    %00
             rts
 
-* NewBufs: three buffers of RowLen + 6 bytes (Bufs: their pointers,
-* BufHs: their handles).   out: carry set and A = error if no memory
+* NewBufs: six buffers of 2 x RowLen + 16 bytes (Bufs: their pointers,
+* BufHs: their handles): the rows above, here and below, and three for
+* the column values (words).   out: carry set and A = error if no memory
 NewBufs     ldx   #0
 :one        stx   fk
             pha                         ; result: handle
             pha
             pea   0
             lda   RowLen
+            asl
             clc
-            adc   #6
+            adc   #16
             pha
             lda   uid
             pha
@@ -429,7 +405,7 @@ NewBufs     ldx   #0
             inx
             inx
             inx
-            cpx   #12
+            cpx   #24
             bcc   :one
             clc
             rts
@@ -440,7 +416,7 @@ NewBufs     ldx   #0
             rts
 
 * FreeBufs: disposes of the buffers made.
-FreeBufs    ldx   #8
+FreeBufs    ldx   #20
 :one        lda   BufHs,x
             ora   BufHs+2,x
             beq   :none
@@ -461,210 +437,607 @@ FreeBufs    ldx   #8
             rts
 
 *-------------------------------------------------------------
-* The bodies: Y = the byte; out: A = its new value (0-255). X may
-* change; Y must not.
+* The rows: each 3 x 3 filter works a whole row at a time. Around keeps
+* the rows above, here and below in buffers 0-2 (Bufs, Bufs+4, Bufs+8),
+* each with its first and last pixels repeated, so the neighbours of
+* byte i are at i, i + 3 and i + 6; OutR is the picture row. The loops
+* read and write through ldal/stal (absolute long, indexed), their
+* addresses put in at the start of each row (PutAddr), and keep column
+* values in buffers 3-5 (ColP: the first, as words).
 *-------------------------------------------------------------
 
-* BMedian: the middle of the nine values (19 compare-and-swaps).
-BMedian     sep   #$20
+* PutAddr: the operand at X = the long address fs, fu + A.
+PutAddr     clc
+            adc   fs
+            sta   |0,x
+            lda   fu
+            adc   #0
+            sep   #$20
             mx    %10
-            lda   [N0],y
-            sta   V0
-            lda   [N1],y
-            sta   V0+1
-            lda   [N2],y
-            sta   V0+2
-            lda   [N3],y
-            sta   V0+3
-            lda   [N4],y
-            sta   V0+4
-            lda   [N5],y
-            sta   V0+5
-            lda   [N6],y
-            sta   V0+6
-            lda   [N7],y
-            sta   V0+7
-            lda   [N8],y
-            sta   V0+8
-            put   FilterMed.s
-            lda   V0+4
+            sta   |2,x
             rep   #$20
             mx    %00
-            and   #$00FF
             rts
 
-* BEmboss: 128 + 2 (n5 + n7 - n1 - n3) + n8 - n0.
-BEmboss     clc
-            lda   [N5],y
-            and   #$00FF
+* From: fs, fu = the long pointer at Bufs + A (0 above, 4 here, 8 below,
+* 12, 16, 20 the column buffers); OutAt: fs, fu = OutR.
+From        tax
+            lda   Bufs,x
             sta   fs
-            lda   [N7],y
-            and   #$00FF
-            adc   fs
+            lda   Bufs+2,x
+            sta   fu
+            rts
+OutAt       lda   OutR
             sta   fs
-            lda   [N1],y
+            lda   OutR+2
+            sta   fu
+            rts
+
+* ColStart: ColP = buffer 3, fk = the places in a row buffer (RowLen + 6),
+* HcP = the middle of the row here (its buffer + 3).
+ColStart    lda   Bufs+12
+            sta   ColP
+            lda   Bufs+14
+            sta   ColP+2
+            lda   Bufs+4
+            clc
+            adc   #3
+            sta   HcP
+            lda   Bufs+6
+            adc   #0
+            sta   HcP+2
+            lda   RowLen
+            clc
+            adc   #6
+            sta   fk
+            rts
+
+* Column sums, each place of the row buffers into ColP (words).
+* Sums2: above + 2 x here + below (blur, sharpen).
+Sums2       lda   #0                    ; (the operands: above, below, here)
+            jsr   From
+            ldx   #:a+1
+            lda   #0
+            jsr   PutAddr
+            lda   #8
+            jsr   From
+            ldx   #:b+1
+            lda   #0
+            jsr   PutAddr
+            lda   #4
+            jsr   From
+            ldx   #:h+1
+            lda   #0
+            jsr   PutAddr
+            jsr   ColStart
+            ldx   #0
+            ldy   #0
+:l          =     *
+:h          ldal  $000000,x
             and   #$00FF
+            asl
             sta   ft
-            lda   [N3],y
+:a          ldal  $000000,x
             and   #$00FF
+            clc
             adc   ft
             sta   ft
-            lda   fs
-            sec
-            sbc   ft
-            asl
-            clc
-            adc   #128
-            sta   fs
-            lda   [N8],y
+:b          ldal  $000000,x
             and   #$00FF
             clc
-            adc   fs
-            sta   fs
-            lda   [N0],y
+            adc   ft
+            sta   [ColP],y
+            iny
+            iny
+            inx
+            cpx   fk
+            bcc   :l
+            rts
+* Sums1: above + here + below (sigma).
+Sums1       lda   #0                    ; (the operands: above, below, here)
+            jsr   From
+            ldx   #:a+1
+            lda   #0
+            jsr   PutAddr
+            lda   #8
+            jsr   From
+            ldx   #:b+1
+            lda   #0
+            jsr   PutAddr
+            lda   #4
+            jsr   From
+            ldx   #:h+1
+            lda   #0
+            jsr   PutAddr
+            jsr   ColStart
+            ldx   #0
+            ldy   #0
+:l          =     *
+:h          ldal  $000000,x
             and   #$00FF
             sta   ft
-            lda   fs
-            sec
-            sbc   ft
-            bmi   :zero
-            cmp   #256
-            bcc   :ok
-            lda   #255
-:ok         rts
-:zero       lda   #0
+:a          ldal  $000000,x
+            and   #$00FF
+            clc
+            adc   ft
+            sta   ft
+:b          ldal  $000000,x
+            and   #$00FF
+            clc
+            adc   ft
+            sta   [ColP],y
+            iny
+            iny
+            inx
+            cpx   fk
+            bcc   :l
             rts
-
-* BSigma: the nine values' average, rounded.
-BSigma      clc
-            lda   [N0],y
+* Sums0: above + below (find edges).
+Sums0       lda   #0                    ; (the operands: above, below, here)
+            jsr   From
+            ldx   #:a+1
+            lda   #0
+            jsr   PutAddr
+            lda   #8
+            jsr   From
+            ldx   #:b+1
+            lda   #0
+            jsr   PutAddr
+            jsr   ColStart
+            ldx   #0
+            ldy   #0
+:l          =     *
+:a          ldal  $000000,x
             and   #$00FF
+            sta   ft
+:b          ldal  $000000,x
+            and   #$00FF
+            clc
+            adc   ft
+            sta   [ColP],y
+            iny
+            iny
+            inx
+            cpx   fk
+            bcc   :l
+            rts
+* ColOps: the three operands at X (two bytes apart from each other in
+* the table at X) = ColP + 0, + 6, + 12 (columns i, i + 3, i + 6).
+ColOps      stx   fk
+            lda   Bufs+12
             sta   fs
-            lda   [N1],y
-            and   #$00FF
-            adc   fs
-            sta   fs
-            lda   [N2],y
-            and   #$00FF
-            adc   fs
-            sta   fs
-            lda   [N3],y
-            and   #$00FF
-            adc   fs
-            sta   fs
-            lda   [N4],y
-            and   #$00FF
-            adc   fs
-            sta   fs
-            lda   [N5],y
-            and   #$00FF
-            adc   fs
-            sta   fs
-            lda   [N6],y
-            and   #$00FF
-            adc   fs
-            sta   fs
-            lda   [N7],y
-            and   #$00FF
-            adc   fs
-            sta   fs
-            lda   [N8],y
-            and   #$00FF
-            adc   fs
+            lda   Bufs+14
+            sta   fu
+            ldy   #0
+:one        lda   (fk),y                ; (the operand's address)
             tax
-            lda   Div9,x
-            and   #$00FF
-            rts
-
-* Ring: A = the corners (n0, n2, n6, n8) + 2 x the sides (n1, n3, n5, n7).
-Ring        jsr   Corners
-            sta   fs
-            clc
-            lda   [N1],y
-            and   #$00FF
-            sta   ft
-            lda   [N3],y
-            and   #$00FF
-            adc   ft
-            sta   ft
-            lda   [N5],y
-            and   #$00FF
-            adc   ft
-            sta   ft
-            lda   [N7],y
-            and   #$00FF
-            adc   ft
+            tya                         ; 0, 6, 12 for Y = 0, 2, 4 (3 x Y)
             asl
-            adc   fs
+            sta   ft
+            tya
+            clc
+            adc   ft
+            phy
+            jsr   PutAddr
+            ply
+            iny
+            iny
+            cpy   #6
+            bcc   :one
             rts
 
-* Corners: A = n0 + n2 + n6 + n8.
-Corners     clc
-            lda   [N0],y
-            and   #$00FF
-            sta   fu
-            lda   [N2],y
-            and   #$00FF
-            adc   fu
-            sta   fu
-            lda   [N6],y
-            and   #$00FF
-            adc   fu
-            sta   fu
-            lda   [N8],y
-            and   #$00FF
-            adc   fu
-            rts
-
-* BBlur: (the ring + Weight x n4 + Half) / Divisor.
-BBlur       jsr   Ring
-            sta   fs
-            lda   [N4],y
+* RBlur, RSharpen: h = col i + 2 x col i + 3 + col i + 6 (the 1-2-1 square:
+* 4 x the middle, the sides twice, the corners once); then WTab (the
+* middle's weight less 4, or Sharpen's plus 4) of the middle, plus h for
+* Blur, less h for Sharpen; + Half, through DivTab (0 if below 0).
+RBlur       jsr   Sums2
+            ldx   #:ops
+            jsr   ColOps
+            ldx   #0
+            ldy   #0
+:l          =     *
+:v1         ldal  $000000,x
+            asl
+            clc
+:v0         adcl  $000000,x
+:v2         adcl  $000000,x
+            sta   ft
+            lda   [HcP],y
             and   #$00FF
             asl
             tax
             lda   WTab,x
-            clc
-            adc   fs
-Divide      clc
+            bit   SharpNeg
+            bpl   :add
+            sec
+            sbc   ft
+            bra   :half
+:add        clc
+            adc   ft
+:half       clc
             adc   Half
             bmi   :zero
             tax
             lda   DivTab,x
-            and   #$00FF
-            rts
-:zero       lda   #0
-            rts
-
-* BSharpen: (Weight x n4 - the ring + Half) / Divisor.
-BSharpen    jsr   Ring
-            sta   fs
-            lda   [N4],y
-            and   #$00FF
+:st         sep   #$20
+            mx    %10
+            sta   [OutR],y
+            rep   #$20
+            mx    %00
+            iny
+            tya
             asl
             tax
-            lda   WTab,x
-            sec
-            sbc   fs
-            bra   Divide
+            cpy   RowLen
+            bcc   :l
+            rts
+:zero       lda   #0
+            bra   :st
+:ops        da    :v0+1,:v1+1,:v2+1
+RSharpen    =     RBlur
 
-* BEdges: 4 x n4 - the corners, through EdgeTab (0 if not more than 0).
-BEdges      jsr   Corners
-            sta   fs
-            lda   [N4],y
+* RSigma: the nine values' sum (col i + col i + 3 + col i + 6) through Div9.
+RSigma      jsr   Sums1
+            ldx   #:ops
+            jsr   ColOps
+            ldx   #0
+            ldy   #0
+:l          =     *
+:v0         ldal  $000000,x
+            clc
+:v1         adcl  $000000,x
+:v2         adcl  $000000,x
+            tax
+            lda   Div9,x
+            sep   #$20
+            mx    %10
+            sta   [OutR],y
+            rep   #$20
+            mx    %00
+            iny
+            tya
+            asl
+            tax
+            cpy   RowLen
+            bcc   :l
+            rts
+:ops        da    :v0+1,:v1+1,:v2+1
+
+* REdges: 4 x the middle less the corners (col i + col i + 6 of above +
+* below), through EdgeTab; 0 if not more than 0.
+REdges      jsr   Sums0
+            ldx   #:ops
+            jsr   ColOps
+            ldx   #0
+            ldy   #0
+:l          =     *
+:v0         ldal  $000000,x
+            clc
+:v2         adcl  $000000,x
+            sta   ft
+            lda   [HcP],y
             and   #$00FF
             asl
             asl
             sec
-            sbc   fs
+            sbc   ft
             bmi   :zero
             beq   :zero
             tax
             lda   EdgeTab,x
-            and   #$00FF
+:st         sep   #$20
+            mx    %10
+            sta   [OutR],y
+            rep   #$20
+            mx    %00
+            iny
+            tya
+            asl
+            tax
+            cpy   RowLen
+            bcc   :l
             rts
 :zero       lda   #0
+            bra   :st
+:ops        da    :v0+1,:dummy+1,:v2+1
+:dummy      ldal  $000000,x             ; (not run: its operand takes col i + 3)
+
+* REmboss: 128 + 2 (n5 + n7 - n1 - n3) + n8 - n0, kept within 0-255; n0
+* above i, n1 above i + 3, n3 here i, n5 here i + 6, n7 below i + 3, n8
+* below i + 6.
+REmboss     lda   #0
+            jsr   From
+            ldx   #:n0+1
+            lda   #0
+            jsr   PutAddr
+            ldx   #:n1+1
+            lda   #3
+            jsr   PutAddr
+            lda   #4
+            jsr   From
+            ldx   #:n3+1
+            lda   #0
+            jsr   PutAddr
+            ldx   #:n5+1
+            lda   #6
+            jsr   PutAddr
+            lda   #8
+            jsr   From
+            ldx   #:n7+1
+            lda   #3
+            jsr   PutAddr
+            ldx   #:n8+1
+            lda   #6
+            jsr   PutAddr
+            jsr   OutAt
+            ldx   #:out+1
+            lda   #0
+            jsr   PutAddr
+            ldx   #0
+:l          =     *
+:n5         ldal  $000000,x
+            and   #$00FF
+            sta   ft
+:n7         ldal  $000000,x
+            and   #$00FF
+            clc
+            adc   ft
+            sta   ft
+:n1         ldal  $000000,x
+            and   #$00FF
+            sta   fu
+:n3         ldal  $000000,x
+            and   #$00FF
+            clc
+            adc   fu
+            sta   fu
+            lda   ft
+            sec
+            sbc   fu
+            asl
+            clc
+            adc   #128
+            sta   ft
+:n8         ldal  $000000,x
+            and   #$00FF
+            clc
+            adc   ft
+            sta   ft
+:n0         ldal  $000000,x
+            and   #$00FF
+            sta   fu
+            lda   ft
+            sec
+            sbc   fu
+            bmi   :zero
+            cmp   #256
+            bcc   :st
+            lda   #255
+:st         sep   #$20
+            mx    %10
+:out        stal  $000000,x
+            rep   #$20
+            mx    %00
+            inx
+            cpx   RowLen
+            bcc   :l
             rts
+:zero       lda   #0
+            bra   :st
+
+* RMedian: the middle of the nine values, from each column of three
+* sorted (low, middle, high in buffers 3-5): the middle of (the largest
+* low, the middle of the middles, the smallest high).
+RMedian     lda   #0                    ; the sorting loop's operands
+            jsr   From
+            ldx   #:a+1
+            lda   #0
+            jsr   PutAddr
+            lda   #4
+            jsr   From
+            ldx   #:h+1
+            lda   #0
+            jsr   PutAddr
+            lda   #8
+            jsr   From
+            ldx   #:b+1
+            lda   #0
+            jsr   PutAddr
+            lda   #12
+            jsr   From
+            ldx   #:lo1+1
+            lda   #0
+            jsr   PutAddr
+            ldx   #:lo2+1
+            lda   #0
+            jsr   PutAddr
+            ldx   #:lo3+1
+            lda   #0
+            jsr   PutAddr
+            ldx   #:ml0+1               ; (and the second loop's)
+            lda   #0
+            jsr   PutAddr
+            ldx   #:ml1+1
+            lda   #3
+            jsr   PutAddr
+            ldx   #:ml1b+1
+            lda   #3
+            jsr   PutAddr
+            ldx   #:ml2+1
+            lda   #6
+            jsr   PutAddr
+            ldx   #:ml2b+1
+            lda   #6
+            jsr   PutAddr
+            lda   #16
+            jsr   From
+            ldx   #:mi1+1
+            lda   #0
+            jsr   PutAddr
+            ldx   #:mi2+1
+            lda   #0
+            jsr   PutAddr
+            ldx   #:mi3+1
+            lda   #0
+            jsr   PutAddr
+            ldx   #:mm0+1
+            lda   #0
+            jsr   PutAddr
+            ldx   #:mm1+1
+            lda   #3
+            jsr   PutAddr
+            ldx   #:mm2+1
+            lda   #6
+            jsr   PutAddr
+            lda   #20
+            jsr   From
+            ldx   #:hi1+1
+            lda   #0
+            jsr   PutAddr
+            ldx   #:hi2+1
+            lda   #0
+            jsr   PutAddr
+            ldx   #:mh0+1
+            lda   #0
+            jsr   PutAddr
+            ldx   #:mh1+1
+            lda   #3
+            jsr   PutAddr
+            ldx   #:mh1b+1
+            lda   #3
+            jsr   PutAddr
+            ldx   #:mh2+1
+            lda   #6
+            jsr   PutAddr
+            ldx   #:mh2b+1
+            lda   #6
+            jsr   PutAddr
+            jsr   OutAt
+            ldx   #:out+1
+            lda   #0
+            jsr   PutAddr
+            lda   RowLen
+            clc
+            adc   #6
+            sta   fk
+            sep   #$20
+            mx    %10
+            ldx   #0                    ; each column of three, sorted
+:a          ldal  $000000,x
+            sta   V0
+:h          ldal  $000000,x
+            sta   V0+1
+            cmp   V0                    ; (the first two in order)
+            bcs   :o1
+            xba
+            lda   V0
+            sta   V0+1
+            xba
+            sta   V0
+:o1         =     *
+:b          ldal  $000000,x
+            cmp   V0+1
+            bcs   :big                  ; the third the largest
+            pha                         ; (else the second is)
+            lda   V0+1
+:hi1        stal  $000000,x
+            pla
+            cmp   V0
+            bcs   :mid                  ; the third in the middle
+            pha                         ; (else the first is)
+            lda   V0
+:mi1        stal  $000000,x
+            pla
+:lo1        stal  $000000,x
+            bra   :next
+:mid        =     *
+:mi2        stal  $000000,x
+            lda   V0
+:lo2        stal  $000000,x
+            bra   :next
+:big        =     *
+:hi2        stal  $000000,x
+            lda   V0+1
+:mi3        stal  $000000,x
+            lda   V0
+:lo3        stal  $000000,x
+:next       inx
+            cpx   fk
+            bcc   :a
+            ldx   #0                    ; each byte: the three columns
+:ml0        ldal  $000000,x             ; the largest low
+:ml1        cmpl  $000000,x
+            bcs   :g1
+:ml1b       ldal  $000000,x
+:g1         =     *
+:ml2        cmpl  $000000,x
+            bcs   :g2
+:ml2b       ldal  $000000,x
+:g2         sta   V0+3
+:mh0        ldal  $000000,x             ; the smallest high
+:mh1        cmpl  $000000,x
+            bcc   :s1
+:mh1b       ldal  $000000,x
+:s1         =     *
+:mh2        cmpl  $000000,x
+            bcc   :s2
+:mh2b       ldal  $000000,x
+:s2         sta   V0+4
+:mm0        ldal  $000000,x             ; the middle of the middles
+            sta   V0
+:mm1        ldal  $000000,x
+            sta   V0+1
+:mm2        ldal  $000000,x
+            sta   V0+2
+            lda   V0                    ; (the middle of V0, V0+1, V0+2)
+            cmp   V0+1
+            bcs   :ge1
+            lda   V0+2                  ; V0 < V0+1
+            cmp   V0
+            bcc   :p1
+            cmp   V0+1
+            bcc   :md1
+            bra   :q1
+:ge1        lda   V0+2                  ; V0 >= V0+1
+            cmp   V0+1
+            bcc   :q1
+            cmp   V0
+            bcc   :md1
+:p1         lda   V0
+            bra   :md1
+:q1         lda   V0+1
+:md1        sta   V0+1                  ; the middle of the three
+            lda   V0+3
+            sta   V0
+            lda   V0+4
+            sta   V0+2
+            lda   V0                    ; (the middle of V0, V0+1, V0+2)
+            cmp   V0+1
+            bcs   :ge2
+            lda   V0+2                  ; V0 < V0+1
+            cmp   V0
+            bcc   :p2
+            cmp   V0+1
+            bcc   :out
+            bra   :q2
+:ge2        lda   V0+2                  ; V0 >= V0+1
+            cmp   V0+1
+            bcc   :q2
+            cmp   V0
+            bcc   :out
+:p2         lda   V0
+            bra   :out
+:q2         lda   V0+1
+:out        stal  $000000,x
+            inx
+            cpx   RowLen
+            bcs   :jx1
+            jmp   :ml0
+:jx1
+            rep   #$20
+            mx    %00
+            rts
+
 
 *-------------------------------------------------------------
 * Filters on each byte or pixel by itself
@@ -1377,8 +1750,9 @@ KTab        dw    0
 Turn        dw    0
 RowLen      dw    0
 RowY        dw    0
-Bufs        adrl  0,0,0                 ; above, here, below
-BufHs       adrl  0,0,0
+Bufs        adrl  0,0,0,0,0,0             ; above, here, below, 3 for columns
+BufHs       adrl  0,0,0,0,0,0
+SharpNeg    dw    0                     ; (Sharpen: $8000)
 MapH        adrl  0
 NewP        adrl  0
 NewLen      dw    0
