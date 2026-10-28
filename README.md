@@ -353,6 +353,8 @@ or Auto; comments as a tEXt chunk). Help! and Menu item help, with MegaconvertGS
 into `build/MCGS.Help`, which goes beside the program). File > Print alignment page.
 
 Next: Print (normal) and (enhanced) (copying the picture to the printer port fails with
-error $1212 under MAME's System 6.0.4 driver, except for small areas), Print banner, the
-"more than one way" window, then speed (`docs/speed-plan.md`: box averaging without division, faster rendering and
+error $1212 under MAME's System 6.0.4 driver once a page holds more than a small area, in
+strips or tiles alike), Print banner, the
+then speed. (SuperConvert's "more than one way" window has nothing to ask here: MegaconvertGS's
+PNG saves the screen image, and TIFF Save Options asks for the image itself.) (`docs/speed-plan.md`: box averaging without division, faster rendering and
 palette search) and progressive JPEG.
