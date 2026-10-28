@@ -682,6 +682,23 @@ new column) came out slower too: the calls and the ring cost more than the loads
 Faster 3 x 3 filters would want each row worked as a whole, with column sums in a buffer
 of their own.
 
+### The image window
+
+`DESK 12` (a test command) draws the window's whole content again at once, so `TIMING 1`
+measures one redraw. RGB8.PNG, the window at its usual size, seconds:
+
+| Shown | 1:1 | 2x | 4x | 1/2 |
+|---|---:|---:|---:|---:|
+| the screen image | 0.08 | 0.23 | 0.13 | 0.73 |
+| the true colour image | 0.58 | 0.37 | 0.17 | 2.67 (2.95 before) |
+| the monochrome image | 0.20 | 0.25 | 0.15 | 0.62 |
+
+The window draws only what shows, so redraws are short; changing the view or the zoom adds
+about 0.3 s (title, info bar). The true colour image zoomed out is the slow case: its
+strips are made from every pixel (now walked in place, `PixF`: about 59 cycles a pixel,
+which was most of the 10 %) and QuickDraw shrinks them in the copy, about half the time.
+Making only the pixels the shrinking keeps would need QuickDraw's scaling matched exactly.
+
 ## Appendix A: the model against the measured times
 
 Measured (`build/suite_remap2.txt`) and model, seconds:

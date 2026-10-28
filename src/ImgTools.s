@@ -1898,9 +1898,14 @@ DeskTest    ent
             plb
             rtl
 TestTab     da    TNone,TTool,TType,TZoom,TDrag,TLog,TAct,TKey,TOrigin,TZone
-            da    TPal,TScb
+            da    TPal,TScb,TRedraw
 
 TNone       rts
+TRedraw     PushLongAt ScrWin           ; 12: the whole content drawn again now
+            Tool  _SetPort              ; (as an update event would; TIMING
+            PushLong BigRect            ; measures it)
+            Tool  _InvalRect
+            jmp   Updates
 TTool       lda   [ScriptP]             ; 1 n: tool n
             sta   ToolNo
             PushLongAt ScrWin

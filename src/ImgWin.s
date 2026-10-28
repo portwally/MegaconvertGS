@@ -697,7 +697,8 @@ MakeStrip   lda   StripP
             asl
             asl
             sta   Parity                ; ($1000 on odd rows)
-            ldy   #0                    ; the strip byte
+            stz   StripB                 ; the strip byte
+            ldy   #0                    ; (Y: the row's bytes, from ip0)
             lda   Part+6
             sec
             sbc   Part+2
@@ -708,31 +709,34 @@ MakeStrip   lda   StripP
             sta   NBytes                ; bytes to make
 :byte       lda   ImgPix
             bne   :four
-            jsr   Pixel                 ; 320 sized: two pixels, a nibble each
+            jsr   PixF                  ; 320 sized: two pixels, a nibble each
             and   #$00F0
             sta   PixB
-            jsr   Pixel
+            jsr   PixF
             and   #$000F
             ora   PixB
             bra   :put
-:four       jsr   Pixel                 ; 640 sized: four, two bits each
+:four       jsr   PixF                  ; 640 sized: four, two bits each
             and   #$00C0
             sta   PixB
-            jsr   Pixel
+            jsr   PixF
             and   #$0030
             tsb   PixB
-            jsr   Pixel
+            jsr   PixF
             and   #$000C
             tsb   PixB
-            jsr   Pixel
+            jsr   PixF
             and   #$0003
             ora   PixB
-:put        sep   #$20
+:put        phy
+            ldy   StripB
+            sep   #$20
             mx    %10
             sta   [ip1],y
             rep   #$20
             mx    %00
-            iny
+            inc   StripB
+            ply
             dec   NBytes
             bne   :byte
             lda   ip1                   ; the next strip row
@@ -875,11 +879,11 @@ ExpBit320   dw    $00F0,0,$000F,0,$F000,0,$0F00,0,0,$00F0,0,$000F,0,$F000,0,$0F0
 
 * Pixel: A = the dither table's byte for the pixel at ip0 (black past the
 * row's end); ip0 to the next pixel.
-Pixel       lda   PixX
+* PixF: Pixel with the row's bytes at [ip0],y (Y moves on 3, ip0 stays).
+PixF        lda   PixX
             cmp   TrueW
             bcs   :past
-            phy
-            lda   [ip0]                 ; R: bits 11-8
+            lda   [ip0],y               ; R: bits 11-8
             and   #$00F0
             asl
             asl
@@ -887,7 +891,7 @@ Pixel       lda   PixX
             asl
             ora   Parity
             sta   PixI
-            ldy   #1                    ; G: bits 7-4
+            iny                         ; G: bits 7-4
             lda   [ip0],y
             and   #$00F0
             tsb   PixI
@@ -900,21 +904,14 @@ Pixel       lda   PixX
             lsr
             ora   PixI
             tax
-            lda   DitherTab,x
-            ply
+            iny
             inc   PixX
-            pha
-            lda   ip0
-            clc
-            adc   #3
-            sta   ip0
-            bcc   :same
-            inc   ip0+2
-:same       pla
+            lda   DitherTab,x
             rts
 :past       inc   PixX
             lda   #0
             rts
+
 
 * DrawScrInfo: the info bar (the Window Manager calls it with the bar's
 * rect, its refCon and the window): the pop-ups' icons and the text.
@@ -1358,6 +1355,7 @@ PixT        dw    0
 PixI        dw    0
 Parity      dw    0
 NBytes      dw    0
+StripB      dw    0                     ; (MakeStrip: the strip's byte)
 StripP      adrl  0                     ; the strip buffer (16K, made by DeskStart)
 StripH      adrl  0
 StripLoc    dw    $0080                 ; 640 mode

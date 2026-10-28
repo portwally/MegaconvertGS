@@ -92,7 +92,7 @@
 *                        5 log the selection and the info bar's text, 6 n action n (3
 *                        crop, 4 discard this type, 5 the others), 7 c m key c with
 *                        modifiers m, 8 log the content's origin, 9 v h m log the
-*                        pointer's shape code at v, h
+*                        pointer's shape code at v, h, 12 the content drawn again now
 *   SAVE SCRAP path      the Clipboard's picture drawn into a screen (its line modes and
 *                        colours from the screen image's buffer), saved as a $C1 file;
 *                        the colour table scrap ($8002) is logged
