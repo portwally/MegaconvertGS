@@ -8,7 +8,8 @@ Choose Home to go back to the start.
 .I265
 MegaconvertGS turns pictures from many computers and file formats into
 Apple IIgs Super Hi-Res screens, and saves them in the formats the IIgs and
-other computers read. It is a successor to SuperConvert.
+other computers read. It is a successor to SuperConvert by Jason Harper and
+Ian Brumby, and is published with the kind permission of Ian Brumby.
 
 Choose a topic, or use Previous and Next in the bar above to page through
 the help. Back returns to the page you came from.
@@ -118,7 +119,7 @@ MegaconvertGS. It is not part of MegaconvertGS.
 .I267
 The Apple menu
 
-About MegaconvertGS... shows the program's name and version.
+About MegaconvertGS... shows the program's name and version, and its credits.
 
 Help! opens this window at its first page. Menu item help: choose it, then
 choose any menu item to read about it.

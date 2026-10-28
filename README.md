@@ -2,6 +2,13 @@
 
 An image converter for the Apple IIgs, written in 65816 assembly for GS/OS.
 
+## Credits
+
+MegaconvertGS is a successor to SuperConvert, the Apple IIgs image converter by Jason
+Harper and Ian Brumby. It is published with the kind permission of Ian Brumby. Its code
+is new, written from scratch; SuperConvert's windows, menus and conversions are what it
+follows. MegaconvertGS is by Walter Tengler.
+
 ## Build
 
 Needs [Merlin 32](https://www.brutaldeluxe.fr/products/crossdevtools/merlin/).
