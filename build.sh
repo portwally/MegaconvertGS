@@ -3,7 +3,8 @@
 #   MERLIN32   path to the Merlin32 binary (default: the copy in ~/Downloads)
 set -e
 ROOT="$(cd "$(dirname "$0")" && pwd)"
-MERLIN32="${MERLIN32:-$HOME/Downloads/Merlin32_v1.2_b2 2/MacOs/Merlin32}"
+MERLIN32="${MERLIN32:-$HOME/Downloads/Merlin32_v1.2_b2/MacOs/Merlin32}"
+[ -x "$MERLIN32" ] || MERLIN32="$HOME/Downloads/Merlin32_v1.2_b2 2/MacOs/Merlin32"
 mkdir -p "$ROOT/build"
 python3 -I "$ROOT/test/labels.py" "$ROOT/src"      # (duplicate local labels: Merlin takes the first)
 cd "$ROOT/src"

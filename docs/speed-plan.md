@@ -586,6 +586,32 @@ self on random mixed screens instead. That comparison showed one real difference
 fixed: a 640 mode line in a 320 mode picture takes each pixel's low two bits (GS Remap's
 rule), where it read up to entry 27, into the next colour table (also in the TIFF writer).
 
+### Opening PNG files
+
+The same rule: every decoded picture still matches GS Remap's (the true suite). Times
+are the whole Open, which remaps the picture to fit the screen afterwards:
+
+| File | Before | Now |
+|---|---:|---:|
+| RGB8.PNG, 320 x 200 | 32.4 | 13.8 |
+| PHOTO.PNG, 320 x 200, 766 colours | 69.6 | 32.0 |
+| BIG.PNG, 400 x 300 | 61.6 | 27.5 |
+| HUGE.PNG, 700 x 500 | 177.2 | 63.9 |
+| all 22 test PNGs | 462.7 | 227.4 |
+
+- **Inflate:** bits read in place from the gathered data (followed by two 0 bytes, so the
+  bits past the end stay 0 as before); Huffman codes of up to 9 bits from a table of the
+  next 9 bits (shorter codes win where an over-full code overlaps, as the bit-by-bit
+  decoder decides; longer codes still go bit by bit); copies two bytes at a time when
+  they come from 2 or more back.
+- **PNG:** the IDAT data gathered in blocks; only the bytes Inflate leaves unwritten
+  cleared; the true colour picture not filled first (every pixel is written); Sub and Up
+  in 8 bits, Paeth and Average without calls past the first row and pixel; 8-bit RGB and
+  grey rows without a key copied straight in.
+- **The fitted remap:** box averages of 6, 9 or any size up to 64 that isn't a power of
+  two from a table of quotients (a 32K pool made with the planes) instead of eight rounds
+  of division for each channel.
+
 ## Appendix A: the model against the measured times
 
 Measured (`build/suite_remap2.txt`) and model, seconds:

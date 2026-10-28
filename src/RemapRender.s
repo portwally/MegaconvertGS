@@ -2061,6 +2061,12 @@ CV          ds    32                    ; the divisor, method, shift, 16-bit
 CM          ds    32                    ; divisor)
 CS          ds    32
 CD          ds    32
+QHnd        adrl  0                     ; (the quotient tables: their handle,
+QPool       adrl  0                     ; where they are, the bytes used,
+QUsed       dw    0                     ; how many (x 2), each one's divisor
+QCount      dw    0                     ; and place)
+QN          ds    16
+QO          ds    16
 AllTwo      dw    0                     ; (every span across two pixels)
 AllOne      dw    0                     ; (every span across one pixel)
 LastXN      dw    0                     ; the box size worked out last

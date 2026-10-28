@@ -962,7 +962,8 @@ MakePlanes  lda   PlHist                ; (counting: from nothing)
             jsr   NewBig
             bcc   :fill
             rts
-:fill       stz   GreyMade              ; the greys now only if the palette
+:fill       jsr   NewQPool              ; (the box averages' tables)
+            stz   GreyMade              ; the greys now only if the palette
             lda   #1                    ; is sure to be grey (else RenderLines
             sta   NoGrey                ; asks for them: MakeGrey)
             jsr   ProtoGrey
@@ -1171,7 +1172,8 @@ NewBig      pha
             clc
 :err        rts
 
-FreePlanes  lda   PlH
+FreePlanes  jsr   FreeQPool
+            lda   PlH
             ora   PlH+2
             beq   :none
             PushLongAt PlH
@@ -1833,7 +1835,11 @@ DivFor      pha
             sta   DShift
             lda   CD,y
             sta   DD16
-            rts
+            lda   DMeth
+            cmp   #4
+            bne   :r
+            jmp   SetQ
+:r          rts
 
 * DivWay: how to divide by Divisor: DMeth 0 not at all (1), 1 a shift
 * right by DShift (a power of two up to 256), 2 a 16-bit division (up to
@@ -1854,7 +1860,16 @@ DivWay      lda   Divisor
             lda   #1
             sta   DMeth
             rts
-:d16        lda   Divisor               ; (x 128: eight rounds)
+:d16        lda   Divisor               ; up to 64: a table of quotients
+            cmp   #65
+            bcs   :rounds
+            jsr   QTable
+            bcs   :rounds
+            sta   DD16                  ; (its place in the pool)
+            lda   #4
+            sta   DMeth
+            jmp   SetQ
+:rounds     lda   Divisor               ; (x 128: eight rounds)
             asl
             asl
             asl
@@ -1872,6 +1887,13 @@ DivWay      lda   Divisor
 
 * Avg: (X:A) / Divisor (the answer below 256), DivWay's way.
 Avg         ldy   DMeth
+            cpy   #4
+            bne   :n4
+            tay                         ; (a table: q2)
+            lda   [q2],y
+            and   #$00FF
+            rts
+:n4         cpy   #0
             bne   :n0
             rts
 :n0         cpy   #1
@@ -1901,6 +1923,141 @@ Avg         ldy   DMeth
             lda   DvQ2
             rts
 :n3         jmp   DivAvg
+
+* QTable: the pool's table of A / Divisor for A up to 255 x Divisor
+* (made the first time). out: carry clear and A = its place in the pool,
+* or carry set if there is no pool or no room in it
+QTable      lda   QPool
+            ora   QPool+2
+            bne   :pool
+            sec
+            rts
+:pool       ldx   #0                    ; made already?
+:find       cpx   QCount
+            bcs   :new
+            lda   QN,x
+            cmp   Divisor
+            beq   :found
+            inx
+            inx
+            bra   :find
+:found      lda   QO,x
+            clc
+            rts
+:new        cpx   #16                   ; (8 at most)
+            bcs   :no
+            lda   Divisor               ; 255 x Divisor + 1 bytes
+            xba
+            sec
+            sbc   Divisor
+            inc
+            clc
+            adc   QUsed
+            bcs   :no
+            cmp   #$8000
+            bcs   :no
+            sta   t1                    ; (the pool's end after it)
+            lda   Divisor
+            sta   QN,x
+            lda   QUsed
+            sta   QO,x
+            inx
+            inx
+            stx   QCount
+            lda   QPool                 ; q2 = where it goes
+            clc
+            adc   QUsed
+            sta   q2
+            lda   QPool+2
+            adc   #0
+            sta   q2+2
+            lda   t1
+            sec
+            sbc   QUsed
+            sta   t2                    ; (its bytes)
+            ldy   #0
+            ldx   #0                    ; (the quotient, and the count to it)
+            stz   t3
+            sep   #$20
+            mx    %10
+:fill       txa
+            sta   [q2],y
+            rep   #$20
+            mx    %00
+            inc   t3
+            lda   t3
+            cmp   Divisor
+            bcc   :nq
+            stz   t3
+            inx
+:nq         sep   #$20
+            mx    %10
+            iny
+            cpy   t2
+            bcc   :fill
+            rep   #$20
+            mx    %00
+            lda   QUsed
+            pha
+            lda   t1
+            sta   QUsed
+            pla
+            clc
+            rts
+:no         sec
+            rts
+
+* SetQ: q2 = the pool's table at DD16 (a box size whose DMeth is 4).
+SetQ        lda   QPool
+            clc
+            adc   DD16
+            sta   q2
+            lda   QPool+2
+            adc   #0
+            sta   q2+2
+            rts
+
+* NewQPool / FreeQPool: the pool of quotient tables (32K), for a remap.
+NewQPool    stz   QPool
+            stz   QPool+2
+            stz   QUsed
+            stz   QCount
+            pha
+            pha
+            PushLong $8000
+            lda   uid
+            pha
+            pea   $C008
+            PushLong 0
+            Tool  _NewHandle
+            pla
+            sta   QHnd
+            pla
+            sta   QHnd+2
+            bcs   :none                 ; (none: the eight rounds instead)
+            lda   QHnd
+            sta   n1
+            lda   QHnd+2
+            sta   n1+2
+            lda   [n1]
+            sta   QPool
+            ldy   #2
+            lda   [n1],y
+            sta   QPool+2
+            rts
+:none       stz   QHnd
+            stz   QHnd+2
+            rts
+FreeQPool   lda   QHnd
+            ora   QHnd+2
+            beq   :none
+            PushLongAt QHnd
+            Tool  _DisposeHandle
+            stz   QHnd
+            stz   QHnd+2
+:none       stz   QPool
+            stz   QPool+2
+            rts
 
 * DivAvg: (X:A) / Divisor, when the answer is below 256.
 DivAvg      sta   DvLo

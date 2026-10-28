@@ -49,8 +49,11 @@ DecodePNG   jsr   ClearPal
             rts
 :typeOK     jsr   RawSize               ; space for the inflated rows
             lda   ZTotal                ; the compressed data, in one piece
+            clc                         ; (and two 0s after it: Inflate's bits
+            adc   #2                    ; past the end)
             sta   n0
             lda   ZTotal+2
+            adc   #0
             sta   n0+2
             jsr   NewBig
             bcc   :jx10
@@ -69,12 +72,16 @@ DecodePNG   jsr   ClearPal
             lda   #2                    ; second pass: gather the IDAT data
             sta   PngPass
             jsr   Chunks
+            lda   #0
+            sta   [q2]
             lda   RawLen
             sta   n0
             lda   RawLen+2
             sta   n0+2
             jsr   NewBig
-            bcs   :err
+            bcc   :jx1
+            jmp   :err
+:jx1
             lda   n1
             sta   RawHnd
             lda   n1+2
@@ -85,8 +92,6 @@ DecodePNG   jsr   ClearPal
             lda   p0+2
             sta   RawP+2
             sta   q0+2
-            lda   #0
-            jsr   FillBig
             lda   ZP                    ; inflate, past the 2-byte zlib header
             clc
             adc   #2
@@ -107,9 +112,22 @@ DecodePNG   jsr   ClearPal
             sta   OutLeft+2
             jsr   Inflate
             bcs   :err
+            lda   q0                    ; what it didn't write: 0s
+            sta   p0
+            lda   q0+2
+            sta   p0+2
+            lda   OutLeft
+            sta   n0
+            lda   OutLeft+2
+            sta   n0+2
+            lda   #0
+            jsr   FillBig
             ldx   #ZHnd
             jsr   FreeHandleAt
+            lda   #1                    ; (every pixel is written)
+            sta   NoFill
             jsr   NewTrue
+            stz   NoFill
             bcs   :err
             jsr   Rows
             ldx   #RawHnd
@@ -304,27 +322,88 @@ ChunkIDAT   lda   PngPass
             adc   ChunkLen+2
             sta   ZTotal+2
             rts
-:copy       lda   ChunkLen
+:copy       lda   ChunkLen              ; u1, u2: the bytes still to copy
             sta   u1
             lda   ChunkLen+2
             sta   u2
-:byte       lda   u1
+:blk        lda   u1
             ora   u2
-            beq   :done
-            jsr   GetByte
+            bne   :jx3
+            jmp   :done
+:jx3
+            lda   u2                    ; a block: at most 16K, and what the
+            bne   :max                  ; file still has
+            lda   u1
+            cmp   #$4000
+            bcc   :n
+:max        lda   #$4000
+:n          ldx   InLeft+2
+            bne   :have
+            cmp   InLeft
+            bcc   :have
+            lda   InLeft
+            beq   :zeros                ; (the file has ended: 0s, as GetByte)
+:have       sta   t1
+            lsr
+            beq   :one
+            tax
+            ldy   #0
+:w          lda   [s0],y                ; two at a time
+            sta   [q2],y
+            iny
+            iny
+            dex
+            bne   :w
+:one        lda   t1
+            lsr
+            bcc   :moved
+            ldy   t1
+            dey
             sep   #$20
             mx    %10
+            lda   [s0],y
+            sta   [q2],y
+            rep   #$20
+            mx    %00
+:moved      lda   s0                    ; on past them
+            clc
+            adc   t1
+            sta   s0
+            bcc   :a
+            inc   s0+2
+:a          lda   q2
+            clc
+            adc   t1
+            sta   q2
+            bcc   :b
+            inc   q2+2
+:b          lda   InLeft
+            sec
+            sbc   t1
+            sta   InLeft
+            bcs   :c
+            dec   InLeft+2
+:c          lda   u1
+            sec
+            sbc   t1
+            sta   u1
+            bcs   :blk
+            dec   u2
+            bra   :blk
+:zeros      sep   #$20
+            mx    %10
+            lda   #0
             sta   [q2]
             rep   #$20
             mx    %00
             inc   q2
-            bne   :count
+            bne   :z
             inc   q2+2
-:count      lda   u1
-            bne   :low
+:z          lda   u1
+            bne   :zl
             dec   u2
-:low        dec   u1
-            bra   :byte
+:zl         dec   u1
+            jmp   :blk
 :done       rts
 
 * CheckType: the colour type and depth make sense; sets Channels, BitsPP, Bpp.
@@ -550,42 +629,85 @@ Unfilter    lda   q1                    ; p1 = q1 - Bpp: the pixel to the left
 :kinds      da    :none,FiltSub,FiltUp,FiltAvg,FiltPaeth
 :none       rts
 
-FiltSub     ldy   PBpp
+FiltSub     ldy   PBpp                  ; (8-bit A: Y up to RowBytes)
             iny
+            sep   #$20
+            mx    %10
 :loop       cpy   RowBytes
             beq   :go
             bcs   :done
 :go         lda   [q1],y
             clc
             adc   [p1],y
-            sep   #$20
-            mx    %10
             sta   [q1],y
-            rep   #$20
-            mx    %00
             iny
             bra   :loop
-:done       rts
+:done       rep   #$20
+            mx    %00
+            rts
 
 FiltUp      lda   NotFirst
             beq   :done
             ldy   #1
+            sep   #$20
+            mx    %10
 :loop       cpy   RowBytes
             beq   :go
-            bcs   :done
+            bcs   :d8
 :go         lda   [q1],y
             clc
             adc   [q2],y
+            sta   [q1],y
+            iny
+            bra   :loop
+:d8         rep   #$20
+            mx    %00
+:done       rts
+
+FiltAvg     lda   NotFirst              ; (the first row: through Left, Above)
+            beq   AvgSlow
+            ldy   #1                    ; the first pixel: (b) / 2
+:first      cpy   RowBytes
+            beq   :f
+            bcs   :done
+:f          cpy   PBpp
+            beq   :f1
+            bcs   :rest
+:f1         lda   [q2],y
+            and   #$00FF
+            lsr
+            clc
+            adc   [q1],y
             sep   #$20
             mx    %10
             sta   [q1],y
             rep   #$20
             mx    %00
             iny
-            bra   :loop
+            bra   :first
+:rest       cpy   RowBytes              ; the rest: (a + b) / 2
+            beq   :go
+            bcs   :done
+:go         lda   [p1],y
+            and   #$00FF
+            sta   t1
+            lda   [q2],y
+            and   #$00FF
+            clc
+            adc   t1
+            lsr
+            clc
+            adc   [q1],y
+            sep   #$20
+            mx    %10
+            sta   [q1],y
+            rep   #$20
+            mx    %00
+            iny
+            bra   :rest
 :done       rts
 
-FiltAvg     ldy   #1
+AvgSlow     ldy   #1
 :loop       cpy   RowBytes
             beq   :go
             bcs   :done
@@ -606,7 +728,91 @@ FiltAvg     ldy   #1
             bra   :loop
 :done       rts
 
-FiltPaeth   ldy   #1
+* FiltPaeth: the first row and the first pixel of each row through
+* Left, Above and UpLeft; the rest with all three neighbours in place.
+FiltPaeth   lda   NotFirst
+            bne   :inner
+            jmp   PaethSlow
+:inner      ldy   #1                    ; the first pixel: no left, no up-left
+:first      cpy   RowBytes
+            beq   :f
+            bcc   :jx2
+            jmp   :done
+:jx2
+:f          cpy   PBpp
+            beq   :f1
+            bcs   :rest
+:f1         lda   [q2],y                ; (b alone)
+            clc
+            adc   [q1],y
+            sep   #$20
+            mx    %10
+            sta   [q1],y
+            rep   #$20
+            mx    %00
+            iny
+            bra   :first
+:rest       cpy   RowBytes
+            beq   :go
+            bcs   :done
+:go         lda   [p3],y                ; c
+            and   #$00FF
+            sta   Pc
+            lda   [q2],y                ; b
+            and   #$00FF
+            sta   Pb
+            sec
+            sbc   Pc
+            sta   t1                    ; b - c: pa = |b - c|
+            bpl   :pa
+            eor   #$FFFF
+            inc
+:pa         sta   DA
+            lda   [p1],y                ; a
+            and   #$00FF
+            sta   Pa
+            sec
+            sbc   Pc
+            sta   t2                    ; a - c: pb = |a - c|
+            bpl   :pb
+            eor   #$FFFF
+            inc
+:pb         sta   DB
+            lda   t1                    ; pc = |(b - c) + (a - c)|
+            clc
+            adc   t2
+            bpl   :pc
+            eor   #$FFFF
+            inc
+:pc         sta   DCc
+            lda   DA
+            cmp   DB
+            beq   :aOK
+            bcs   :notA
+:aOK        cmp   DCc
+            beq   :useA
+            bcc   :useA
+:notA       lda   DB
+            cmp   DCc
+            beq   :useB
+            bcc   :useB
+            lda   Pc
+            bra   :add
+:useA       lda   Pa
+            bra   :add
+:useB       lda   Pb
+:add        clc
+            adc   [q1],y
+            sep   #$20
+            mx    %10
+            sta   [q1],y
+            rep   #$20
+            mx    %00
+            iny
+            bra   :rest
+:done       rts
+
+PaethSlow   ldy   #1
 :loop       cpy   RowBytes
             beq   :go
             bcs   :done
@@ -715,7 +921,20 @@ ConvRow     ldx   PassNo                ; first pixel and step, in bytes
             lda   Depth
             cmp   #8
             bcc   :low
-            jmp   ConvBytes
+            bne   :bytes
+            lda   HasKey                ; 8 bits, every pixel opaque, one
+            bne   :bytes                ; pass: copied as they are (grey:
+            lda   PassNo                ; three times)
+            cmp   #14
+            bne   :bytes
+            lda   CType
+            cmp   #2
+            bne   :g
+            jmp   CopyRGB
+:g          cmp   #0
+            bne   :bytes
+            jmp   CopyGrey
+:bytes      jmp   ConvBytes
 
 :low        stz   u0                    ; below 8 bits: grey or palette
 :pix        lda   u0
@@ -769,6 +988,67 @@ ConvRow     ldx   PassNo                ; first pixel and step, in bytes
             ply
             dec   u1
             bne   :pix
+            rts
+
+* CopyRGB: an 8-bit RGB row (one pass, no key) into the true colour row:
+* the same bytes, a byte further on (q1 + 1, at q0).
+CopyRGB     lda   q1
+            clc
+            adc   #1
+            sta   p1
+            lda   q1+2
+            adc   #0
+            sta   p1+2
+            lda   PassW
+            asl
+            clc
+            adc   PassW
+            sta   t1                    ; bytes
+            lsr
+            beq   :odd
+            tax
+            ldy   #0
+:w          lda   [p1],y                ; two at a time
+            sta   [q0],y
+            iny
+            iny
+            dex
+            bne   :w
+:odd        lda   t1
+            lsr
+            bcc   :done
+            ldy   t1                    ; (and the last one)
+            dey
+            sep   #$20
+            mx    %10
+            lda   [p1],y
+            sta   [q0],y
+            rep   #$20
+            mx    %00
+:done       rts
+
+* CopyGrey: an 8-bit grey row (one pass, no key): each sample three times.
+CopyGrey    ldy   #1
+            stz   t1
+            ldx   u1                    ; (the pixels)
+            sep   #$20
+            mx    %10
+:p          lda   [q1],y
+            phy
+            ldy   t1
+            sta   [q0],y
+            iny
+            sta   [q0],y
+            iny
+            sta   [q0],y
+            iny
+            sty   t1
+            ply
+            iny
+            dex
+            bne   :p
+            rep   #$20
+            mx    %00
             rts
 
 * 8 and 16 bits: one sample (or its high byte) per channel.

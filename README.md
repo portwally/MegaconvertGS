@@ -11,7 +11,7 @@ Needs [Merlin 32](https://www.brutaldeluxe.fr/products/crossdevtools/merlin/).
 ```
 
 Writes the application to `build/MegaconvertGS` (GS/OS type S16). Set `MERLIN32` if the
-assembler isn't in `~/Downloads/Merlin32_v1.2_b2 2/MacOs/`.
+assembler isn't in `~/Downloads/Merlin32_v1.2_b2/MacOs/`.
 
 ## Test
 
@@ -353,10 +353,10 @@ or Auto; comments as a tEXt chunk). Help! and Menu item help, with MegaconvertGS
 into `build/MCGS.Help`, which goes beside the program). File > Print alignment page.
 
 Remapping is several times faster than before, with the same results (the
-remap2 suite's 43 remaps: 1585 s → 387 s in MAME at 2.8 MHz; `docs/speed-plan.md`,
-section 4).
+remap2 suite's 43 remaps: 1585 s → 387 s in MAME at 2.8 MHz), and PNG files open about
+twice as fast (the 22 test PNGs: 463 s → 227 s; `docs/speed-plan.md`, section 4).
 
-Next: more speed (`docs/speed-plan.md`), Print (normal) and (enhanced) (copying the
+Next: more speed (JPEG decoding, then `docs/speed-plan.md`), Print (normal) and (enhanced) (copying the
 picture to the printer port fails with error $1212 under MAME's System 6.0.4 driver once a
 page holds more than a small area, in strips or tiles alike), Print banner, and
 progressive JPEG. (SuperConvert's "more than one way" window has nothing to ask here:
