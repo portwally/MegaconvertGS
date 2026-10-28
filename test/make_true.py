@@ -231,7 +231,10 @@ ppm(S, tmp); ppm(S, tmpg, True); ppm(big, tmpb)
 for name, args, src in (("J420.JPG", ["-sample", "2x2"], tmp), ("J422.JPG", ["-sample", "2x1"], tmp),
                         ("J444.JPG", ["-sample", "1x1"], tmp), ("JGREY.JPG", ["-grayscale"], tmpg),
                         ("JRST.JPG", ["-restart", "5B"], tmp), ("JOPT.JPG", ["-optimize", "-quality", "95"], tmp),
-                        ("JBIG.JPG", ["-quality", "90"], tmpb), ("JPROG.JPG", ["-progressive"], tmp)):
+                        ("JBIG.JPG", ["-quality", "90"], tmpb), ("JPROG.JPG", ["-progressive"], tmp),
+                        ("JPROGG.JPG", ["-progressive", "-grayscale"], tmpg),
+                        ("JPROG444.JPG", ["-progressive", "-sample", "1x1", "-restart", "2"], tmp),
+                        ("JPROG422.JPG", ["-progressive", "-sample", "2x1", "-restart", "3B"], tmp)):
     subprocess.run(["cjpeg"] + args + ["-outfile", os.path.join(out, name), src], check=True)
 for f in (tmp, tmpg, tmpb): os.remove(f)
 print(len(os.listdir(out)), "true colour pictures")

@@ -89,7 +89,17 @@ DecodeFile  jsr   ClearScreen
             beq   :shr
             sec                         ; one of them, but it could not be read
             rts
-:shr        lda   #0                    ; Apple II and IIgs formats
+:shr        lda   #$FFFF                ; MegaconvertGS's own formats, by name
+            jsr   CallOther             ; (before the Apple formats' sizes)
+            bcs   :notOwn
+            rts
+:notOwn     cmp   #0                    ; (named so, but not one: the others)
+            beq   :apple
+            cmp   #errNotPicture
+            beq   :apple
+            sec
+            rts
+:apple      lda   #0                    ; Apple II and IIgs formats
             jsr   CallApple
             bcs   :notApple
             rts
@@ -146,7 +156,12 @@ DecodeFile  jsr   ClearScreen
 DecodeForced cmp  #fmtWOA              ; (Works of Art: the Apple segment)
             bne   :notWOA
             jmp   CallApple
-:notWOA     cmp   #fmtCount             ; (listed, not implemented yet)
+:notWOA     cmp   #fmtTGA               ; (TGA, PICT: the Other segment)
+            bcc   :notNew
+            cmp   #fmtLast+1
+            bcs   :notNew
+            jmp   CallOther
+:notNew     cmp   #fmtCount             ; (listed, not implemented yet)
             bcc   :known
             lda   #errNotImpl
             sec

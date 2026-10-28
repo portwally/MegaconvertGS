@@ -187,7 +187,10 @@ fmtTIFF             =     50
 fmtCount            =     51                 ; (Load formats lists some past these)
 fmtNPS              =     51                 ; New Print Shop graphics (not here)
 fmtWOA              =     52                 ; Works of Art (Apple.s WOA.s)
-saveCount           =     14                 ; save numbers 1-13 (Save formats lists more)
+fmtTGA              =     55                 ; Truevision Targa (Other.s TGA.s)
+fmtPICT             =     56                 ; QuickDraw PICT (Other.s PICT.s)
+fmtLast             =     56                 ; (the last format number)
+saveCount           =     17                 ; save numbers 1-16 (but 14, 15: Babelfish)
 
 * The True color menu's filters (Filter.s), in menu order
 fxEqualize          =     0

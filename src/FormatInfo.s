@@ -21,11 +21,21 @@ FmtInfo     da    FiSHR,FiC1,FiAPF,FiPacked,FiPW,FiBMP,FiGIF,FiPNG,FiJPEG,FiHGR,
             da    FiDG3200,FiAST,FiCEyes,Fi3200,Fi3200C,FiPWGold,FiDegas,FiDegasE,FiNeo
             da    FiTiny,FiSPU,FiSPC,FiIFF,FiDoodle,FiKoala,FiC64PS,FiMac640,FiMac320
             da    FiMacMono,FiMacSM,FiGEM,FiPCX,FiFli,FiSun,FiSGI,FiPNM,FiRLE,FiIPI,FiQRT
-            da    FiTIFF,FiNPS,FiWOA,FiBabelTC,FiBabelPM
+            da    FiTIFF,FiNPS,FiWOA,FiBabelTC,FiBabelPM,FiTGA,FiPICT
+
+FiTGA       asc   '93/Truevision Targa (.TGA): pictures from paint and video programs, usually '
+            asc   'ProDOS type $06 (BIN).',0D,'Reads color-mapped, true color and '
+            asc   'gray pictures, run-length coded or not, of 8, 15, 16, 24 or 32 bits a pixel; '
+            asc   'an alpha channel is left out./^#0',00
+
+FiPICT      asc   '93/QuickDraw picture (PICT): the Macintosh',27,'s picture format, version 1 '
+            asc   'or 2, with or without the 512 bytes a Mac file starts with.',0D,'Reads the '
+            asc   'pictures in it: bitmaps and pixel maps, packed or not, of 1 to 32 bits a '
+            asc   'pixel; the lines, shapes and text it may also draw are left out./^#0',00
 
 SaveInfo    da    0,FiSvC1,FiSvAPF,FiSvPack,FiSvPW,FiSvIcon,FiSvIconAdd,FiSvRIcon
             da    FiSvRIcAdd,FiSvHex,FiSvGIF,FiSvPNG,FiSvTIFF,FiSvDesk,FiSvBabelTC
-            da    FiSvBabelPM
+            da    FiSvBabelPM,FiSvBMP
 
 * Load formats
 
@@ -73,8 +83,8 @@ FiPNG       asc   '93/PNG (Portable Network Graphics): the lossless picture form
             asc   'It becomes a true color picture, remapped to fit a 320 mode screen./^#0',00
 
 FiJPEG      asc   '93/JPEG (JFIF): the usual format for photographs (.JPG), compressed with some '
-            asc   'loss. Baseline JPEG files are read, gray or color, up to 2048 pixels wide and '
-            asc   '4096 tall, but progressive ones can',27,'t be read yet.',0D,'It becomes a true '
+            asc   'loss. Baseline and progressive JPEG files are read, gray or color, up to 2048 '
+            asc   'pixels wide and 4096 tall (progressive ones as far as memory allows).',0D,'It becomes a true '
             asc   'color picture, remapped to fit a 320 mode screen./^#0',00
 
 FiHGR       asc   '93/HiRes color: the Apple II high resolution screen, 8192 bytes (usually a BIN '
@@ -377,6 +387,11 @@ FiSvBabelTC asc   '93/Babelfish True Color Export: the true color picture writte
             asc   'Babelfish, Seven Hills Software',27,'s file translator system, in a format its '
             asc   'translators offer.',0D,'MegaconvertGS doesn',27,'t work with Babelfish yet./^#0'
             asc   00
+
+FiSvBMP     asc   '93/BMP: a Windows bitmap for today',27,'s computers, ProDOS type $06 (BIN), '
+            asc   '8 bits a pixel, uncompressed.',0D,'Written as it looks, with square pixels: '
+            asc   'lines twice and 320 mode pixels twice across (a full screen gives 640 x 400). '
+            asc   'Each pixel keeps the color it shows, whatever its palette./^#0',00
 
 FiSvBabelPM asc   '93/Babelfish PixelMap Export: the screen picture written through Babelfish, '
             asc   'Seven Hills Software',27,'s file translator system, in a format its '

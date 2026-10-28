@@ -1,7 +1,7 @@
 # Checks the files MegaconvertGS saved in the emulator (test/save.sh) against GS Remap's
 # save formats (test/sc4save): Finder icons byte for byte, icon resources resource for
 # resource, PaintWorks by its contents (packing may differ), hex data line for line, and
-# GIF, PNG and TIFF pixel for pixel. Where GS Remap refuses a picture, so must MegaconvertGS.
+# GIF, PNG and TIFF pixel for pixel, BMP against GS Remap's PNG of the picture. Where GS Remap refuses a picture, so must MegaconvertGS.
 import os, sys, subprocess, re, struct
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from pngread import read_png
@@ -57,6 +57,23 @@ ok = True
 for tag, disk, local, fid in PICTURES:
     for fmt in FORMATS:
         name = out(tag, fmt)
+        if fmt == "bmp":                       # (GS Remap saves no BMP: the picture must
+            entry = log.get((fmt, name), "not tried")    # be its PNG's, pixel for pixel)
+            problems, note = [], ""
+            pref = os.path.join(work, out(tag, "png") + ".png")
+            if not entry.startswith("ok"): problems.append(entry)
+            elif not os.path.exists(pref): problems.append("no PNG from GS Remap to compare")
+            else:
+                mine = os.path.join(work, name + ".ours.bmp")
+                open(mine, "wb").write(ours(name))
+                gw, gh, g = pixels(mine, "bmp")
+                ww, wh, wv = pixels(pref, "png")
+                if (gw, gh) != (ww, wh): problems.append(f"size {gw}x{gh}, GS Remap's PNG {ww}x{wh}")
+                elif g != wv: problems.append(f"{sum(1 for a, b in zip(g, wv) if a != b)} samples differ")
+                note = f"{len(ours(name))} bytes, as GS Remap's PNG"
+            print(f"{name:10s} {fmt:9s} {'OK  ' + note if not problems else 'FAIL: ' + '; '.join(problems)}")
+            ok &= not problems
+            continue
         ref = os.path.join(work, name + "." + fmt)
         args = [ref_tool, os.path.join(root, local), fid, ref, {"pw": "c00"}.get(fmt, fmt)]
         if fmt in ("iconadd", "riconadd"):

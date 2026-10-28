@@ -7,7 +7,7 @@ PICTURES = [  # tag, folder and file on the test disk, local file, load format i
     ("BIG", "MCTRUE:BIG.PNG", "build/fixtures/true/BIG.PNG", "png"),
     ("DHB", "MCAPPLE:DHRBW.PIC", "build/fixtures/apple/DHRBW.PIC", "dhrbw"),
 ]
-FORMATS = ["pw", "icon", "iconadd", "ricon", "riconadd", "hex", "gif", "png", "tiff"]
+FORMATS = ["pw", "icon", "iconadd", "ricon", "riconadd", "hex", "gif", "png", "tiff", "bmp"]
 def out(tag, fmt):
     return f"{tag}.{fmt.upper()}"
 if __name__ == "__main__" and sys.argv[1:] == ["commands"]:

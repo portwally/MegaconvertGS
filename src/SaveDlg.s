@@ -1052,7 +1052,7 @@ TxHxL3      asc   'End of line:'
 * sizes that can be chosen, the default (bits: original, one screen, a
 * page, two screens high, two wide), the largest original (bytes, lines).
 SvRecs      da    RecC1,RecC1,RecAPF,RecPack,RecPW,RecIcon,RecIcon,RecRIcon,RecRIcon
-            da    RecHex,RecGIF,RecPNG,RecTIFF,RecDesk
+            da    RecHex,RecGIF,RecPNG,RecTIFF,RecDesk,RecPNG,RecPNG,RecPNG
 RecPW       dw    $0005
             db    $04,$04
             dw    0,0

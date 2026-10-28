@@ -43,11 +43,6 @@ ok = True
 for name in sorted(os.listdir(fix)):
     problems, notes = [], ""
     entry = log.get(name)
-    if name == "JPROG.JPG":
-        good = entry == "error $FFFE"
-        print(f"{name:12s} {'OK (progressive: not supported yet)' if good else 'FAIL: ' + str(entry)}")
-        ok &= good
-        continue
     if entry is None or not entry.startswith("ok"):
         print(f"{name:12s} FAIL: {entry}"); ok = False; continue
     parts = entry.replace(",", "").split()

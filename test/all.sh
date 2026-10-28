@@ -41,4 +41,5 @@ suite woa ./test/woa.sh
 suite deskinit ./test/deskinit.sh
 suite help ./test/help.sh
 suite tiffopt ./test/tiffopt.sh
+suite newfmt ./test/newfmt.sh
 exit $failed

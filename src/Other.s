@@ -46,15 +46,47 @@ DecodeOther ent
 OLoaders    da    LoadDegas,LoadDegasE,LoadNeo,LoadTiny,LoadSPU,LoadSPC,LoadIFF
             da    LoadDoodle,LoadKoala,LoadC64PS,LoadMac640,LoadMac320,LoadMacMono
             da    LoadMacSM,LoadGEM,LoadPCX,LoadFli,LoadSun,LoadSGI,LoadPNM,LoadRLE
-            da    LoadIPI,LoadQRT,LoadTIFF
+            da    LoadIPI,LoadQRT,LoadTIFF,LoadNone,LoadNone,LoadNone,LoadNone
+            da    LoadTGA,LoadPICT
+LoadNone    lda   #errNotImpl           ; (51-54: not in this segment)
+            sec
+            rts
 
 *-------------------------------------------------------------
 * Recognising a file: by its signature, then its name, then its size
 *-------------------------------------------------------------
 ODetect     lda   Want
             beq   :auto
+            cmp   #$FFFF
+            beq   :own
             clc
             rts
+:own        jsr   PcSig                 ; $FFFF: only MegaconvertGS's own
+            bcs   :oname                ; formats: a version 2 PICT, or by
+            lda   #fmtPICT              ; the name's ending
+            clc
+            rts
+:oname      jsr   GetExt
+            ldx   #0
+:oext       lda   ExtList,x
+            bne   :jx1
+            jmp   :none
+:jx1
+            cmp   Ext
+            bne   :onext
+            lda   ExtList+2,x
+            cmp   Ext+2
+            bne   :onext
+            lda   ExtList+4,x
+            cmp   #fmtTGA
+            bcc   :onext
+            clc
+            rts
+:onext      txa
+            clc
+            adc   #6
+            tax
+            bra   :oext
 :auto       lda   flen+2                ; at least 16 bytes
             bne   :sig
             lda   flen
@@ -212,6 +244,12 @@ ExtList     asc   'PI1',00
             dw    fmtRLE
             asc   'QRT',00
             dw    fmtQRT
+            asc   'TGA',00
+            dw    fmtTGA
+            asc   'PCT',00
+            dw    fmtPICT
+            asc   'PICT'
+            dw    fmtPICT
             dw    0
 
 SizeList    dw    32034,fmtDegas
@@ -1854,4 +1892,6 @@ MacBuf      ds    144
 
             put   OtherPC.s
             put   TIFF.s
+            put   TGA.s
+            put   PICT.s
             put   SegLib.s

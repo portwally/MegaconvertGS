@@ -811,8 +811,9 @@ DA          dw    0                     ; (PNG's Paeth filter)
 DB          dw    0
 DCc         dw    0
 
-* The shared work area: a decoder's tables (BMP, GIF, PNG, JPEG).
-Work        ds    24576
+* The shared work area: a decoder's tables (BMP, GIF, PNG, JPEG): GIF's
+* reach 16384, then the palette.
+Work        ds    17664
 
 * A decoder's palette lives at the work area's end.
 Pal         =     Work+16384            ; 256 x R, G, B

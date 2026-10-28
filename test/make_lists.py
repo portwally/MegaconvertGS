@@ -33,15 +33,19 @@ TYPES = [
         ("fmtIPI", C), ("fmtQRT", C)]),
     ("External (Babelfish™)", [("53", C), ("54", S)]),
 ]
-# MegaconvertGS's own: TIFF to load (its file filter: types $06 or $04, or none, at
-# least 8 bytes).
-EXTRA_FORMATS = {"Computer-independent": [("fmtTIFF", C, "TIFF (Tagged Image File Format)")]}
-EXTRA_FILTERS = {"fmtTIFF": bytes.fromhex("000000000000060400000000080000000000ff000000ffff")}
+# MegaconvertGS's own: TIFF, TGA and PICT to load (their file filters: types $06 or
+# $04, or none, at least 8, 18 or 10 bytes).
+EXTRA_FORMATS = {"Computer-independent": [("fmtTIFF", C, "TIFF (Tagged Image File Format)"),
+                                          ("fmtTGA", C, "Truevision Targa (.TGA)")],
+                 "Macintosh": [("fmtPICT", C, "QuickDraw picture (PICT)")]}
+EXTRA_FILTERS = {"fmtTIFF": bytes.fromhex("000000000000060400000000080000000000ff000000ffff"),
+                 "fmtTGA": bytes.fromhex("000000000000060400000000120000000000ff000000ffff"),
+                 "fmtPICT": bytes.fromhex("0000000000000604000000000a0000000000ff000000ffff")}
 # Names changed: the PCX loader is tested, so no question marks.
 RENAMED = {"PC Paintbrush (.PCX, .PCC) ???": "PC Paintbrush (.PCX, .PCC)"}
 # Save numbers in SuperConvert's order; "Icon resource (HyperCard, etc.)" adds to a file.
 SAVES = [4, 3, 2, 1, 5, 6, 8, 13, 9, 10, 11, 12, 14, 15]
-EXTRA_SAVES = [(7, "Icon resource (new file)")]
+EXTRA_SAVES = [(7, "Icon resource (new file)"), (16, "BMP (Windows bitmap)")]
 
 types = DATA["computerTypes"]
 assert [t["name"] for t in types] == [n for n, _ in TYPES], "computer types differ"

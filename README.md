@@ -126,7 +126,7 @@ Or all of them, one after the other (each suite's report goes to `build/suite_*.
 
 `basic` loads and saves every supported format, `remap` compares Remap with GS Remap
 pixel for pixel, and `ui` opens and saves a picture through the menus and file dialogs.
-`true` makes 46 PNG, GIF, BMP and JPEG test pictures covering each variant of each
+`true` makes 50 PNG, GIF, BMP and JPEG (baseline and progressive) test pictures covering each variant of each
 format (`test/make_true.py`, JPEGs with `cjpeg`), loads them all, and checks the decoded
 pixels against GS Remap (JPEG against libjpeg's `djpeg`, as JPEG decoders round
 differently), the fitted size, and the remapped screen. It also logs each load time.
@@ -186,7 +186,12 @@ scrolled lines against lines drawn afresh, the histogram's bars, scales and info
 `test/check_oscope.py`'s model byte for byte. `woa` loads the two pages of a Works of Art
 test file (`test/make_woa.py`, the documentation's example) as monochrome images and refuses
 three damaged copies. `deskinit` saves desktop background INITs and checks each as an OMF
-load file holding MegaconvertGS's own INIT and the packed desktop message. The build stops on a local label defined twice
+load file holding MegaconvertGS's own INIT and the packed desktop message. `newfmt`
+loads TGA and PICT test files written from known pixels (`test/make_newfmt.py`: every
+TGA kind and depth, run-length coded or not, either row order; PICT version 1 and 2, bit
+maps and pixel maps of 1 to 32 bits with each kind of packing, bands, scaling and the
+drawing commands passed over), plus a TGA from `sips` and two PICTs from ImageMagick, by
+their format and by themselves, and checks them pixel for pixel. The build stops on a local label defined twice
 under one global label (`test/labels.py`), which Merlin 32 accepts silently.
 A test run stops by itself once the test commands are done.
 
@@ -201,8 +206,8 @@ A test run stops by itself once the test commands are done.
   (Works of Art pages, as monochrome images) and `src/Glyphs.s`,
   the Apple II character set drawn from the Print Char 21 font by Kreative Software
   (`test/glyphs.swift`)
-- `src/Other.s` with `src/OtherPC.s` and `src/TIFF.s` — the other computers' formats (a
-  segment of its own)
+- `src/Other.s` with `src/OtherPC.s`, `src/TIFF.s`, `src/TGA.s` and `src/PICT.s` — the
+  other computers' formats (a segment of its own)
 - `src/SegLib.s` — helpers each loader segment includes
 - `src/Save.s` — the save formats (a segment of its own)
 - `src/Screen.s` — full-screen view
@@ -257,8 +262,8 @@ A test run stops by itself once the test commands are done.
   exactly.
 - Milestone 3: true colour pictures. Opens PNG (every colour type and bit depth,
   interlaced, transparency), GIF (87a/89a, interlaced, transparency), BMP (1-32 bits,
-  OS/2 and Windows headers) and baseline JPEG (grey or colour, any 1x/2x sampling,
-  restart markers). A picture larger than the screen is fitted to it with GS Remap's
+  OS/2 and Windows headers) and JPEG (baseline and progressive, grey or colour, any
+  1x/2x sampling, restart markers). A picture larger than the screen is fitted to it with GS Remap's
   scale steps and box averaging, then remapped.
 - Milestone 4: Apple II and IIgs formats. HiRes and Double HiRes (colour or black &
   white), Print Shop graphics (and the IIgs colour ones and library), ThunderScan
@@ -353,6 +358,12 @@ A test run stops by itself once the test commands are done.
   the original does. Save as Desktop background image INIT: MegaconvertGS's own INIT, which
   puts the picture on the desktop at start-up from SYSTEM.SETUP.
 
+Formats SuperConvert didn't have: Truevision Targa (TGA: colour-mapped, true colour and
+grey, 8 to 32 bits, run-length coded or not) and Macintosh PICT (version 1 and 2, with or
+without the 512-byte header: the bit maps and pixel maps in it, 1 to 32 bits) in Load
+formats and Open, progressive JPEG, and Save as BMP (Windows bitmap, 8 bits with the
+screen image's colours, square pixels as GS Remap's PNG).
+
 TIFF Save Options (the screen image as a palette image, the true colour image as RGB, or both;
 Intel or Motorola order; the fewest palette bits or 1, 4 or 8; the resolution's unit; a
 description; `src/TiffOpt.s`). PNG save options (compression level: from 6, matches against the line above; filter None
@@ -365,7 +376,6 @@ twice as fast (the 22 test PNGs: 463 s → 227 s; `docs/speed-plan.md`, section 
 
 Next: more speed (JPEG decoding, then `docs/speed-plan.md`), Print (normal) and (enhanced) (copying the
 picture to the printer port fails with error $1212 under MAME's System 6.0.4 driver once a
-page holds more than a small area, in strips or tiles alike), Print banner, and
-progressive JPEG. (SuperConvert's "more than one way" window has nothing to ask here:
+page holds more than a small area, in strips or tiles alike) and Print banner. (SuperConvert's "more than one way" window has nothing to ask here:
 MegaconvertGS's PNG saves the screen image, and TIFF Save Options asks for the image
 itself.)

@@ -1,8 +1,10 @@
 *-------------------------------------------------------------
-* JPEG.s - baseline JPEG (JFIF)
+* JPEG.s - baseline and progressive JPEG (JFIF)
 *
 * Huffman coded, 8-bit samples, grey or YCbCr with each component
 * sampled 1 or 2 times per MCU across and down, restart markers.
+* A progressive picture's coefficients are kept, block by block, while
+* its scans add to them, and turned into pixels at the end.
 * The inverse DCT is the fast integer one with scaled quantisation
 * tables (Arai, Agui and Nakajima), as in the IJG's jidctfst.
 * Chroma is widened by repeating samples.
@@ -23,7 +25,27 @@ JOff        =     Work+14608            ;   code limit, and symbol index - first
 MTab        =     Work+8192             ; MulK's tables, 1024 bytes for each
                                         ; constant: lo x K / 256, then hi x K
 
-DecodeJPEG  jsr   MulTables
+DecodeJPEG  stz   JProg                 ; (a progressive picture's
+            stz   JScans                ; coefficients: freed however it ends)
+            ldx   #10
+:none       stz   CfHnd,x
+            dex
+            dex
+            bpl   :none
+            jsr   JMain
+            php
+            pha
+            ldx   #CfHnd
+            jsr   FreeHandleAt
+            ldx   #CfHnd+4
+            jsr   FreeHandleAt
+            ldx   #CfHnd+8
+            jsr   FreeHandleAt
+            pla
+            plp
+            rts
+
+JMain       jsr   MulTables
             stz   JNComp
             stz   RestartInt
             stz   CHnd
@@ -37,19 +59,25 @@ DecodeJPEG  jsr   MulTables
             stz   n0+2
             jsr   StreamAt
 :marker     jsr   GetByte
-            bcs   :corrupt
+            bcc   :jx1
+            jmp   :eod
+:jx1
             cmp   #$FF
             bne   :marker
 :ff         jsr   GetByte
-            bcs   :corrupt
-            cmp   #$FF
+            bcc   :jx2
+            jmp   :eod
+:jx2
+:code       cmp   #$FF
             beq   :ff
             cmp   #0
             beq   :marker
             cmp   #$D8                  ; SOI, RSTn: no segment
             beq   :marker
-            cmp   #$D9
-            beq   :corrupt              ; EOI before any scan
+            cmp   #$D9                  ; EOI (before any scan: damaged)
+            bne   :jx3
+            jmp   :eod
+:jx3
             cmp   #$D0
             bcc   :seg
             cmp   #$D8
@@ -58,16 +86,26 @@ DecodeJPEG  jsr   MulTables
             beq   :sof
             cmp   #$C1
             beq   :sof
+            cmp   #$C2
+            beq   :sof2
             cmp   #$C4
-            beq   :dht
+            bne   :jx10
+            jmp   :dht
+:jx10
             cmp   #$DB
-            beq   :dqt
+            bne   :jx11
+            jmp   :dqt
+:jx11
             cmp   #$DD
-            beq   :dri
+            bne   :jx12
+            jmp   :dri
+:jx12
             cmp   #$DA
-            beq   :sos
-            cmp   #$C8                  ; other frame types: progressive,
-            beq   :skip                 ; lossless, arithmetic coding
+            bne   :jx5
+            jmp   :sos
+:jx5
+            cmp   #$C8                  ; other frame types: lossless,
+            beq   :skip                 ; arithmetic coding
             cmp   #$CC
             beq   :skip
             cmp   #$C0
@@ -82,13 +120,39 @@ DecodeJPEG  jsr   MulTables
             sbc   #2
             bcc   :corrupt
             jsr   SkipA
-            bra   :marker
+            jmp   :marker
 :corrupt    lda   #errCorrupt
             sec
             rts
-:sof        jsr   ReadSOF
-            bcc   :marker
+:sof        lda   JProg                 ; (a second frame: damaged)
+            bne   :sof2x
+            jsr   ReadSOF
+            bcs   :jx4
+            jmp   :marker
+:jx4
             rts
+:sof2       lda   JProg                 ; progressive: room for the
+            beq   :sof2a                ; coefficients
+:sof2x      jmp   :corrupt
+:sof2a      jsr   ReadSOF
+            bcs   :perr
+            inc   JProg
+            jsr   JpInit
+            bcs   :perr
+            jmp   :marker
+:perr       rts
+:pscan      jsr   JpScan                ; a progressive scan, then the marker
+            bcs   :perr                 ; that ended it
+            lda   MarkerHit
+            beq   :pnext
+            lda   JMark
+            jmp   :code
+:pnext      jmp   :marker
+:eod        lda   JScans                ; the end: a progressive picture's
+            bne   :pout                 ; scans so far, or damaged
+            jmp   :corrupt
+:pout       stz   RestartInt
+            bra   :scan
 :dht        jsr   ReadDHT
             bcs   :jx13
             jmp   :marker
@@ -102,6 +166,8 @@ DecodeJPEG  jsr   MulTables
             jmp   :marker
 :sos        lda   JNComp
             beq   :corrupt
+            lda   JProg
+            bne   :pscan
             jsr   ReadSOS
             bcc   :scan
             rts
@@ -445,36 +511,7 @@ TableAddr   sta   t2
 *-------------------------------------------------------------
 * The scan
 *-------------------------------------------------------------
-DecodeScan  lda   HMax                  ; MCUs across and down
-            asl
-            asl
-            asl
-            sta   McuW
-            dec
-            clc
-            adc   TrueW
-            ldy   #3
-            ldx   HMax
-            cpx   #2
-            bne   :sx
-            iny
-:sx         jsr   ShiftR
-            sta   McusX
-            lda   VMax
-            asl
-            asl
-            asl
-            sta   McuH
-            dec
-            clc
-            adc   TrueH
-            ldy   #3
-            ldx   VMax
-            cpx   #2
-            bne   :sy
-            iny
-:sy         jsr   ShiftR
-            sta   McusY
+DecodeScan  jsr   McuDims
             ldx   #0                    ; a strip of samples per component
 :buf        stx   CI
             lda   McusX                 ; BW = McusX * H * 8
@@ -555,7 +592,7 @@ DecodeScan  lda   HMax                  ; MCUs across and down
 :comp       stx   CI
             stz   VB
 :vb         stz   HB
-:hb         jsr   DecodeBlock
+:hb         jsr   JBlock
             bcc   :ok
             inc   JErr                  ; damaged: keep what was decoded
             bra   :rows
@@ -591,6 +628,628 @@ DecodeScan  lda   HMax                  ; MCUs across and down
 :done       clc
             rts
 
+* McuDims: MCUs across and down.
+McuDims     lda   HMax
+            asl
+            asl
+            asl
+            sta   McuW
+            dec
+            clc
+            adc   TrueW
+            ldy   #3
+            ldx   HMax
+            cpx   #2
+            bne   :sx
+            iny
+:sx         jsr   ShiftR
+            sta   McusX
+            lda   VMax
+            asl
+            asl
+            asl
+            sta   McuH
+            dec
+            clc
+            adc   TrueH
+            ldy   #3
+            ldx   VMax
+            cpx   #2
+            bne   :sy
+            iny
+:sy         jsr   ShiftR
+            sta   McusY
+            rts
+
+*-------------------------------------------------------------
+* Progressive pictures
+*-------------------------------------------------------------
+
+* JpInit: room for a progressive picture's coefficients, all 0: for each
+* component, blocks of 64 words (in zig-zag order), McusX x H across and
+* McusY x V down; and how many blocks a scan of it alone holds.
+JpInit      jsr   McuDims
+            ldx   #0
+:comp       stx   CI
+            lda   TrueW                 ; alone: its own width and height
+            ldy   CH,x                  ; in blocks
+            cpy   HMax
+            beq   :w
+            inc
+            lsr
+:w          clc
+            adc   #7
+            lsr
+            lsr
+            lsr
+            sta   NBX,x
+            lda   TrueH
+            ldy   CV,x
+            cpy   VMax
+            beq   :h
+            inc
+            lsr
+:h          clc
+            adc   #7
+            lsr
+            lsr
+            lsr
+            sta   NBY,x
+            lda   McusX                 ; kept: whole MCUs
+            ldy   CH,x
+            cpy   #2
+            bne   :bx
+            asl
+:bx         sta   CfBX,x
+            lda   McusY
+            ldy   CV,x
+            cpy   #2
+            bne   :by
+            asl
+:by         ldy   CfBX,x
+            tyx
+            jsr   Mul16                 ; blocks x 128 bytes
+            lda   ProdLo
+            sta   n0
+            lda   ProdHi
+            sta   n0+2
+            ldx   #7
+:x128       asl   n0
+            rol   n0+2
+            dex
+            bne   :x128
+            jsr   NewBuffer
+            bcs   :out
+            lda   CI
+            asl
+            tay
+            lda   n1
+            sta   CfHnd,y
+            lda   n1+2
+            sta   CfHnd+2,y
+            lda   p0
+            sta   CfP,y
+            lda   p0+2
+            sta   CfP+2,y
+            lda   #0
+            jsr   FillBig
+            ldx   CI
+            inx
+            inx
+            txa
+            lsr
+            cmp   JNComp
+            bcs   :jx6
+            jmp   :comp
+:jx6
+            clc
+:out        rts
+
+* JpScan: one scan of a progressive picture: its components, the
+* coefficients it holds (Ss to Se) and which of their bits (Ah, Al),
+* added to each block's coefficients. Damaged data ends the scan.
+JpScan      jsr   GetBE16               ; (its length)
+            jsr   GetByte
+            sta   JpNs
+            beq   :bad
+            cmp   JNComp
+            beq   :ns
+            bcs   :bad
+:ns         stz   u1
+:comp       jsr   GetByte               ; each component: which, and its
+            ldx   #0                    ; tables
+:find       cmp   CompId,x
+            beq   :found
+            inx
+            inx
+            cpx   #6
+            bcc   :find
+:bad        lda   #errCorrupt
+            sec
+            rts
+:found      txa
+            ldy   u1
+            sta   JpComp,y
+            phx
+            jsr   GetByte
+            plx
+            sta   t1
+            lsr
+            lsr
+            lsr
+            lsr
+            and   #$0003
+            jsr   TableAddr
+            lda   hc
+            sta   DCCnt,x
+            lda   hs
+            sta   DCSym,x
+            lda   t1
+            and   #$0003
+            ora   #$0004
+            jsr   TableAddr
+            lda   hc
+            sta   ACCnt,x
+            lda   hs
+            sta   ACSym,x
+            inc   u1
+            inc   u1
+            lda   u1
+            lsr
+            cmp   JpNs
+            bcc   :comp
+            jsr   GetByte               ; coefficients Ss to Se, bits Ah, Al
+            sta   JpSs
+            jsr   GetByte
+            sta   JpSe
+            jsr   GetByte
+            pha
+            and   #$000F
+            sta   JpAl
+            pla
+            lsr
+            lsr
+            lsr
+            lsr
+            sta   JpAh
+            lda   JpSe                  ; DC alone (any components), or AC
+            cmp   #64                   ; of one component
+            bcs   :bad
+            cmp   JpSs
+            bcc   :bad
+            ldx   #0
+            lda   JpSs
+            bne   :ac
+            lda   JpSe
+            bne   :bad
+            bra   :kind
+:ac         lda   JpNs
+            cmp   #1
+            beq   :jx7
+            jmp   :bad
+:jx7
+            ldx   #4
+:kind       lda   JpAh                  ; first, or refined
+            beq   :first
+            inx
+            inx
+:first      stx   JpKind
+            ldx   JpAl
+            lda   #1
+:p1         cpx   #0
+            beq   :p1d
+            asl
+            dex
+            bra   :p1
+:p1d        sta   JpP1
+            jsr   MakeLims
+            stz   JCnt
+            stz   MarkerHit
+            stz   Pred
+            stz   Pred+2
+            stz   Pred+4
+            stz   JpEOB
+            lda   RestartInt
+            sta   RstLeft
+            lda   JpNs
+            cmp   #1
+            bne   :mcus
+            lda   JpComp                ; one component: its blocks in order
+            sta   CI
+            stz   JpBY
+:brow       ldx   CI
+            lda   JpBY
+            cmp   NBY,x
+            bcc   :jx8
+            jmp   :done
+:jx8
+            stz   JpBX
+            jsr   JpBlkAt
+:blk        jsr   JpRst
+            jsr   JpOne
+            bcs   :done
+            lda   q1
+            clc
+            adc   #128
+            sta   q1
+            bcc   :nc
+            inc   q1+2
+:nc         inc   JpBX
+            ldx   CI
+            lda   JpBX
+            cmp   NBX,x
+            bcc   :blk
+            inc   JpBY
+            bra   :brow
+:mcus       stz   MY                    ; more: by MCU, as in a baseline scan
+:mrow       stz   MX
+:mcu        jsr   JpRst
+            stz   JpI
+:sc         ldy   JpI
+            ldx   JpComp,y
+            stx   CI
+            stz   VB
+:vb         stz   HB
+:hb         jsr   JpAt
+            jsr   JpOne
+            bcs   :done
+            ldx   CI
+            inc   HB
+            lda   HB
+            cmp   CH,x
+            bcc   :hb
+            inc   VB
+            lda   VB
+            cmp   CV,x
+            bcc   :vb
+            inc   JpI
+            inc   JpI
+            lda   JpI
+            lsr
+            cmp   JpNs
+            bcc   :sc
+            inc   MX
+            lda   MX
+            cmp   McusX
+            bcc   :mcu
+            inc   MY
+            lda   MY
+            cmp   McusY
+            bcc   :mrow
+:done       inc   JScans
+            clc
+            rts
+
+* JpRst: at the start of an MCU, a restart marker if one is due.
+JpRst       lda   RestartInt
+            beq   :done
+            lda   RstLeft
+            bne   :count
+            jsr   Restart
+            stz   JpEOB
+            lda   RestartInt
+            sta   RstLeft
+:count      dec   RstLeft
+:done       rts
+
+* JpOne: the scan's part of the block at q1 (component CI).
+*   out: carry set if the data is damaged
+JpOne       ldx   JpKind
+            jmp   (JpKinds,x)
+
+JpKinds     da    JpDC0,JpDC1,JpAC0,JpAC1
+
+* JpAt: q1 = the kept block of component CI at MCU MX, MY, block HB, VB.
+JpAt        ldx   CI
+            lda   MX
+            ldy   CH,x
+            cpy   #2
+            bne   :h
+            asl
+:h          clc
+            adc   HB
+            sta   JpBX
+            lda   MY
+            ldy   CV,x
+            cpy   #2
+            bne   :v
+            asl
+:v          clc
+            adc   VB
+* JpBlkAt: q1 = the kept block of component CI at JpBX across, A down.
+JpBlkAt     ldx   CI
+            pha
+            lda   CfBX,x
+            tax
+            pla
+            jsr   Mul16
+            lda   ProdLo
+            clc
+            adc   JpBX
+            sta   q1
+            lda   ProdHi
+            adc   #0
+            sta   q1+2
+            ldx   #7
+:x128       asl   q1
+            rol   q1+2
+            dex
+            bne   :x128
+            lda   CI
+            asl
+            tax
+            lda   q1
+            clc
+            adc   CfP,x
+            sta   q1
+            lda   q1+2
+            adc   CfP+2,x
+            sta   q1+2
+            rts
+
+* JpDC0: the DC coefficient's first bits: a difference, as in a baseline
+* scan, shifted up by Al.
+JpDC0       ldx   CI
+            lda   DCCnt,x
+            sta   hc
+            lda   DCSym,x
+            sta   hs
+            jsr   DecodeJ
+            bcs   :bad
+            cmp   #12
+            bcs   :bad
+            tax
+            beq   :d
+            phx
+            jsr   GetBitsJ
+            plx
+            jsr   Extend
+:d          ldx   CI
+            clc
+            adc   Pred,x
+            sta   Pred,x
+            ldx   JpAl
+            beq   :st
+:sh         asl
+            dex
+            bne   :sh
+:st         sta   [q1]
+            clc
+:bad        rts
+
+* JpDC1: one more bit of the DC coefficient.
+JpDC1       jsr   GetBitJ
+            bcc   :done
+            lda   [q1]
+            ora   JpP1
+            sta   [q1]
+:done       clc
+            rts
+
+* JpAC0: the first bits of coefficients Ss to Se, or nothing in an
+* end-of-band run.
+JpAC0       lda   JpEOB
+            beq   :go
+            dec   JpEOB
+            clc
+            rts
+:go         ldx   CI
+            lda   ACCnt,x
+            sta   hc
+            lda   ACSym,x
+            sta   hs
+            lda   JpSs
+            sta   K
+:sym        jsr   DecodeJ
+            bcs   :bad
+            sta   u1
+            and   #$000F
+            bne   :val
+            lda   u1                    ; no value: 16 zeros, or the end of
+            lsr                         ; the band here and in more blocks
+            lsr
+            lsr
+            lsr
+            cmp   #15
+            bne   :eob
+            lda   K
+            clc
+            adc   #16
+            sta   K
+            bra   :next
+:eob        jsr   JpRun
+            dec   JpEOB
+            clc
+            rts
+:val        sta   u3                    ; a run of zeros, then a value
+            lda   u1
+            lsr
+            lsr
+            lsr
+            lsr
+            clc
+            adc   K
+            cmp   #64
+            bcs   :bad
+            sta   K
+            ldx   u3
+            jsr   GetBitsJ
+            ldx   u3
+            jsr   Extend
+            ldx   JpAl
+            beq   :st
+:sh         asl
+            dex
+            bne   :sh
+:st         pha
+            lda   K
+            asl
+            tay
+            pla
+            sta   [q1],y
+            inc   K
+:next       lda   JpSe
+            cmp   K
+            bcs   :sym
+            clc
+            rts
+:bad        sec
+            rts
+
+* JpRun: an end-of-band run (r in A): 2^r blocks, plus the next r bits.
+JpRun       sta   u0
+            tax
+            lda   #1
+:sh         cpx   #0
+            beq   :p
+            asl
+            dex
+            bra   :sh
+:p          sta   JpEOB
+            ldx   u0
+            beq   :done
+            jsr   GetBitsJ
+            clc
+            adc   JpEOB
+            sta   JpEOB
+:done       rts
+
+* JpAC1: one more bit of coefficients Ss to Se: those already not zero
+* get a bit each; a new one (1 or -1 at bit Al) goes after so many zeros.
+JpAC1       lda   JpP1
+            eor   #$FFFF
+            inc
+            sta   JpM1
+            lda   JpSs
+            sta   K
+            lda   JpEOB
+            bne   :eob
+            ldx   CI
+            lda   ACCnt,x
+            sta   hc
+            lda   ACSym,x
+            sta   hs
+:sym        jsr   DecodeJ
+            bcc   :jx9
+            jmp   :bad
+:jx9
+            sta   u1
+            lsr
+            lsr
+            lsr
+            lsr
+            sta   u0                    ; zeros to pass
+            lda   u1
+            and   #$000F
+            beq   :nos
+            jsr   GetBitJ               ; a new coefficient: its sign
+            lda   JpP1
+            bcs   :sp
+            lda   JpM1
+:sp         sta   u3
+            bra   :adv
+:nos        stz   u3                    ; none: 16 zeros, or the end of the
+            lda   u0                    ; band
+            cmp   #15
+            beq   :adv
+            jsr   JpRun
+            bra   :eob
+:adv        lda   K
+            asl
+            tay
+            lda   [q1],y
+            beq   :zero
+            jsr   JpCorr
+            bra   :inc
+:zero       dec   u0
+            bmi   :place
+:inc        inc   K
+            lda   JpSe
+            cmp   K
+            bcs   :adv
+:place      lda   u3
+            beq   :nxt
+            lda   K
+            cmp   #64
+            bcs   :nxt
+            asl
+            tay
+            lda   u3
+            sta   [q1],y
+:nxt        inc   K
+            lda   JpSe
+            cmp   K
+            bcs   :sym
+            clc
+            rts
+:eob        lda   JpSe                  ; the rest of the band: a bit each
+            cmp   K                     ; for those not zero
+            bcc   :end
+            lda   K
+            asl
+            tay
+            lda   [q1],y
+            beq   :e
+            jsr   JpCorr
+:e          inc   K
+            bra   :eob
+:end        dec   JpEOB
+            clc
+            rts
+:bad        sec
+            rts
+
+* JpCorr: a correction bit for the coefficient at [q1],y (not zero): if
+* it is set and that bit of the coefficient isn't, the coefficient grows
+* by it (away from 0).
+JpCorr      jsr   GetBitJ
+            bcc   :no
+            lda   [q1],y
+            and   JpP1
+            bne   :no
+            lda   [q1],y
+            bmi   :neg
+            clc
+            adc   JpP1
+            sta   [q1],y
+:no         rts
+:neg        sec
+            sbc   JpP1
+            sta   [q1],y
+            rts
+
+* JBlock: the next block's coefficients, dequantised: decoded, or from
+* those kept for a progressive picture.
+*   out: carry set if the data is damaged
+JBlock      lda   JProg
+            bne   :kept
+            jmp   DecodeBlock
+:kept       jsr   JpAt
+            ldx   #126
+:clear      stz   Coef,x
+            dex
+            dex
+            bpl   :clear
+            ldx   CI
+            lda   CQ,x
+            sta   u2
+            ldx   #0
+:k          txy
+            lda   [q1],y
+            beq   :next
+            phx
+            ldy   ZigZag,x
+            jsr   DeQuant
+            plx
+            ldy   ZigZag,x
+            sta   Coef,y
+:next       inx
+            inx
+            cpx   #128
+            bcc   :k
+            clc
+            rts
+
 * Restart: at a restart marker: realign and reset the DC predictions.
 Restart     stz   JCnt
             lda   MarkerHit
@@ -623,7 +1282,8 @@ GetBitJ     dec   JCnt
             jsr   GetByte               ; $FF $00 is a data byte $FF
             cmp   #0
             beq   :isFF
-            inc   MarkerHit             ; a marker: the data has ended
+            sta   JMark                 ; a marker: the data has ended
+            inc   MarkerHit
             bra   :zero
 :isFF       lda   #$FF
 :byte       xba
@@ -1694,6 +2354,27 @@ JCnt        dw    0
 JBuf        dw    0
 JVal        dw    0
 MarkerHit   dw    0
+JMark       dw    0                     ; (the marker that was hit)
+JProg       dw    0                     ; progressive: the scans so far,
+JScans      dw    0
+CfHnd       ds    12                    ; and for each component: its
+CfP         ds    12                    ; coefficients (handle, pointer),
+CfBX        ds    6                     ; blocks across them, and in a scan of
+NBX         ds    6                     ; it alone
+NBY         ds    6
+JpNs        dw    0                     ; the scan: components, which,
+JpComp      ds    8
+JpSs        dw    0                     ; coefficients, bits
+JpSe        dw    0
+JpAh        dw    0
+JpAl        dw    0
+JpP1        dw    0                     ; (1, -1 at bit Al)
+JpM1        dw    0
+JpEOB       dw    0                     ; blocks left in an end-of-band run
+JpKind      dw    0
+JpI         dw    0
+JpBX        dw    0
+JpBY        dw    0
 MKc         dw    0
 MKs         dw    0                     ; (MulK: lo x K / 256; MulTables: lo x
 MKv         dw    0                     ; K, 24 bits, with MKv after MKs)

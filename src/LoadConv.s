@@ -10,7 +10,7 @@
 * loaded, the others wait for Load next. A folder chosen alone (without
 * "Load all pictures within selected folders"): the dialog again, in it.
 LoadConv    jsl   DeskLoadFmt           ; a format listed, but not here yet?
-            cmp   #fmtCount
+            jsr   FmtHere
             bcc   :ok
             lda   #errNotImpl
             jmp   Problem

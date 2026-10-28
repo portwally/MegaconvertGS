@@ -38,7 +38,7 @@ TypeMems    =     *
             dw    9,0,0
 * Each type's formats: where its members are, how many.
 TypeFmts    da    FmMems0,FmMems1,FmMems2,FmMems3,FmMems4,FmMems5,FmMems6,FmMems7,FmMems8,FmMems9
-TypeCount   dw    10,12,6,1,3,4,5,3,8,2
+TypeCount   dw    10,12,6,1,3,5,5,3,9,2
 FmMems0     =     *
             adrl  FmName0x0
             db    $80,0
@@ -153,6 +153,9 @@ FmMems5     =     *
             adrl  FmName5x3
             db    0,0
             dw    fmtMacSM,2,Filt5x3
+            adrl  FmName5x4
+            db    0,0
+            dw    fmtPICT,2,Filt5x4
 FmMems6     =     *
             adrl  FmName6x0
             db    $80,0
@@ -204,6 +207,9 @@ FmMems8     =     *
             adrl  FmName8x7
             db    0,0
             dw    fmtTIFF,2,Filt8x7
+            adrl  FmName8x8
+            db    0,0
+            dw    fmtTGA,2,Filt8x8
 FmMems9     =     *
             adrl  FmName9x0
             db    $80,0
@@ -211,7 +217,7 @@ FmMems9     =     *
             adrl  FmName9x1
             db    0,0
             dw    54,1,Filt9x1
-NSaves      =     15
+NSaves      =     16
 SaveMems    =     *
             adrl  SvName0
             db    0,0
@@ -258,6 +264,9 @@ SaveMems    =     *
             adrl  SvName14
             db    0,0
             dw    7,1,0
+            adrl  SvName15
+            db    0,0
+            dw    16,1,0
 TyName0     dfb   15
             asc   'Apple II family'
 FmName0x0   dfb   19
@@ -342,6 +351,8 @@ FmName5x2   dfb   29
             asc   'MacPaint, as monochrome image'
 FmName5x3   dfb   32
             asc   'ScreenMaker (old startup screen)'
+FmName5x4   dfb   24
+            asc   'QuickDraw picture (PICT)'
 TyName6     dfb   20
             asc   'IBM PC & compatibles'
 FmName6x0   dfb   29
@@ -380,6 +391,8 @@ FmName8x6   dfb   18
             asc   'QRT raw image file'
 FmName8x7   dfb   31
             asc   'TIFF (Tagged Image File Format)'
+FmName8x8   dfb   23
+            asc   'Truevision Targa (.TGA)'
 TyName9     dfb   21
             asc   'External (Babelfish',AA,')'
 FmName9x0   dfb   28
@@ -416,6 +429,8 @@ SvName13    dfb   26
             asc   'Babelfish',AA,' PixelMap Export'
 SvName14    dfb   24
             asc   'Icon resource (new file)'
+SvName15    dfb   20
+            asc   'BMP (Windows bitmap)'
 * File filters: types (A, B; $FFFF: a list), aux min, max, EOF min, max.
 Filt0x0     dw    $0806,$0000,$FFFF
             adrl  $1FF8,$2100
@@ -499,6 +514,8 @@ Filt5x2     dw    $0406,$0000,$FFFF
             adrl  $3E8,$FFFF
 Filt5x3     dw    $0406,$0000,$FFFF
             adrl  $5580,$5600
+Filt5x4     dw    $0406,$0000,$FFFF
+            adrl  $A,$FF0000
 Filt6x0     dw    $0406,$0000,$FFFF
             adrl  $50,$FFFFFF
 Filt6x1     dw    $0406,$0000,$FFFF
@@ -551,6 +568,8 @@ Filt8x6     dw    $0000,$0000,$FFFF
             adrl  $6,$FFFFFF
 Filt8x7     dw    $0406,$0000,$FFFF
             adrl  $8,$FF0000
+Filt8x8     dw    $0406,$0000,$FFFF
+            adrl  $12,$FF0000
 Filt9x0     dw    $FFFE,$0000,$0000
             adrl  $0,$0
 Filt9x1     dw    $FFFD,$0000,$0000

@@ -893,9 +893,7 @@ Problem     cmp   #errCancel            ; (cancelled in a window: nothing to say
 * Open and Save
 *-------------------------------------------------------------
 DoOpen      lda   ForceFmt              ; a format listed, but not here yet?
-            cmp   #fmtWOA
-            beq   :ask
-            cmp   #fmtCount
+            jsr   FmtHere
             bcc   :ask
             lda   #errNotImpl
             jmp   Problem
@@ -1008,6 +1006,21 @@ FreeReply   PushLongAt Reply+10
             Tool  _DisposeHandle
             rts
 
+* FmtHere: carry clear if load format A is implemented (below fmtCount,
+* Works of Art, and from TGA to the last).
+FmtHere     cmp   #fmtCount
+            bcc   :yes
+            cmp   #fmtWOA
+            beq   :yes
+            cmp   #fmtTGA
+            bcc   :no
+            cmp   #fmtLast+1
+            bcc   :yes
+:no         sec
+            rts
+:yes        clc
+            rts
+
 * SaveChosen: the format chosen in Save formats (A). DoSave: A = save
 * format; asks for a name (or, to add an icon, for the file to add it
 * to), then saves.
@@ -1020,8 +1033,12 @@ DoSave      sta   SaveFmt
             rts
 :have       lda   SaveFmt               ; a format listed, but not here yet?
             cmp   #saveCount
+            bcs   :notHere
+            cmp   #14                   ; (the Babelfish exports)
             bcc   :dlgs
-            lda   #errNotImpl
+            cmp   #16
+            bcs   :dlgs
+:notHere    lda   #errNotImpl
             jmp   Problem
 :dlgs       lda   TestMode              ; the size, where it goes, warnings
             beq   :sizes                ; (tests: with SAVEDLG 1 only)
@@ -2487,8 +2504,11 @@ FmtIds      da    0,IdC1,IdAPF,IdPacked,IdPW,IdBMP,IdGIF,IdPNG,IdJPEG
             da    IdO27,IdO28,IdO29,IdO30,IdO31,IdO32,IdO33,IdO34
             da    IdO35,IdO36,IdO37,IdO38,IdO39,IdO40,IdO41,IdO42
             da    IdO43,IdO44,IdO45,IdO46,IdO47,IdO48,IdO49,IdO50
-            da    IdNPS,IdWOA
+            da    IdNPS,IdWOA,IdNone,IdNone,IdTGA,IdPICT
 IdNPS       asc   'nps',00
+IdNone      asc   '-',00                ; (53, 54: the Babelfish imports)
+IdTGA       asc   'tga',00
+IdPICT      asc   'pict',00
 IdWOA       asc   'woa',00
 IdC1        asc   'c1',00
 IdAPF       asc   'apf',00
@@ -2543,8 +2563,9 @@ IdO50   asc   'tiff',00
 
 * Save formats, by number: short names for the test commands.
 SaveIds     da    0,IdC1,IdAPF,IdPacked,IdPW,SiIcon,SiIconAdd,SiRIcon,SiRIconAdd,SiHex,IdGIF,IdPNG,IdO50
-            da    SiDesk
+            da    SiDesk,SiNone,SiNone,IdBMP
 SiDesk      asc   'desk',00
+SiNone      asc   '-',00                ; (14, 15: the Babelfish exports)
 SiIcon      asc   'icon',00
 SiIconAdd   asc   'iconadd',00
 SiRIcon     asc   'ricon',00

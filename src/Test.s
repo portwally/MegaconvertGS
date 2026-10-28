@@ -1219,7 +1219,7 @@ Match       sta   t0
 * FindId: the format whose short name is in CmdBuf at offset A, then a space.
 *   out: carry clear, ForceFmt set and A = offset after the space
 FindId      ldx   #FmtIds
-            ldy   #fmtWOA+1
+            ldy   #fmtLast+1
             jsr   FindIdIn
             bcs   :no
             pha

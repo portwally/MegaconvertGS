@@ -31,6 +31,7 @@ svGIF       =     10
 svPNG       =     11
 svTIFF      =     12
 svDesk      =     13
+svBMP       =     16                    ; (14, 15: the Babelfish exports, not here)
 
 * SaveFormat: A = format. Out: carry clear, or carry set and A = error.
 SaveFormat  ent
@@ -43,7 +44,7 @@ SaveFormat  ent
             stz   ohnd+2
             sec
             sbc   #svPW
-            cmp   #svDesk-svPW+1
+            cmp   #svBMP-svPW+1
             bcs   :bad
             asl
             tax
@@ -56,7 +57,10 @@ SaveFormat  ent
             plb
             rtl
 :kinds      da    SavePW,SaveIcon,SaveIconAdd,SaveRIcon,SaveRIconAdd,SaveHex
-            da    SaveGIF,SavePNG,SaveTIFF,SaveDesk
+            da    SaveGIF,SavePNG,SaveTIFF,SaveDesk,SaveNone,SaveNone,SaveBMP
+SaveNone    lda   #errNotImpl
+            sec
+            rts
 
 *-------------------------------------------------------------
 * The picture
@@ -412,6 +416,123 @@ PutZeros    cpx   #0
             dex
             bne   :z
 :done       rts
+
+*-------------------------------------------------------------
+* BMP: a Windows bitmap (BITMAPINFOHEADER, 8 bits a pixel, the colours
+* in use as its palette, the rows bottom up, each padded to 4 bytes): the
+* screen image as PNG and GIF save it (OW x OH)
+*-------------------------------------------------------------
+SaveBMP     jsr   Shown
+            lda   OW                    ; bytes a row
+            clc
+            adc   #3
+            and   #$FFFC
+            sta   BRow
+            ldx   OH                    ; the pixels' bytes
+            jsr   Mul16
+            lda   MLo
+            sta   BImg
+            lda   MHi
+            sta   BImg+2
+            lda   NCol                  ; where they start: 14 + 40 + 4 a colour
+            asl
+            asl
+            clc
+            adc   #54
+            sta   BOff
+            clc                         ; the file's size
+            adc   BImg
+            sta   n0
+            sta   BSize
+            lda   BImg+2
+            adc   #0
+            sta   n0+2
+            sta   BSize+2
+            jsr   OutNew
+            bcc   :head
+            rts
+:head       lda   #$4D42                ; "BM", the size, 0, the offset
+            jsr   PutW
+            lda   BSize
+            jsr   PutW
+            lda   BSize+2
+            jsr   PutW
+            ldx   #4
+            jsr   PutZeros
+            lda   BOff
+            jsr   PutW0
+            lda   #40                   ; the info header: its size, width,
+            jsr   PutW0                 ; height (positive: bottom up), 1
+            lda   OW                    ; plane, 8 bits, no compression, the
+            jsr   PutW0                 ; pixels' bytes, 72 dots an inch
+            lda   OH                    ; (2835 a metre), the colours used
+            jsr   PutW0
+            lda   #1
+            jsr   PutW
+            lda   #8
+            jsr   PutW
+            ldx   #4
+            jsr   PutZeros
+            lda   BImg
+            jsr   PutW
+            lda   BImg+2
+            jsr   PutW
+            lda   #2835
+            jsr   PutW0
+            lda   #2835
+            jsr   PutW0
+            lda   NCol
+            jsr   PutW0
+            ldx   #4
+            jsr   PutZeros
+            ldx   #0                    ; the palette: blue, green, red, 0
+:pal        cpx   NCol
+            bcs   :rows
+            phx
+            txa
+            asl
+            tax
+            lda   PalB,x
+            jsr   Put
+            lda   PalG,x
+            jsr   Put
+            lda   PalR,x
+            jsr   Put
+            lda   #0
+            jsr   Put
+            plx
+            inx
+            bra   :pal
+:rows       lda   OH                    ; the lines, the last first
+            sta   LineNo
+:line       dec   LineNo
+            lda   LineNo
+            jsr   ShownRow
+            ldy   #0
+:px         cpy   OW
+            bcs   :pad
+            lda   ShowLine,y
+            jsr   Put
+            iny
+            bra   :px
+:pad        lda   BRow
+            sec
+            sbc   OW
+            tax
+            jsr   PutZeros
+            lda   LineNo
+            bne   :line
+            lda   #$0006
+            sta   otype
+            stz   oaux
+            stz   oaux+2
+            clc
+            rts
+
+* PutW0: A as a 32-bit number (high word 0), low byte first.
+PutW0       jsr   PutW
+            lda   #0
+            jmp   PutW
 
 *-------------------------------------------------------------
 * PaintWorks ($C0/0000): colour table 0, a word, 512 bytes of
@@ -2682,6 +2803,10 @@ AdA         dw    0
 AdB         dw    0
 LzY         dw    0                     ; (Lzw: the next pixel)
 ShowPY      dw    0
+BRow        dw    0                     ; (SaveBMP: bytes a row, the pixels'
+BImg        adrl  0                     ; bytes, where they start, the
+BOff        dw    0                     ; file's size)
+BSize       adrl  0
 RevDone     dw    0                     ; (RevCode made; RevMake's symbol;
 RevSym      dw    0                     ; each fixed code reversed)
 RevCode     ds    576
