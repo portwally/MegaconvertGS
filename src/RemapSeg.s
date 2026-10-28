@@ -838,7 +838,13 @@ StBW        dw    0
 Remap       jsr   Normalise
             jsr   GetProto
             jsr   Sizes
-            jsr   MakePlanes            ; the picture at the output size
+            lda   OMode                 ; the picture at the output size (one
+            cmp   #3                    ; palette: its colours counted too)
+            beq   :mp
+            lda   #1
+            sta   PlHist
+:mp         jsr   MakePlanes
+            stz   PlHist
             bcc   :planes
             rts
 :planes     jsr   ClearScreen
@@ -850,8 +856,7 @@ Remap       jsr   Normalise
 :single     stz   LineA                 ; every line, one palette
             lda   ROutH
             sta   LineB
-            jsr   HistLines
-            jsr   CalcPalette
+            jsr   CalcPalette           ; (Hist: MakePlanes')
             jsr   FreshCache
             jsr   RenderLines
             ldx   #0                    ; the palette as colour table 0
@@ -931,7 +936,16 @@ PutTable    txa
 * (top nibbles of the averages) and its grey level, in a buffer:
 * each line ROutW colour words, then ROutW grey bytes.
 *-------------------------------------------------------------
-MakePlanes  lda   ROutW                  ; bytes a line
+MakePlanes  lda   PlHist                ; (counting: from nothing)
+            beq   :nh
+            ldx   #8190
+            lda   #0
+:hz         sta   Hist,x
+            dex
+            dex
+            bpl   :hz
+:nh
+            lda   ROutW                  ; bytes a line
             asl
             clc
             adc   ROutW
@@ -946,9 +960,20 @@ MakePlanes  lda   ROutW                  ; bytes a line
             adc   #0
             sta   n0+2
             jsr   NewBig
-            bcc   :spans
+            bcc   :fill
             rts
-:spans      lda   SrcW                  ; which source columns make each output one
+:fill       stz   GreyMade              ; the greys now only if the palette
+            lda   #1                    ; is sure to be grey (else RenderLines
+            sta   NoGrey                ; asks for them: MakeGrey)
+            jsr   ProtoGrey
+            bcs   PlaneFill
+            stz   NoGrey
+            inc   GreyMade
+
+* PlaneFill: the planes' lines from the true colour picture (colours,
+* counted into Hist if PlHist; greys unless NoGrey).
+PlaneFill   stz   P50OK                 ; (XA3, XN: Reduce's tables go)
+            lda   SrcW                  ; which source columns make each output one
             ldx   SpanW
             jsr   SpanStart
             ldx   #0
@@ -968,7 +993,17 @@ MakePlanes  lda   ROutW                  ; bytes a line
             inx
             cpx   ROutW2
             bcc   :col
-            stz   Unit                  ; 1:1?
+            stz   AllOne                ; every span across one pixel?
+            ldx   #0
+:a1         lda   XN,x
+            cmp   #1
+            bne   :unit
+            inx
+            inx
+            cpx   ROutW2
+            bcc   :a1
+            inc   AllOne
+:unit       stz   Unit                  ; 1:1?
             lda   SpanW
             cmp   SrcW
             bne   :rows
@@ -992,12 +1027,29 @@ MakePlanes  lda   ROutW                  ; bytes a line
             lda   RowY                  ; store them
             jsr   PlaneRow
             ldy   #0
+            lda   PlHist
+            bne   :ch
 :c          lda   LineC,y
             sta   [p1],y
             iny
             iny
             cpy   ROutW2
             bcc   :c
+            bra   :grey
+:ch         lda   LineC,y               ; (and counted, as HistLines does)
+            sta   [p1],y
+            asl
+            tax
+            lda   Hist,x
+            inc
+            beq   :full
+            sta   Hist,x
+:full       iny
+            iny
+            cpy   ROutW2
+            bcc   :ch
+:grey       lda   NoGrey
+            bne   :nextRow
             ldx   #0                    ; (the greys two at a time: an odd
 :g          lda   LineY+2,x             ; width writes a byte into the next
             xba                         ; line, stored after it, or into the
@@ -1011,11 +1063,49 @@ MakePlanes  lda   ROutW                  ; bytes a line
             iny
             cpx   ROutW2
             bcc   :g
-            inc   RowY
+:nextRow    inc   RowY
             lda   RowY
             cmp   ROutH
-            bcc   :row
+            bcs   :rowsDone
+            jmp   :row
+:rowsDone   clc
+            rts
+
+* MakeGrey: the planes' greys, if they weren't made (the lines scaled
+* again; the colours come out the same).
+MakeGrey    lda   GreyMade
+            bne   :done
+            stz   NoGrey
+            lda   PlHist
+            pha
+            stz   PlHist
+            jsr   PlaneFill
+            pla
+            sta   PlHist
+            inc   GreyMade
+:done       rts
+
+* ProtoGrey: carry clear if every prototype entry is reserved, or fixed
+* and grey (the palette will be all grey).
+ProtoGrey   ldx   #0
+:e          lda   Proto,x
+            bit   #$8000
+            bne   :next
+            bit   #$4000
+            bne   :no
+            phx
+            jsr   IsGrey
+            plx
+            bcs   :no
+:next       inx
+            inx
+            txa
+            lsr
+            cmp   ProtoN
+            bcc   :e
             clc
+            rts
+:no         sec
             rts
 
 * PlaneRow: p1 = line A of the planes buffer.
@@ -1030,27 +1120,17 @@ PlaneRow    ldx   PlRow
             sta   p1+2
             rts
 
-* GetLine: LineC and LineY of line A, from the planes.
+* GetLine: LineC = line A's colours times 2, from the planes (for the
+* multipalette line costs).
 GetLine     jsr   PlaneRow
-            ldx   #0
             ldy   #0
 :c          lda   [p1],y
-            sta   LineC,x
-            inx
-            inx
+            asl
+            sta   LineC,y
             iny
             iny
-            cpx   ROutW2
+            cpy   ROutW2
             bcc   :c
-            ldx   #0
-:g          lda   [p1],y
-            and   #$00FF
-            sta   LineY,x
-            inx
-            inx
-            iny
-            cpx   ROutW2
-            bcc   :g
             rts
 
 * NewBig: the planes buffer of n0 (long) bytes (it may cross banks).
@@ -1174,11 +1254,42 @@ ScaleRow     ldx   #SpCur-SpQ            ; the row's span (its stepping state)
             adc   MHi
             sta   q0+2
             lda   Unit
-            beq   :general
+            bne   :jx7
+            jmp   :general
+:jx7
             ldx   #0                    ; 1:1 (SetLine's sums, inline: t1 a
             ldy   #0                    ; channel, t2 the grey's sum, t3 the
-:unit       lda   [q0],y                ; colour so far; each ASL leaves the
-            and   #$00FF                ; carry clear)
+            lda   NoGrey                ; colour so far; each ASL leaves the
+            beq   :unit                 ; carry clear)
+:unitC      lda   [q0],y                ; (colours only)
+            and   #$00F0
+            asl
+            asl
+            asl
+            asl
+            sta   t3
+            iny
+            lda   [q0],y
+            and   #$00F0
+            ora   t3
+            sta   t3
+            iny
+            lda   [q0],y
+            and   #$00F0
+            lsr
+            lsr
+            lsr
+            lsr
+            ora   t3
+            sta   LineC,x
+            iny
+            inx
+            inx
+            cpx   ROutW2
+            bcc   :unitC
+            rts
+:unit       lda   [q0],y
+            and   #$00FF
             sta   t1                    ; red
             asl
             asl
@@ -1230,7 +1341,13 @@ ScaleRow     ldx   #SpCur-SpQ            ; the row's span (its stepping state)
             bcc   :unit
             rts
 :general    stz   LastXN                ; (no box size known for this row)
-            ldx   #0
+            lda   RowN                  ; one source line and one pixel for
+            cmp   #1                    ; each: the quicker loop
+            bne   :gen
+            lda   AllOne
+            beq   :gen
+            jmp   :wide
+:gen        ldx   #0
 :pix        stx   PixX
             lda   RowN                  ; one source pixel: read, or the same as
             cmp   #1                    ; the column before's
@@ -1239,7 +1356,9 @@ ScaleRow     ldx   #SpCur-SpQ            ; the row's span (its stepping state)
 :jx4
             lda   XN,x
             cmp   #1
-            bne   :box
+            beq   :jx8
+            jmp   :box
+:jx8
             cpx   #0
             beq   :one
             lda   XN-2,x
@@ -1254,6 +1373,8 @@ ScaleRow     ldx   #SpCur-SpQ            ; the row's span (its stepping state)
             sta   LineY,x
             jmp   :nextPix
 :one        ldy   XA3,x                 ; (SetLine inline, as at 1:1)
+            lda   NoGrey
+            bne   :oC
             lda   [q0],y
             and   #$00FF
             sta   t1                    ; red
@@ -1300,6 +1421,28 @@ ScaleRow     ldx   #SpCur-SpQ            ; the row's span (its stepping state)
             lsr
             lsr
             sta   LineY,x
+            jmp   :nextPix
+:oC         lda   [q0],y                ; (colours only)
+            and   #$00F0
+            asl
+            asl
+            asl
+            asl
+            sta   t3
+            iny
+            lda   [q0],y
+            and   #$00F0
+            ora   t3
+            sta   t3
+            iny
+            lda   [q0],y
+            and   #$00F0
+            lsr
+            lsr
+            lsr
+            lsr
+            ora   t3
+            sta   LineC,x
             jmp   :nextPix
 :box        lda   RowN                  ; one source line, at most 257
             cmp   #1                    ; pixels: the sums fit 16 bits
@@ -1448,6 +1591,95 @@ ScaleRow     ldx   #SpCur-SpQ            ; the row's span (its stepping state)
             bcs   :done
             jmp   :pix
 :done       rts
+
+:wide       ldx   #0                    ; (each pixel the column before's if
+            bra   :wNew                 ; its source is the same)
+:wLoop      lda   XA3,x
+            cmp   XA3-2,x
+            bne   :wNew
+            lda   LineC-2,x
+            sta   LineC,x
+            lda   LineY-2,x
+            sta   LineY,x
+            bra   :wNext
+:wNew       ldy   XA3,x
+            lda   NoGrey
+            bne   :wC
+            lda   [q0],y
+            and   #$00FF
+            sta   t1                    ; red
+            asl
+            asl
+            adc   t1
+            sta   t2
+            lda   t1
+            and   #$00F0
+            asl
+            asl
+            asl
+            asl
+            sta   t3
+            iny
+            lda   [q0],y                ; green
+            and   #$00FF
+            sta   t1
+            and   #$00F0
+            ora   t3
+            sta   t3
+            lda   t1
+            asl
+            asl
+            asl
+            adc   t2
+            sta   t2
+            iny
+            lda   [q0],y                ; blue
+            and   #$00FF
+            sta   t1
+            lsr
+            lsr
+            lsr
+            lsr
+            ora   t3
+            sta   LineC,x
+            lda   t1
+            asl
+            adc   t1
+            adc   t2
+            lsr
+            lsr
+            lsr
+            lsr
+            sta   LineY,x
+            bra   :wNext
+:wC         lda   [q0],y                ; (colours only)
+            and   #$00F0
+            asl
+            asl
+            asl
+            asl
+            sta   t3
+            iny
+            lda   [q0],y
+            and   #$00F0
+            ora   t3
+            sta   t3
+            iny
+            lda   [q0],y
+            and   #$00F0
+            lsr
+            lsr
+            lsr
+            lsr
+            ora   t3
+            sta   LineC,x
+:wNext      inx
+            inx
+            cpx   ROutW2
+            bcs   :jx9
+            jmp   :wLoop
+:jx9
+            rts
 
 * DivWay: how to divide by Divisor: DMeth 0 not at all (1), 1 a shift
 * right by DShift (a power of two up to 256), 2 a 16-bit division (up to
@@ -1728,6 +1960,8 @@ CalcPalette ldx   #30                   ; working copy of the prototype
             lsr
             lsr
             sta   PeakEighth
+            jsr   BiasTab               ; (dist x peak / 9 for each distance)
+            jsr   P50Tabs               ; (and Reduce's tables)
             lda   #$0777                ; (distances from mid grey)
             jsr   DistSet
             stz   ListI                 ; favour colours far from mid grey:
@@ -1741,24 +1975,16 @@ CalcPalette ldx   #30                   ; working copy of the prototype
             txa
             lsr
             jsr   DistTo
-            ldx   Peak
-            jsr   Mul16
-            lda   MLo
-            sta   n0
-            lda   MHi
-            sta   n0+2
-            lda   #9
-            jsr   Div32
+            asl
+            tay
             ldx   BiasX
-            lda   DvQ+2
-            bne   :sat
             lda   Hist,x
             clc
             adc   PeakEighth
             bcs   :sat
             clc
-            adc   DvQ
-            bcc   :store
+            adc   BiasT,y               ; ($FFFF above 16 bits: saturates too,
+            bcc   :store                ; as the count is at least 1)
 :sat        lda   #$FFFF
 :store      sta   Hist,x
 :biasNext   inc   ListI
@@ -1958,27 +2184,79 @@ Reduce      and   #$0FFF
             stz   ListR
 :scan       ldy   ListR                 ; (the colours CalcPalette listed)
             cpy   NList
-            bcs   :done
+            bcc   :jx5
+            jmp   :done
+:jx5
             ldx   CList,y
             lda   Hist,x
-            beq   :next
+            bne   :jx6
+            jmp   :next
+:jx6
             stx   RedX
             txa
             lsr
             jsr   DistTo
             cmp   #50
             bcs   :restore
-            ldx   RedX                  ; count * d / 50
-            pha
+            sta   RedD                  ; count * d / 50, with count = 50a + b:
+            ldx   RedX                  ; a x d + b x d / 50 (T50); count =
+            lda   Hist,x                ; 256h + l = 50 x 5h + v, v = 6h + l:
+            xba                         ; a = 5h + v / 50 (TQ), b = v mod 50
+            and   #$00FF
+            sta   t1                    ; h
+            asl
+            adc   t1
+            asl
+            sta   t2                    ; 6h
             lda   Hist,x
-            plx
+            and   #$00FF
+            clc
+            adc   t2
+            sta   RedV                  ; v
+            tay
+            lda   TQ,y
+            and   #$00FF
+            sta   t2                    ; v / 50
+            asl                         ; b = v - 50 (v / 50)
+            sta   t0
+            asl
+            asl
+            asl
+            clc
+            adc   t0
+            sta   t0                    ; 18 q
+            lda   t2
+            asl
+            asl
+            asl
+            asl
+            asl
+            clc
+            adc   t0                    ; 50 q
+            eor   #$FFFF
+            sec
+            adc   RedV
+            asl                         ; T50: b x 64 + d
+            asl
+            asl
+            asl
+            asl
+            asl
+            ora   RedD
+            sta   RedV
+            lda   t1                    ; a = 5h + v / 50
+            asl
+            asl
+            adc   t1
+            clc
+            adc   t2
+            ldx   RedD
             jsr   Mul16
-            lda   MLo
-            sta   n0
-            lda   MHi
-            sta   n0+2
-            lda   #50
-            jsr   Div32
+            ldy   RedV
+            lda   T50,y
+            and   #$00FF
+            clc
+            adc   MLo
             bne   :put
             lda   #1
 :put        ldx   RedX
@@ -1986,8 +2264,106 @@ Reduce      and   #$0FFF
 :restore
 :next       inc   ListR
             inc   ListR
-            bra   :scan
+            jmp   :scan
 :done       rts
+
+* BiasTab: BiasT = d x Peak / 9 for each distance d (0-90; the largest
+* from $777), $FFFF where it needs more than 16 bits.
+BiasTab     lda   Peak
+            sta   n0
+            stz   n0+2
+            lda   #9
+            jsr   Div32                 ; Peak / 9, remainder in DvR
+            stz   BqLo
+            stz   BqHi
+            stz   BqR
+            ldx   #0
+:d          lda   BqLo
+            ldy   BqHi
+            beq   :put
+            lda   #$FFFF
+:put        sta   BiasT,x
+            lda   BqLo                  ; + Peak / 9
+            clc
+            adc   DvQ
+            sta   BqLo
+            bcc   :r
+            inc   BqHi
+:r          lda   BqR                   ; + its remainder (one more at 9)
+            clc
+            adc   DvR
+            cmp   #9
+            bcc   :rs
+            sbc   #9
+            inc   BqLo
+            bne   :rs
+            inc   BqHi
+:rs         sta   BqR
+            inx
+            inx
+            cpx   #182
+            bcc   :d
+            rts
+
+* P50Tabs: Reduce's tables, made once after the planes (they share
+* XA3 to Nxt, idle while palettes are calculated): TQ (v / 50 for v up
+* to 1785) and T50 (b x d / 50 at b x 64 + d, both below 50).
+P50Tabs     lda   P50OK
+            beq   :make
+            rts
+:make       ldx   #0
+            ldy   #0                    ; (the quotient)
+            stz   t1                    ; (the remainder)
+:q          tya
+            sep   #$20
+            mx    %10
+            sta   TQ,x
+            rep   #$20
+            mx    %00
+            inc   t1
+            lda   t1
+            cmp   #50
+            bcc   :qn
+            stz   t1
+            iny
+:qn         inx
+            cpx   #1786
+            bcc   :q
+            stz   t2                    ; b
+:b          lda   t2
+            asl
+            asl
+            asl
+            asl
+            asl
+            asl
+            tax
+            stz   t0                    ; b x d / 50 and its remainder
+            stz   t1
+            ldy   #50
+:d          lda   t0
+            sep   #$20
+            mx    %10
+            sta   T50,x
+            rep   #$20
+            mx    %00
+            inx
+            lda   t1
+            clc
+            adc   t2
+            cmp   #50
+            bcc   :ds
+            sbc   #50
+            inc   t0
+:ds         sta   t1
+            dey
+            bne   :d
+            inc   t2
+            lda   t2
+            cmp   #50
+            bcc   :b
+            inc   P50OK
+            rts
 
 * Distances between colours: a = 3 dR, b = 4 dG, c = 2 dB;
 *   |a| + |b| + |c| + |a+b+c| / 4

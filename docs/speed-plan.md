@@ -468,18 +468,18 @@ Expected times (model), after each step in that order, seconds at 2.8 MHz:
 
 | Remap | Now | 1 box | 2 screen | 3 Best | 4 render | 5 palette | 6 multi | 7 no planes |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
-| R01 RGB 320, calculated, pattern | 18.6 | 16.2 | 16.2 | 15.2 | 8.3 | 7.0 | 7.0 | 4.5 |
-| R04 RGB 320, greys, diffusion | 23.3 | 20.8 | 20.8 | 20.6 | 12.0 | 12.0 | 12.0 | 8.9 |
-| R05 RGB 320, greys, pattern | 19.1 | 16.7 | 16.7 | 13.2 | 7.1 | 7.1 | 7.1 | 4.6 |
-| R09 RGB 640, calculated, pattern | 54.4 | 25.4 | 25.4 | 24.3 | 10.8 | 10.4 | 10.4 | 7.4 |
-| R11 RGB 640, greys, diffusion | 67.7 | 38.5 | 38.5 | 38.5 | 21.0 | 21.0 | 21.0 | 16.8 |
-| R13 RGB 640 dither, calculated, pattern | 54.7 | 25.6 | 25.6 | 24.6 | 11.0 | 10.5 | 10.5 | 7.4 |
-| R17 RGB multipalette, calculated | 46.5 | 44.1 | 44.1 | 42.3 | 37.2 | 36.3 | 22.3 | 22.3 |
-| R20 BIG 320, steps 19/9 | 61.9 | 13.9 | 13.9 | 12.7 | 7.6 | 6.2 | 6.2 | 6.2 |
-| R22 SCR 640, calculated | 61.9 | 32.8 | 26.3 | 25.8 | 12.2 | 11.9 | 11.9 | 8.9 |
-| R23 S64 320 (640 screen, 2:1) | 95.5 | 34.3 | 17.7 | 17.4 | 10.5 | 10.5 | 10.5 | 10.5 |
-| R24 S64 640 dither | 31.9 | 27.6 | 27.6 | 27.4 | 13.8 | 13.8 | 13.8 | 8.7 |
-| Q03 S64 quick remap | 93.4 | 32.2 | 15.6 | 15.6 | 9.5 | 9.5 | 9.5 | 9.5 |
+| R01 RGB 320, calculated, pattern | 18.6 | 5.6 | 16.2 | 15.2 | 8.3 | 7.0 | 7.0 | 4.5 |
+| R04 RGB 320, greys, diffusion | 23.3 | 13.4 | 20.8 | 20.6 | 12.0 | 12.0 | 12.0 | 8.9 |
+| R05 RGB 320, greys, pattern | 19.1 | 9.8 | 16.7 | 13.2 | 7.1 | 7.1 | 7.1 | 4.6 |
+| R09 RGB 640, calculated, pattern | 54.4 | 9.9 | 25.4 | 24.3 | 10.8 | 10.4 | 10.4 | 7.4 |
+| R11 RGB 640, greys, diffusion | 67.7 | 24.3 | 38.5 | 38.5 | 21.0 | 21.0 | 21.0 | 16.8 |
+| R13 RGB 640 dither, calculated, pattern | 54.7 | 10.0 | 25.6 | 24.6 | 11.0 | 10.5 | 10.5 | 7.4 |
+| R17 RGB multipalette, calculated | 46.5 | 15.6 | 44.1 | 42.3 | 37.2 | 36.3 | 22.3 | 22.3 |
+| R20 BIG 320, steps 19/9 | 61.9 | 15.4 | 13.9 | 12.7 | 7.6 | 6.2 | 6.2 | 6.2 |
+| R22 SCR 640, calculated | 61.9 | 17.1 | 26.3 | 25.8 | 12.2 | 11.9 | 11.9 | 8.9 |
+| R23 S64 320 (640 screen, 2:1) | 95.5 | 17.9 | 17.7 | 17.4 | 10.5 | 10.5 | 10.5 | 10.5 |
+| R24 S64 640 dither | 31.9 | 9.7 | 27.6 | 27.4 | 13.8 | 13.8 | 13.8 | 8.7 |
+| Q03 S64 quick remap | 93.4 | 18.1 | 15.6 | 15.6 | 9.5 | 9.5 | 9.5 | 9.5 |
 | RGB8.PNG load (26.3 s decoding) | 44.8 | 42.5 | 42.5 | 41.5 | 34.6 | 33.3 | 33.3 | 30.8 |
 | BIG.PNG load, 400 x 300 (47.6 s decoding) | 107.3 | 64.5 | 64.5 | 62.2 | 56.4 | 54.8 | 54.8 | 54.8 |
 | HUGE.PNG load, 700 x 500 (134.1 s decoding) | 218.8 | 163.1 | 163.1 | 159.1 | 153.1 | 150.9 | 150.9 | 150.9 |
@@ -515,19 +515,20 @@ pixel for pixel, with the same line modes and colour tables.
 
 | Remap | Before | Now |
 |---|---:|---:|
-| R01 RGB 320, calculated, pattern | 18.6 | 9.4 |
-| R04 RGB 320, greys, diffusion | 23.3 | 16.4 |
-| R05 RGB 320, greys, pattern | 19.1 | 10.3 |
-| R09 RGB 640, calculated, pattern | 54.4 | 16.9 |
-| R11 RGB 640, greys, diffusion | 67.7 | 30.9 |
-| R13 RGB 640 dither, calculated, pattern | 54.7 | 17.0 |
-| R17 RGB multipalette, calculated | 46.5 | 21.5 |
-| R20 BIG 320, steps 19/9 | 61.9 | 16.9 |
-| R22 SCR 640, calculated | 61.9 | 24.1 |
-| R23 S64 320 (640 screen, 2:1) | 95.5 | 19.6 |
-| R24 S64 640 dither | 31.9 | 16.7 |
-| Q03 S64 quick remap | 93.4 | 18.6 |
-| the 43 remaps of the suite before these changes | 1585 | 594 |
+| R01 RGB 320, calculated, pattern | 18.6 | 5.6 |
+| R04 RGB 320, greys, diffusion | 23.3 | 13.4 |
+| R05 RGB 320, greys, pattern | 19.1 | 9.8 |
+| R09 RGB 640, calculated, pattern | 54.4 | 9.9 |
+| R11 RGB 640, greys, diffusion | 67.7 | 24.3 |
+| R13 RGB 640 dither, calculated, pattern | 54.7 | 10.0 |
+| R17 RGB multipalette, calculated | 46.5 | 15.6 |
+| R20 BIG 320, steps 19/9 | 61.9 | 15.4 |
+| R22 SCR 640, calculated | 61.9 | 17.1 |
+| R23 S64 320 (640 screen, 2:1) | 95.5 | 17.9 |
+| R24 S64 640 dither | 31.9 | 9.7 |
+| Q03 S64 quick remap | 93.4 | 18.1 |
+| R39 PHOTO multipalette, 766 colours (first timed after steps 1-4) | 130.6 | 61.5 |
+| the 43 remaps of the suite before these changes | 1585 | 426 |
 
 What was done, and where it differs from section 2:
 
@@ -551,7 +552,22 @@ What was done, and where it differs from section 2:
   rendered together, so its candidates and lookups are made once; `MinDist` with each
   palette's entries worked out once.
 
-Not done yet: the tables for the bias and `Reduce` (2.5), and step 7 (2.7).
+- **CalcPalette, more:** the bias `d x peak / 9` from a 91-entry table per call, and
+  `Reduce`'s `count x d / 50` as `a x d + T50[b][d]` (count = 50a + b, from a quotient
+  table), both in buffers idle while palettes are made.
+- **Greys only when needed:** the planes' grey levels are made in the first pass only if
+  the palette is sure to be grey (every entry fixed or reserved, and grey); otherwise
+  `RenderLines` asks for them (`MakeGrey`: the lines scaled again) when a palette turns
+  out grey. Colour remaps skip the grey arithmetic and its store.
+- **More:** the histogram counted while the planes are stored (one palette); rows of
+  one-pixel spans (enlarging) in their own loop; `ColRow` unrolled for each mode and line
+  parity; `Diffuse` with each cell of the next line stored once from running sums and one
+  table for a level's bits and the grey they show; the multipalette line costs on colours
+  stored doubled; `MinDist` searching each palette's entries outwards by green.
+
+Not done: step 7 (2.7). How the time divides now was measured by sampling the program
+counter in MAME once a frame (a scratch copy of `test/dump.lua`): on a 640 mode remap the
+scaling and the planes are about two thirds, rendering a third.
 
 The suite also gained BIG.PNG at steps 0/0, 3/3 and 4/4 (box sizes 256, 272, 64, 72, 36,
 42) and PHOTO.PNG, 766 colours, in 320, 640 dither, multipalette and 640 grey diffusion
