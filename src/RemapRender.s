@@ -3,6 +3,13 @@
 * error diffusion and multipalette.
 *-------------------------------------------------------------
 
+pR          =     $D0                   ; (Best: score table pointers on the
+pG          =     $D2                   ; direct page)
+pB          =     $D4
+rK          =     $D6                   ; (ColRow: the pixel in the byte, the
+rAcc        =     $D8                   ; byte so far)
+dErr        =     $DA                   ; (Diffuse: the error)
+
 *-------------------------------------------------------------
 * 3. Candidates: every pattern (or single colour) the palette can
 * make, with its average colour (in display intensities) and its
@@ -165,7 +172,7 @@ BuildCands  ldx   #0                    ; each entry's intensities
             cmp   NCand
             bcs   :done
             jmp   :cand
-:done       rts
+:done       jmp   SortCands
 
 * Divide: A / IdxN (1, 2 or 4), but never 0 unless A is 0.
 Divide      ldx   IdxN
@@ -290,60 +297,195 @@ CandIdx     lda   CandI
             sta   CandB
             rts
 
-* Best: the candidate closest to the target BR, BG, BB.
-*   score = 3|R-r| + 4|G-g| + 2|B-b| + penalty/16; the highest index
-*   wins ties.   out: A = candidate number
-Best        lda   #$7D00
-            sta   BestScore
-            stz   BestIndex
+* SortCands: the usable candidates (no reserved entry) sorted by AvgG for
+* Best: SR2, SG2, SB2 (each average times 2), BSP (penalty / 16) and BSI (the
+* candidate) from 0 to NSort - 2 (bytes); GStart: where each green value
+* starts (GStart+512: NSort). Also the score tables, the first time.
+SortCands   lda   WReady
+            bne   :count
+            ldx   #0                    ; BW3, BW4, BW2: 3, 4 and 2 times |j - 255|
+:w          txa
+            lsr
+            sec
+            sbc   #255
+            bpl   :pos
+            eor   #$FFFF
+            inc
+:pos        sta   t1
+            asl
+            sta   BW2,x
+            clc
+            adc   t1
+            sta   BW3,x
+            lda   BW2,x
+            asl
+            sta   BW4,x
+            inx
+            inx
+            cpx   #1022
+            bcc   :w
+            inc   WReady
+:count      ldx   #512                  ; how many of each green
+:z          stz   GStart,x
+            dex
+            dex
+            bpl   :z
             lda   NCand
             dec
             asl
             tax
-:try        lda   Penalty,x
-            bmi   :next
-            lsr
-            lsr
-            lsr
-            lsr
-            sta   t2
-            lda   AvgR,x
-            sec
-            sbc   BR
-            jsr   Abs
-            sta   t1
-            asl
-            clc
-            adc   t1
-            clc
-            adc   t2
-            sta   t2
+:c          lda   Penalty,x
+            bmi   :cn
             lda   AvgG,x
-            sec
-            sbc   BG
-            jsr   Abs
             asl
+            tay
+            lda   GStart,y
+            inc
+            inc
+            sta   GStart,y
+:cn         dex
+            dex
+            bpl   :c
+            ldx   #0                    ; where each ends
+            lda   #0
+:e          clc
+            adc   GStart,x
+            sta   GStart,x
+            inx
+            inx
+            cpx   #512
+            bcc   :e
+            sta   GStart+512
+            sta   NSort
+            lda   NCand                 ; each candidate at the end of its green,
+            dec                         ; which leaves GStart where each starts
             asl
-            clc
-            adc   t2
             sta   t2
-            lda   AvgB,x
-            sec
-            sbc   BB
-            jsr   Abs
+:put        ldx   t2
+            lda   Penalty,x
+            bmi   :pn
+            lda   AvgG,x
             asl
-            clc
-            adc   t2
-            cmp   BestScore
-            bcs   :next
-            sta   BestScore
+            tay
+            lda   GStart,y
+            dec
+            dec
+            sta   GStart,y
+            tay
+            lda   Penalty,x
+            lsr
+            lsr
+            lsr
+            lsr
+            sta   BSP,y
+            lda   AvgR,x
+            asl
+            sta   SR2,y
+            lda   AvgG,x
+            asl
+            sta   SG2,y
+            lda   AvgB,x
+            asl
+            sta   SB2,y
             txa
             lsr
+            sta   BSI,y
+:pn         dec   t2
+            dec   t2
+            bpl   :put
+            rts
+
+* Best: the candidate closest to the target BR, BG, BB.
+*   score = 3|R-r| + 4|G-g| + 2|B-b| + penalty/16; the highest index
+*   wins ties; 0 if every candidate has a reserved entry.
+*   Searched outwards from the target's green in SortCands' order: no
+*   candidate further away can do better once 4|G-g| alone is more than
+*   the best score.   out: A = candidate number
+Best        lda   #255                  ; pR, pG, pB: the score tables at the
+            sec                         ; target (y = 2 x the average)
+            sbc   BR
+            asl
+            clc
+            adc   #BW3
+            sta   pR
+            lda   #255
+            sec
+            sbc   BG
+            asl
+            clc
+            adc   #BW4
+            sta   pG
+            lda   #255
+            sec
+            sbc   BB
+            asl
+            clc
+            adc   #BW2
+            sta   pB
+            lda   #$7D00
+            sta   BestScore
+            stz   BestIndex
+            lda   BG
+            asl
+            tax
+            lda   GStart,x
+            sta   t2                    ; (the first one below)
+            tax
+:up         cpx   NSort                 ; upwards
+            bcs   :down
+            ldy   SG2,x
+            lda   (pG),y
+            cmp   BestScore
+            beq   :u1
+            bcs   :down
+:u1         ldy   SR2,x
+            clc
+            adc   (pR),y
+            ldy   SB2,x
+            adc   (pB),y
+            adc   BSP,x
+            cmp   BestScore
+            bcc   :uBest
+            bne   :uNext
+            lda   BSI,x                 ; a tie: the higher candidate
+            cmp   BestIndex
+            bcc   :uNext
             sta   BestIndex
-:next       dex
+            bra   :uNext
+:uBest      sta   BestScore
+            lda   BSI,x
+            sta   BestIndex
+:uNext      inx
+            inx
+            bra   :up
+:down       ldx   t2                    ; downwards
+:dNext      dex
             dex
-            bpl   :try
-            lda   BestIndex
+            bmi   :done
+            ldy   SG2,x
+            lda   (pG),y
+            cmp   BestScore
+            beq   :d1
+            bcs   :done
+:d1         ldy   SR2,x
+            clc
+            adc   (pR),y
+            ldy   SB2,x
+            adc   (pB),y
+            adc   BSP,x
+            cmp   BestScore
+            bcc   :dBest
+            bne   :dNext
+            lda   BSI,x
+            cmp   BestIndex
+            bcc   :dNext
+            sta   BestIndex
+            bra   :dNext
+:dBest      sta   BestScore
+            lda   BSI,x
+            sta   BestIndex
+            bra   :dNext
+:done       lda   BestIndex
             rts
 
 * Lookup: the bytes for the target BR, BG, BB.
@@ -465,100 +607,223 @@ RenderLines stz   GreyMode
             bra   :cands
 :closest    stz   Pattern
 :cands      jsr   BuildCands
-            ldx   #510                  ; nothing worked out yet
+            inc   RGen                  ; nothing worked out yet in this call
+            ldx   #510
             lda   #0
-:clear      sta   CacheOK,x
-            sta   GreyOK,x
+:clear      sta   GreyOK,x
             dex
             dex
             bpl   :clear
             lda   GreyMode
+            beq   RenderRows
+            lda   OAlg
+            cmp   #2
+            bne   RenderRows
+            jmp   Diffuse
+
+* RenderRows: lines LineA to LineB - 1 as RenderLines would, with what its
+* last call worked out (the same palette; error diffusion starts afresh).
+RenderRows  lda   GreyMode
             beq   :lines
             lda   OAlg
             cmp   #2
             bne   :lines
-            jmp   Diffuse
-:lines      lda   LineA
+            jmp   RenderLines
+:lines      ldy   #16                   ; the masks for the pixels in a byte
+            lda   ProtoN                ; (320 mode: 2, 640 modes: 4)
+            cmp   #16
+            bne   :m0
+            ldy   #0
+:m0         ldx   #0
+:m          lda   PixMasks,y
+            sta   PMask,x
+            iny
+            iny
+            inx
+            inx
+            cpx   #16
+            bcc   :m
+            lda   LineA
             sta   RowY
 :row        lda   RowY
             cmp   LineB
             bcc   :more
             rts
-:more       jsr   GetLine
+:more       jsr   PlaneRow              ; (the planes read in place)
             jsr   ClearRowOut
-            ldx   #0
-:pix        stx   PixX
+            lda   RowY                  ; even line: the high byte of the
+            and   #1                    ; looked up word, odd: the low one
+            sta   Odd
+            ldy   #0
+            sty   OutI
             lda   GreyMode
-            beq   :colourPix
-            lda   LineY,x               ; greys: by grey level
-            sta   BR
-            sta   BG
-            sta   BB
-            asl
-            tay
-            lda   GreyOK,y
-            bne   :greyHave
-            phy
-            jsr   Lookup
-            ply
-            sta   GreyVal,y
-            lda   #1
-            sta   GreyOK,y
-:greyHave   lda   GreyVal,y
-            bra   :bytes
-:colourPix  lda   LineC,x               ; colours: by 12-bit colour
-            lsr                         ; CacheOK is a bit per colour:
-            lsr                         ; word = colour / 16
-            lsr
-            lsr
-            asl
-            tay
-            lda   LineC,x
-            and   #$000F
-            asl
-            tax
-            lda   BitMask,x
-            sta   t3
-            and   CacheOK,y
-            bne   :colHave
-            lda   t3
-            ora   CacheOK,y
-            sta   CacheOK,y
-            ldx   PixX
-            lda   LineC,x
-            jsr   SetTarget
-            jsr   Lookup
-            pha
-            ldx   PixX
-            lda   LineC,x
-            asl
-            tay
-            pla
-            sta   CacheVal,y
-            bra   :colGot
-:colHave    ldx   PixX
-            lda   LineC,x
-            asl
-            tay
-:colGot     lda   CacheVal,y
-:bytes      tay                         ; even line: high byte, odd: low byte
-            lda   RowY
-            lsr
-            tya
-            bcs   :odd
+            bne   :byte
+            jsr   ColRow                ; (colours: the quicker loop)
+            bra   :stored
+:byte       ldx   #0                    ; the pixels of each output byte
+            stx   Acc
+:pb         stx   PixK
+            jsr   PixVal
+            ldx   Odd
+            bne   :lo
             xba
-:odd        and   #$00FF
-            jsr   PutPixel
-            ldx   PixX
+:lo         ldx   PixK
+            and   PMask,x
+            ora   Acc
+            sta   Acc
+            iny
+            iny
+            cpy   ROutW2
+            bcs   :put
             inx
             inx
-            cpx   ROutW2
-            bcs   :rowDone
-            jmp   :pix
-:rowDone    jsr   StoreRow
+            lda   PMask,x
+            bne   :pb
+:put        ldx   OutI
+            lda   Acc
+            sep   #$20
+            mx    %10
+            sta   RowOut,x
+            rep   #$20
+            mx    %00
+            inx
+            stx   OutI
+            cpy   ROutW2
+            bcc   :byte
+:stored     jsr   StoreRow
             inc   RowY
             jmp   :row
 
+* ColRow: RenderLines' line into RowOut, for colours: each pixel's word
+* from CacheVal if Hist says it was looked up in this call (else Miss),
+* its bits by the line's masks (the high byte's on even lines).
+ColRow      ldx   #8                    ; the line's masks
+:mk         lda   PMask,x
+            ldy   Odd
+            bne   :mo
+            xba
+:mo         sta   RMask,x
+            dex
+            dex
+            bpl   :mk
+            ldy   #0
+:byte       ldx   #0
+            stx   rAcc
+:pb         stx   rK
+            lda   [p1],y
+            asl
+            tax
+            lda   Hist,x
+            cmp   RGen
+            beq   :hit
+            jsr   Miss
+:hit        lda   CacheVal,x
+            ldx   rK
+            and   RMask,x
+            ora   rAcc
+            sta   rAcc
+            iny
+            iny
+            cpy   ROutW2
+            bcs   :put
+            inx
+            inx
+            lda   RMask,x
+            bne   :pb
+:put        lda   rAcc
+            ldx   Odd
+            bne   :lo
+            xba
+:lo         ldx   OutI
+            sep   #$20
+            mx    %10
+            sta   RowOut,x
+            rep   #$20
+            mx    %00
+            inx
+            stx   OutI
+            cpy   ROutW2
+            bcc   :byte
+            rts
+
+* Miss: colour X/2 looked up (CacheVal,x) and marked in Hist. Keeps X, Y.
+Miss        lda   RGen
+            sta   Hist,x
+            phy
+            phx
+            txa
+            lsr
+            jsr   SetTarget
+            jsr   Lookup
+            plx
+            sta   CacheVal,x
+            ply
+            rts
+
+* PixVal: the looked-up word (even line byte * 256 + odd line byte) for
+* the pixel at plane offset Y (2 bytes a pixel). Keeps Y.
+PixVal      lda   GreyMode
+            bne   :grey
+            lda   [p1],y                ; colours: by 12-bit colour (Hist
+            asl                         ; says which have been looked up in
+            tax                         ; this call)
+            lda   Hist,x
+            cmp   RGen
+            bne   :miss
+            lda   CacheVal,x
+            rts
+:miss       lda   RGen
+            sta   Hist,x
+            phy
+            phx
+            txa
+            lsr
+            jsr   SetTarget
+            jsr   Lookup
+            plx
+            sta   CacheVal,x
+            ply
+            rts
+:grey       phy                         ; greys: by grey level
+            tya
+            lsr
+            clc
+            adc   ROutW2
+            tay
+            lda   [p1],y
+            and   #$00FF
+            asl
+            tax
+            lda   GreyOK,x
+            bne   :gHave
+            phx
+            txa
+            lsr
+            sta   BR
+            sta   BG
+            sta   BB
+            jsr   Lookup
+            plx
+            sta   GreyVal,x
+            lda   #1
+            sta   GreyOK,x
+:gHave      lda   GreyVal,x
+            ply
+            rts
+
+* FreshCache: Hist (once the palettes are made) cleared for RenderLines'
+* marks: a colour has been looked up in this call if its word is RGen.
+FreshCache  ldx   #8190
+            lda   #0
+:z          sta   Hist,x
+            dex
+            dex
+            bpl   :z
+            stz   RGen
+            rts
+
+PixMasks    dw    $F0,$0F,0,0,0,0,0,0
+            dw    $C0,$30,$0C,$03,0,0,0,0
 * PutPixel: pixel PixX/2 from pattern byte A into RowOut.
 PutPixel    sta   t1
             lda   PixX
@@ -655,6 +920,29 @@ Diffuse     stz   CandI                 ; the byte for every grey level
             lda   CandI
             cmp   #256
             bcc   :level
+            stz   CandI                 ; the grey each level shows in each
+:gt         lda   CandI                 ; column of a byte (GTab: column x 256
+            and   #$00FF                ; + level; GreyOf depends on nothing
+            asl                         ; else)
+            tax
+            lda   GreyVal,x
+            sta   PByte
+            lda   CandI
+            xba
+            and   #$0003
+            asl
+            sta   PixX
+            jsr   GreyOf
+            ldx   CandI
+            sep   #$20
+            mx    %10
+            sta   GTab,x
+            rep   #$20
+            mx    %00
+            inc   CandI
+            lda   CandI
+            cmp   #1024
+            bcc   :gt
             ldx   #0                    ; no error to pass on yet
 :z          stz   Cur,x
             stz   Nxt,x
@@ -668,7 +956,7 @@ Diffuse     stz   CandI                 ; the byte for every grey level
             cmp   LineB
             bcc   :more
             rts
-:more       jsr   GetLine
+:more       jsr   PlaneRow              ; (the grey plane read in place)
             jsr   ClearRowOut
             lda   RowY                  ; direction
             sec
@@ -678,6 +966,8 @@ Diffuse     stz   CandI                 ; the byte for every grey level
             stz   PixX                  ; left to right: x from 0, step +1
             lda   #2
             sta   DStep
+            lda   ROutW2
+            sta   GY
             bra   :go
 :rtl        lda   ROutW2                 ; right to left
             dec
@@ -685,6 +975,11 @@ Diffuse     stz   CandI                 ; the byte for every grey level
             sta   PixX
             lda   #-2
             sta   DStep
+            lda   ROutW2
+            clc
+            adc   ROutW
+            dec
+            sta   GY
 :go         lda   ROutW
             sta   DCount
 :pix        ldx   PixX                  ; wanted = level + (error + 8) / 16
@@ -699,8 +994,12 @@ Diffuse     stz   CandI                 ; the byte for every grey level
             ror
             cmp   #$8000
             ror
+            ldy   GY
+            sta   t1
+            lda   [p1],y
+            and   #$00FF
             clc
-            adc   LineY,x
+            adc   t1
             sta   Wanted
             bpl   :pos
             lda   #0
@@ -708,60 +1007,72 @@ Diffuse     stz   CandI                 ; the byte for every grey level
 :pos        cmp   #256
             bcc   :idx
             lda   #255
-:idx        asl
+:idx        sta   t3                    ; (PutPixel keeps t3)
+            asl
             tax
             lda   GreyVal,x
             and   #$00FF
-            sta   PByte
             jsr   PutPixel
-            jsr   GreyOf                ; error = wanted - the grey shown
+            lda   PixX                  ; error = wanted - the grey shown
+            and   #$0006
+            xba
+            lsr
+            ora   t3
+            tax
+            lda   GTab,x
+            and   #$00FF
             eor   #$FFFF
             sec
             adc   Wanted
-            sta   Err
-            lda   PixX                  ; spread it: 7 ahead, 3 behind below,
-            clc                         ; 5 below, 1 ahead below
-            adc   #2
-            clc
-            adc   DStep
-            tax
-            lda   Err
-            asl
-            asl
+            sta   dErr
+            ldx   PixX                  ; spread it: 7 ahead, 1 ahead below,
+            asl                         ; 3 behind below, 5 below (fixed
+            asl                         ; places each way)
             asl
             sec
-            sbc   Err                   ; 7
+            sbc   dErr                  ; 7
+            bit   DStep
+            bmi   :back
+            clc                         ; left to right: ahead is x + 2
+            adc   Cur+4,x
+            sta   Cur+4,x
+            lda   dErr
             clc
+            adc   Nxt+4,x               ; 1
+            sta   Nxt+4,x
+            lda   dErr
+            asl
+            clc
+            adc   dErr                  ; 3
+            clc
+            adc   Nxt,x
+            sta   Nxt,x
+            inc   GY
+            bra   :five
+:back       clc                         ; right to left: ahead is x - 2
             adc   Cur,x
             sta   Cur,x
-            lda   Err
+            lda   dErr
             clc
             adc   Nxt,x                 ; 1
             sta   Nxt,x
-            lda   PixX
+            lda   dErr
+            asl
             clc
-            adc   #2
-            tax
-            lda   Err
+            adc   dErr                  ; 3
+            clc
+            adc   Nxt+4,x
+            sta   Nxt+4,x
+            dec   GY
+:five       lda   dErr
             asl
             asl
             clc
-            adc   Err                   ; 5
+            adc   dErr                  ; 5
             clc
-            adc   Nxt,x
-            sta   Nxt,x
+            adc   Nxt+2,x
+            sta   Nxt+2,x
             txa
-            sec
-            sbc   DStep
-            tax
-            lda   Err
-            asl
-            clc
-            adc   Err                   ; 3
-            clc
-            adc   Nxt,x
-            sta   Nxt,x
-            lda   PixX
             clc
             adc   DStep
             sta   PixX
@@ -884,39 +1195,38 @@ Multi       lda   #16                   ; how many palettes
 :pass       jsr   MinDist               ; each palette's distance to each colour
             stz   Changed
             stz   RowY
-:line       lda   RowY                  ; the best palette for the line
-            jsr   GetLine
-            lda   #$FFFF
-            sta   BestCost
+:line       lda   RowY                  ; the best palette for the line: the
+            jsr   GetLine               ; lowest cost below $FFFF, the lower
+            lda   #$FFFF                ; palette of two equal ones, or the
+            sta   BestCost              ; owner; the owner tried first, as a
+            sta   Limit                 ; bound for the others
             lda   RowY
             asl
             tax
             lda   Owner,x
             sta   BestP
-            stz   MPOwn
-:try        jsr   MinAt                 ; cost = the distances of its pixels
-            stz   Cost
-            ldx   #0
-:px         lda   LineC,x
-            asl
-            tay
-            lda   [q1],y
-            clc
-            adc   Cost
-            bcs   :worse
-            sta   Cost
-            cmp   BestCost
-            bcs   :worse
-            inx
-            inx
-            cpx   ROutW2
-            bcc   :px
-            lda   Cost                  ; better
+            sta   OwnP
+            sta   MPOwn
+            jsr   LineCost
+            bcs   :others
+            sta   BestCost
+:others     stz   MPOwn
+:try        lda   MPOwn
+            cmp   OwnP
+            beq   :nextP
+            lda   BestCost              ; a lower palette may equal the best
+            cmp   #$FFFF
+            beq   :lim
+            ldx   MPOwn
+            cpx   BestP
+            bcs   :lim
+            inc
+:lim        sta   Limit
+            jsr   LineCost
+            bcs   :nextP
             sta   BestCost
             lda   MPOwn
             sta   BestP
-            bra   :nextP
-:worse
 :nextP      inc   MPOwn
             lda   MPOwn
             cmp   MPCount
@@ -942,15 +1252,23 @@ Multi       lda   #16                   ; how many palettes
             beq   :settled
             jmp   :pass
 :settled    jsr   FreeMinD
-:render     stz   RowY                  ; each run of lines with its palette
+:render     jsr   FreshCache
+            stz   MPOwn                 ; each palette's runs of lines in turn
+:pal        jsr   UseTable              ; (PalOut = its palette; its lookups
+            stz   PalSet                ; kept from one run to the next)
+            stz   RowY
 :run        lda   RowY
             cmp   ROutH
-            bcs   :tables
-            sta   LineA
+            bcc   :look
+            jmp   :nextPal
+:look       sta   LineA
             asl
             tax
             lda   Owner,x
-            sta   MPOwn
+            cmp   MPOwn
+            beq   :end
+            inc   RowY
+            bra   :run
 :end        inx
             inx
             txa
@@ -963,11 +1281,14 @@ Multi       lda   #16                   ; how many palettes
 :runEnd     txa
             lsr
             sta   LineB
-            jsr   UseTable              ; PalOut = its palette
-            lda   LineB
             pha
+            lda   PalSet
+            bne   :again
+            inc   PalSet
             jsr   RenderLines
-            pla
+            bra   :rendered
+:again      jsr   RenderRows
+:rendered   pla
             sta   LineB
             ldy   LineA                 ; their SCBs: the palette number
 :scb        tya
@@ -988,6 +1309,11 @@ Multi       lda   #16                   ; how many palettes
             lda   LineB
             sta   RowY
             bra   :run
+:nextPal    inc   MPOwn
+            lda   MPOwn
+            cmp   MPCount
+            bcs   :tables
+            jmp   :pal
 :tables     stz   MPOwn                 ; the colour tables
 :tab        jsr   UseTable
             ldx   MPOwn
@@ -996,6 +1322,32 @@ Multi       lda   #16                   ; how many palettes
             lda   MPOwn
             cmp   MPCount
             bcc   :tab
+            rts
+
+* LineCost: palette MPOwn's cost for the line (LineC): its pixels'
+* distances, given up once it reaches Limit (or 16 bits).
+*   out: carry clear and A = the cost if it is below Limit
+LineCost    jsr   MinAt
+            stz   Cost
+            ldx   #0
+:px         lda   LineC,x
+            asl
+            tay
+            lda   [q1],y
+            clc
+            adc   Cost
+            bcs   :no
+            sta   Cost
+            cmp   Limit
+            bcs   :no
+            inx
+            inx
+            cpx   ROutW2
+            bcc   :px
+            lda   Cost
+            clc
+            rts
+:no         sec
             rts
 
 * MPTables: each palette from the colours of its lines; a palette with no
@@ -1113,47 +1465,106 @@ MinDist     stz   MPOwn
             asl
             asl
             sta   u0                    ; its palette in Tables
-            stz   u1                    ; colour number in PList
-:c          lda   u1
-            cmp   NPresent
-            bcs   :nextP
-            asl
-            tax
-            lda   PList,x
-            sta   DC1
-            lda   #$FFFF
-            sta   Nearest
+            stz   NE                    ; its usable entries' 3 R, 4 G, 2 B
             ldx   #0
-:e          txa
+:pe         phx
+            txa
             clc
             adc   u0
             tay
             lda   Tables,y
-            bmi   :skip                 ; reserved
+            bmi   :peNext               ; reserved
             and   #$0FFF
-            sta   DC2
-            phx
-            jsr   Dist
-            plx
-            cmp   Nearest
-            bcs   :skip
-            sta   Nearest
-:skip       inx
+            jsr   DistSet
+            ldy   NE
+            lda   FA
+            sta   ER3,y
+            lda   FB
+            sta   EG4,y
+            lda   FC
+            sta   EB2,y
+            iny
+            iny
+            sty   NE
+:peNext     plx
+            inx
             inx
             cpx   #32
-            bcc   :e
-            lda   DC1
+            bcc   :pe
+            stz   u1                    ; colour number in PList
+:c          lda   u1
+            cmp   NPresent
+            bcc   :col
+            jmp   :nextP
+:col        asl
+            tax
+            lda   PList,x
+            sta   DC1
+            jsr   DistSet               ; (distances from it)
+            lda   #$FFFF
+            sta   Nearest
+            ldx   NE                    ; the nearest entry (DistTo's sums,
+            beq   :store                ; with the entries' parts ready)
+:e          dex
+            dex
+            lda   ER3,x                 ; a
+            sec
+            sbc   FA
+            sta   DA
+            bpl   :a
+            eor   #$FFFF
+            inc
+:a          sta   DS
+            lda   EG4,x                 ; b
+            sec
+            sbc   FB
+            sta   DB
+            bpl   :b
+            eor   #$FFFF
+            inc
+:b          clc
+            adc   DS
+            sta   DS
+            lda   EB2,x                 ; c
+            sec
+            sbc   FC
+            sta   DCc
+            bpl   :cc
+            eor   #$FFFF
+            inc
+:cc         clc
+            adc   DS
+            sta   DS
+            lda   DA                    ; |a + b + c| / 4
+            clc
+            adc   DB
+            clc
+            adc   DCc
+            bpl   :s
+            eor   #$FFFF
+            inc
+:s          lsr
+            lsr
+            clc
+            adc   DS
+            cmp   Nearest
+            bcs   :ne
+            sta   Nearest
+:ne         cpx   #0
+            bne   :e
+:store      lda   DC1
             asl
             tay
             lda   Nearest
             sta   [q1],y
             inc   u1
-            bra   :c
+            jmp   :c
 :nextP      inc   MPOwn
             lda   MPOwn
             cmp   MPCount
-            bcc   :p
-            rts
+            bcs   :done
+            jmp   :p
+:done       rts
 
 * MinAt: q1 = palette MPOwn's distance table (MinP + p * 8192).
 MinAt       lda   MPOwn
@@ -1285,6 +1696,32 @@ WantW       dw    0
 WantH       dw    0
 ROutW        dw    0
 ROutW2       dw    0
+RGen        dw    0                     ; (RenderLines' call number)
+GY          dw    0                     ; (Diffuse: the grey plane's byte)
+Odd         dw    0                     ; (RenderLines: an odd line,
+OutI        dw    0                     ; the output byte, the pixels in
+Acc         dw    0                     ; it so far, which one, each one's
+PixK        dw    0                     ; bits)
+PMask       ds    16
+RMask       ds    16                    ; (ColRow: the line's masks)
+NE          dw    0                     ; (MinDist: the usable entries x 2,
+ER3         ds    32                    ; their 3 R, 4 G, 2 B)
+EG4         ds    32
+EB2         ds    32
+PalSet      dw    0                     ; (Multi: a palette's first run done,
+OwnP        dw    0                     ; the line's owner, the cost to beat)
+Limit       dw    0
+NList       dw    0                     ; (CalcPalette: CList's bytes, the
+ListI       dw    0                     ; places in it)
+ListR       dw    0
+FA          dw    0                     ; (DistSet: the colour's 3 R, 4 G,
+FB          dw    0                     ; 2 B; DistTo: the sum so far)
+FC          dw    0
+DS          dw    0
+KE          dw    0                     ; (Quick: the thresholds' table
+KO          dw    0                     ; offsets for even and odd columns)
+KRE         dw    0
+KRO         dw    0
 ROutH        dw    0
 CropW       dw    0
 CropH       dw    0
@@ -1297,6 +1734,17 @@ SpanSrc     dw    0
 SpanOut     dw    0
 SpanA       dw    0
 SpanB       dw    0
+SpQ         dw    0                     ; a span's stepping: src / out,
+SpR         dw    0                     ; src mod out, the remainders so far,
+SpAcc       dw    0                     ; the next start
+SpCur       dw    0
+RowSp       ds    8                     ; (the rows' own)
+PrevA       dw    0                     ; the line before's source lines
+PrevN       dw    0
+LastXN      dw    0                     ; the box size worked out last
+DMeth       dw    0
+DShift      dw    0
+DD16        dw    0
 RowN        dw    0
 PixX        dw    0
 SumR        adrl  0
@@ -1370,6 +1818,17 @@ AvgR        ds    512
 AvgG        ds    512
 AvgB        ds    512
 Penalty     ds    512
+WReady      dw    0                     ; (Best's tables made)
+NSort       dw    0
+SR2         ds    512                   ; the candidates sorted (SortCands)
+SG2         ds    512
+SB2         ds    512
+BSP         ds    512
+BSI         ds    512
+GStart      ds    514
+BW3         ds    1022                  ; 3, 4 and 2 times |j - 255|
+BW4         ds    1022
+BW2         ds    1022
 Byt         ds    512
 LineC       ds    1284
 LineY       ds    1284
@@ -1382,7 +1841,12 @@ Owner       ds    404
 Tables      ds    512
 GreyOK      ds    512
 GreyVal     ds    512
-CacheOK     ds    512                   ; a bit per colour
 Hist        ds    8192
-CacheVal    ds    8192
+CacheVal    ds    8192                  ; (also Diffuse's and Quick's tables:
+GTab        =     CacheVal              ; neither looks colours up)
+QGB         =     CacheVal              ; (Quick: green and blue bits, red bit,
+QR          =     CacheVal+1026         ; 7 as 15, in each nibble)
+QMapL       =     CacheVal+1092
+QMapR       =     CacheVal+1102
+CList       =     CacheVal              ; (CalcPalette: the colours in use)
 PList       ds    8192

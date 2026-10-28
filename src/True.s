@@ -92,8 +92,11 @@ NewTrue     jsr   FreeTrue
             sta   TrueP
             lda   p0+2
             sta   TrueP+2
+            lda   NoFill                ; (a screen picture writes every byte)
+            bne   :filled
             lda   TrueFill              ; white, or black for the loader segments
             jsr   FillBig
+:filled
             lda   #1
             sta   IsTrue
             inc   TrueGen               ; (the Remap dialog counts its colours once)
@@ -344,7 +347,10 @@ ScreenToTrue stz  Smooth                ; a 640 mode screen: Exact or
             sta   TrueW
             lda   PicH
             sta   TrueH
+            lda   #1
+            sta   NoFill
             jsr   NewTrue
+            stz   NoFill
             bcc   :ok
             rts
 :ok         lda   Pic640
@@ -391,6 +397,19 @@ ScreenToTrue stz  Smooth                ; a 640 mode screen: Exact or
             sta   SRow
             stz   SX
             ldy   #0
+            lda   SScb                  ; the line's mode the picture's: its
+            and   #$0080                ; whole bytes through FastLine
+            beq   :c320
+            lda   Pic640
+            beq   :pix
+            bra   :fast
+:c320       lda   Pic640
+            bne   :pix
+:fast       jsr   FastLine
+            lda   SX
+            cmp   PicW
+            bcc   :pix
+            jmp   :jx1
 :pix        phy
             lda   Pic640
             bne   :wide
@@ -432,16 +451,19 @@ ScreenToTrue stz  Smooth                ; a 640 mode screen: Exact or
             bra   :sh
 :two        and   #$0003
 :value      sta   t1                    ; its colour: 640 mode lines use the
-            lda   SScb                  ; column's part of the table
-            and   #$0080
-            beq   :entry
+            lda   SScb                  ; column's part of the table and the
+            and   #$0080                ; pixel's low two bits (as GS Remap,
+            beq   :entry                ; also in a 320 mode picture)
             lda   SX
             and   #$0003
             tax
             lda   Off640T,x
             and   #$00FF
+            sta   t2
+            lda   t1
+            and   #$0003
             clc
-            adc   t1
+            adc   t2
             sta   t1
             bra   :e2
 :entry      lda   t1
@@ -496,6 +518,194 @@ ScreenToTrue stz  Smooth                ; a 640 mode screen: Exact or
             rts
 
 Off640T     db    8,12,0,4
+
+* FastLine: the whole bytes of screen line SY (SRow, colour table STab),
+* whose mode is the picture's, into the true colour row at q0: the line's
+* 16 colours' channels times 17 in R17/G17/B17, then 8 bits at a time.
+*   out: SX = the pixels done, Y = SX * 3
+FastLine    ldx   #0                    ; the line's colours
+            ldy   STab
+:tab        lda   [p2],y                ; $0RGB
+            pha
+            xba
+            jsr   :x17
+            sta   R17,x
+            rep   #$20
+            lda   1,s
+            lsr
+            lsr
+            lsr
+            lsr
+            jsr   :x17
+            sta   G17,x
+            rep   #$20
+            pla
+            jsr   :x17
+            sta   B17,x
+            rep   #$20
+            iny
+            iny
+            inx
+            cpx   #16
+            bcc   :tab
+            lda   PicW                  ; the whole bytes
+            lsr
+            ldx   Pic640
+            beq   :n
+            lsr
+:n          sta   t2
+            bne   :copy
+            stz   SX
+            ldy   #0
+            rts
+:copy       ldy   SRow                  ; the line, copied (a word at a time)
+            ldx   #0
+:cp         lda   [p2],y
+            sta   SLine,x
+            iny
+            iny
+            inx
+            inx
+            cpx   t2
+            bcc   :cp
+            stz   t0                    ; t0: the byte, t1: its value, t2: the
+            ldy   #0                    ; count; B zero (TAX uses it)
+            lda   #0
+            sep   #$20
+            mx    %10
+            lda   Pic640
+            bne   :b640
+:b320       ldx   t0                    ; two pixels a byte
+            lda   SLine,x
+            inx
+            stx   t0
+            sta   t1
+            lsr
+            lsr
+            lsr
+            lsr
+            tax
+            lda   R17,x
+            sta   [q0],y
+            iny
+            lda   G17,x
+            sta   [q0],y
+            iny
+            lda   B17,x
+            sta   [q0],y
+            iny
+            lda   t1
+            and   #$0F
+            tax
+            lda   R17,x
+            sta   [q0],y
+            iny
+            lda   G17,x
+            sta   [q0],y
+            iny
+            lda   B17,x
+            sta   [q0],y
+            iny
+            ldx   t0
+            cpx   t2
+            bcc   :b320
+            rep   #$20
+            mx    %00
+            lda   t2
+            asl
+            sta   SX
+            rts
+            mx    %10
+:b640       ldx   t0                    ; four a byte: entries 8, 12, 0, 4 on
+            lda   SLine,x
+            inx
+            stx   t0
+            sta   t1
+            lsr
+            lsr
+            lsr
+            lsr
+            lsr
+            lsr
+            ora   #8
+            tax
+            lda   R17,x
+            sta   [q0],y
+            iny
+            lda   G17,x
+            sta   [q0],y
+            iny
+            lda   B17,x
+            sta   [q0],y
+            iny
+            lda   t1
+            lsr
+            lsr
+            lsr
+            lsr
+            and   #3
+            ora   #12
+            tax
+            lda   R17,x
+            sta   [q0],y
+            iny
+            lda   G17,x
+            sta   [q0],y
+            iny
+            lda   B17,x
+            sta   [q0],y
+            iny
+            lda   t1
+            lsr
+            lsr
+            and   #3
+            tax
+            lda   R17,x
+            sta   [q0],y
+            iny
+            lda   G17,x
+            sta   [q0],y
+            iny
+            lda   B17,x
+            sta   [q0],y
+            iny
+            lda   t1
+            and   #3
+            ora   #4
+            tax
+            lda   R17,x
+            sta   [q0],y
+            iny
+            lda   G17,x
+            sta   [q0],y
+            iny
+            lda   B17,x
+            sta   [q0],y
+            iny
+            ldx   t0
+            cpx   t2
+            bcc   :b640
+            rep   #$20
+            mx    %00
+            lda   t2
+            asl
+            asl
+            sta   SX
+            rts
+* (:x17: A's low 4 bits times 17, stored as a byte by the caller)
+:x17        and   #$000F
+            pha
+            asl
+            asl
+            asl
+            asl
+            ora   1,s
+            sta   1,s
+            pla
+            sep   #$20
+            mx    %10
+            rts
+            mx    %00
 
 *-------------------------------------------------------------
 * Arithmetic (also used by the decoders)
@@ -567,6 +777,11 @@ SY          dw    0
 SRow        dw    0
 SScb        dw    0
 STab        dw    0
+NoFill      dw    0                     ; (NewTrue: no fill)
+R17         ds    16                    ; (FastLine: a line's colours' channels
+G17         ds    16                    ; times 17, and the line)
+B17         ds    16
+SLine       ds    162
 M1          dw    0
 M1Hi        dw    0
 M2          dw    0

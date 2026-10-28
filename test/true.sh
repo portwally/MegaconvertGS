@@ -2,7 +2,7 @@
 # Loads every true colour test picture in the emulator, saves what MegaconvertGS
 # decoded and how it remapped it, and compares both with GS Remap.
 cd "$(dirname "$0")/.."
-[ -d build/fixtures/true ] || python3 -I test/make_true.py build/fixtures/true
+[ -f build/fixtures/true/PHOTO.PNG ] || python3 -I test/make_true.py build/fixtures/true
 python3 -I - > build/true.test <<'PY'
 import os
 for n in sorted(os.listdir("build/fixtures/true")):

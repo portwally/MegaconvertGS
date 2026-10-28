@@ -403,6 +403,9 @@ PixCol      lda   PY                    ; the line
             lda   TScb
             and   #$0080
             beq   :n
+            lda   TV                    ; (the value's low two bits, also in
+            and   #$0003                ; a 320 mode picture, as GS Remap)
+            sta   TV
             lda   PX
             and   #$0003
             tax

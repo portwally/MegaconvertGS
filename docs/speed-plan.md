@@ -508,6 +508,60 @@ colour table must still match GS Remap) and compare each logged time with this t
 the model should stay within a few per cent, which also checks the cycle counts the next
 steps rely on.
 
+## 4. Done so far
+
+Measured with the remap2 suite after each change; every remap still matches GS Remap
+pixel for pixel, with the same line modes and colour tables.
+
+| Remap | Before | Now |
+|---|---:|---:|
+| R01 RGB 320, calculated, pattern | 18.6 | 9.4 |
+| R04 RGB 320, greys, diffusion | 23.3 | 16.4 |
+| R05 RGB 320, greys, pattern | 19.1 | 10.3 |
+| R09 RGB 640, calculated, pattern | 54.4 | 16.9 |
+| R11 RGB 640, greys, diffusion | 67.7 | 30.9 |
+| R13 RGB 640 dither, calculated, pattern | 54.7 | 17.0 |
+| R17 RGB multipalette, calculated | 46.5 | 21.5 |
+| R20 BIG 320, steps 19/9 | 61.9 | 16.9 |
+| R22 SCR 640, calculated | 61.9 | 24.1 |
+| R23 S64 320 (640 screen, 2:1) | 95.5 | 19.6 |
+| R24 S64 640 dither | 31.9 | 16.7 |
+| Q03 S64 quick remap | 93.4 | 18.6 |
+| the 43 remaps of the suite before these changes | 1585 | 594 |
+
+What was done, and where it differs from section 2:
+
+- **Box averaging (2.1):** spans stepped instead of divided; each box size's way of dividing
+  worked out once (`DivWay`: none, a shift, eight 16-bit rounds up to 257 pixels, else
+  `DivAvg`) instead of quotient tables; a line that repeats the one before (enlarging) is
+  not scaled again; one-pixel boxes copy the column before or convert inline; boxes from
+  one source line sum in 16 bits and shift inline.
+- **ScreenToTrue (2.2):** as planned (`FastLine`), and `NewTrue`'s fill skipped.
+- **Best (2.3):** score tables and the walk outwards by green; no compaction (the walk
+  scores few candidates anyway).
+- **Rendering (2.4):** planes read in place by `HistLines`, `RenderLines`, `Diffuse` and
+  `Quick`; the lookup cache marks colours in `Hist` with the call's number (`Hist` is free
+  once the palettes are made); output bytes built directly (`ColRow`); `Diffuse` with
+  `GreyOf` from a table by column and level and fixed places for the error each way;
+  `Quick` from small threshold tables; the 1:1 conversion with `SetLine` inline and the
+  greys stored two at a time.
+- **CalcPalette (2.5):** a list of the colours in use (in `CacheVal`); distances from a
+  colour whose weighted channels are worked out once (`DistSet`, `DistTo`).
+- **Multipalette (2.6):** the line's own palette tried first; each palette's runs of lines
+  rendered together, so its candidates and lookups are made once; `MinDist` with each
+  palette's entries worked out once.
+
+Not done yet: the tables for the bias and `Reduce` (2.5), and step 7 (2.7).
+
+The suite also gained BIG.PNG at steps 0/0, 3/3 and 4/4 (box sizes 256, 272, 64, 72, 36,
+42) and PHOTO.PNG, 766 colours, in 320, 640 dither, multipalette and 640 grey diffusion
+(R34-R40). A screen with both 320 and 640 mode lines was tried as well: GS Remap's `$C1`
+loader turns every line into the picture's majority mode, MegaconvertGS keeps each line's
+own, so such a screen can't be compared; `ScreenToTrue` was checked against its earlier
+self on random mixed screens instead. That comparison showed one real difference, now
+fixed: a 640 mode line in a 320 mode picture takes each pixel's low two bits (GS Remap's
+rule), where it read up to entry 27, into the next colour table (also in the TIFF writer).
+
 ## Appendix A: the model against the measured times
 
 Measured (`build/suite_remap2.txt`) and model, seconds:

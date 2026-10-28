@@ -10,6 +10,7 @@ SOURCES = {  # tag: disk file, local file, load format id
     "TNY": ("MCTRUE:PAL4.PNG", "build/fixtures/true/PAL4.PNG", "png"),
     "SCR": ("MCTEST:S320.C1", "build/fixtures/S320.c1", "c1"),
     "S64": ("MCTEST:S640.C1", "build/fixtures/S640.c1", "c1"),
+    "PHO": ("MCTRUE:PHOTO.PNG", "build/fixtures/true/PHOTO.PNG", "png"),
 }
 F = 255
 RUNS = [  # name, source, mode, palette, algorithm, h, v, other
@@ -33,6 +34,11 @@ RUNS = [  # name, source, mode, palette, algorithm, h, v, other
     ("S03", "GRY", 2, 5, 1, F, F, 0, "S64"), ("S04", "GRY", 2, 5, 0, F, F, 0, "R13"),
     ("S05", "GRY", 1, 5, 1, F, F, 0, "R09"), ("S06", "RGB", 0, 5, 2, F, F, 0, "R04"),
     ("S07", "S64", 2, 5, 1, F, F, 0, "R09"),
+    # Box sizes the others don't meet (256 and 272, 64 and 72, 36 and 42 source pixels);
+    # a picture with hundreds of colours
+    ("R34", "BIG", 0, 0, 1, 0, 0, 0), ("R35", "BIG", 0, 0, 1, 3, 3, 0), ("R36", "BIG", 0, 0, 1, 4, 4, 0),
+    ("R37", "PHO", 0, 0, 1, F, F, 0), ("R38", "PHO", 2, 0, 1, F, F, 0), ("R39", "PHO", 3, 0, 1, F, F, 0),
+    ("R40", "PHO", 1, 2, 2, F, F, 0),
     # Quick remap
     ("Q01", "RGB", "q", 0, 0, 0, 0, 0), ("Q02", "BIG", "q", 0, 0, 0, 0, 0), ("Q03", "S64", "q", 0, 0, 0, 0, 0),
 ]

@@ -192,6 +192,12 @@ png("GA8.PNG", [[(grey(p), 0 if x % 13 == 0 else 255) for x, p in enumerate(row)
 png("RGBKEY.PNG", [[(p[0] & 0xF0, p[1] & 0xF0, p[2] & 0xF0) for p in row] for row in S], 2, 8,
     trns=struct.pack(">HHH", 0x30, 0x10, 0x40))
 png("BIG.PNG", scene(400, 300), 2, 8)
+# A photograph-like picture: smooth colour waves with a little noise, several hundred
+# distinct 12-bit colours (766; the other pictures have 6 to 131).
+png("PHOTO.PNG", [[(int(127.5 + 100 * math.sin(x / 47 + y / 71)) ^ ((x * 5 + y * 11) & 3),
+                    int(127.5 + 100 * math.sin(y / 53 - x / 89 + 1)),
+                    int(100 + 60 * math.cos((x + y) / 67))) for x in range(320)]
+                  for y in range(200)], 2, 8)
 png("HUGE.PNG", scene(700, 500), 2, 8)
 
 for n, bits, name in ((256, 8, "G8.GIF"), (16, 4, "G16.GIF"), (4, 2, "G4.GIF"), (2, 1, "G2.GIF")):
