@@ -2505,8 +2505,7 @@ FmtIds      da    0,IdC1,IdAPF,IdPacked,IdPW,IdBMP,IdGIF,IdPNG,IdJPEG
             da    IdO27,IdO28,IdO29,IdO30,IdO31,IdO32,IdO33,IdO34
             da    IdO35,IdO36,IdO37,IdO38,IdO39,IdO40,IdO41,IdO42
             da    IdO43,IdO44,IdO45,IdO46,IdO47,IdO48,IdO49,IdO50
-            da    IdNPS,IdWOA,IdNone,IdNone,IdTGA,IdPICT
-IdNPS       asc   'nps',00
+            da    IdNone,IdWOA,IdNone,IdNone,IdTGA,IdPICT   ; (51: none)
 IdNone      asc   '-',00                ; (53, 54: the Babelfish imports)
 IdTGA       asc   'tga',00
 IdPICT      asc   'pict',00

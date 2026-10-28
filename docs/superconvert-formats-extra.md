@@ -721,7 +721,8 @@ on appleoldies.ca (Mini2Rag) states that "NPS compatible" single graphics are 60
 header followed by the 572-byte bitmap; it does not give the file type, the header contents, or
 the layout of the library files that the $F5 / $3000-$5FFF record suggests. Treat all of this as
 unverified: sample New Print Shop disks are needed before implementing anything. Until then
-MegaconvertGS should behave as SC does.
+MegaconvertGS should behave as SC does. (MegaconvertGS has since left the entry out of
+its Load formats list altogether.)
 
 ## 4. Babelfish imports and exports
 

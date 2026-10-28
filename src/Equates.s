@@ -184,8 +184,8 @@ fmtRLE              =     47
 fmtIPI              =     48
 fmtQRT              =     49
 fmtTIFF             =     50
+                                         ; (51: unused, once New Print Shop)
 fmtCount            =     51                 ; (Load formats lists some past these)
-fmtNPS              =     51                 ; New Print Shop graphics (not here)
 fmtWOA              =     52                 ; Works of Art (Apple.s WOA.s)
 fmtTGA              =     55                 ; Truevision Targa (Other.s TGA.s)
 fmtPICT             =     56                 ; QuickDraw PICT (Other.s PICT.s)

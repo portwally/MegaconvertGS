@@ -161,8 +161,9 @@ segment includes.
 
 ## Not done yet
 
-- New Print Shop graphics, and the Babelfish imports and exports, which the lists show as
-  SuperConvert did.
+- The Babelfish imports and exports, which the lists show as SuperConvert did.
+- SuperConvert's New Print Shop graphics entry is left out of Load formats: SuperConvert
+  never loaded it either, and no description of its Apple II files was found.
 - Print (normal), Print (enhanced) and Print banner: copying the picture to the printer
   port fails with error $1212 under MAME's System 6.0.4 driver once a page holds more than
   a small area, in strips or tiles alike.

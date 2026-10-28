@@ -12,8 +12,9 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA = json.load(open(os.path.join(ROOT, "docs", "superconvert-ui-data.json")))
 
 S, C, SC, M = 1, 2, 3, 4      # icons: screen, true color, both, monochrome
-# Not implemented yet: New Print Shop graphics 51, Works of Art 52, the Babelfish
-# imports 53 and 54; saves: desktop background INIT 13, the Babelfish exports 14 and 15.
+# Not implemented yet: the Babelfish imports 53 and 54; saves: the Babelfish exports 14
+# and 15. New Print Shop graphics (51) is left out of the list altogether (DROPPED): no
+# description of its Apple II files exists, and SuperConvert never loaded it either.
 TYPES = [
     ("Apple II family", [("fmtHGRBW", S), ("fmtHGR", S), ("fmtDHRBW", S), ("fmtDHR", S),
         ("fmtPSBW", S), ("51", S), ("fmtTScan", C), ("52", M), ("fmtTDM40", S), ("fmtTDM80", S)]),
@@ -45,6 +46,7 @@ EXTRA_FILTERS = {"fmtTIFF": bytes.fromhex("000000000000060400000000080000000000f
 RENAMED = {"PC Paintbrush (.PCX, .PCC) ???": "PC Paintbrush (.PCX, .PCC)"}
 # Save numbers in SuperConvert's order; "Icon resource (HyperCard, etc.)" adds to a file.
 SAVES = [4, 3, 2, 1, 5, 6, 8, 13, 9, 10, 11, 12, 14, 15]
+DROPPED = {"51"}
 EXTRA_SAVES = [(7, "Icon resource (new file)"), (16, "BMP (Windows bitmap)")]
 
 types = DATA["computerTypes"]
@@ -54,8 +56,9 @@ filters = []                  # for each list: each format's record bytes and ty
 for (name, ours), t in zip(TYPES, types):
     assert len(ours) == len(t["formats"]), name
     fmts = [(code, icon, RENAMED.get(f["name"], f["name"])) for (code, icon), f in zip(ours, t["formats"])]
-    lists.append((name, fmts + EXTRA_FORMATS.get(name, [])))
-    filters.append([(bytes.fromhex(f["rawHex"]), f.get("fileTypeList")) for f in t["formats"]] +
+    keep = [k for k, (code, _, _) in enumerate(fmts) if code not in DROPPED]
+    lists.append((name, [fmts[k] for k in keep] + EXTRA_FORMATS.get(name, [])))
+    filters.append([(bytes.fromhex(t["formats"][k]["rawHex"]), t["formats"][k].get("fileTypeList")) for k in keep] +
                    [(EXTRA_FILTERS[code], None) for code, _, _ in EXTRA_FORMATS.get(name, [])])
 saves = [(code, s["name"]) for code, s in zip(SAVES, DATA["saveFormats"])] + EXTRA_SAVES
 assert len(SAVES) == len(DATA["saveFormats"])

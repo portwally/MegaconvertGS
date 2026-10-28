@@ -21,7 +21,7 @@ FmtInfo     da    FiSHR,FiC1,FiAPF,FiPacked,FiPW,FiBMP,FiGIF,FiPNG,FiJPEG,FiHGR,
             da    FiDG3200,FiAST,FiCEyes,Fi3200,Fi3200C,FiPWGold,FiDegas,FiDegasE,FiNeo
             da    FiTiny,FiSPU,FiSPC,FiIFF,FiDoodle,FiKoala,FiC64PS,FiMac640,FiMac320
             da    FiMacMono,FiMacSM,FiGEM,FiPCX,FiFli,FiSun,FiSGI,FiPNM,FiRLE,FiIPI,FiQRT
-            da    FiTIFF,FiNPS,FiWOA,FiBabelTC,FiBabelPM,FiTGA,FiPICT
+            da    FiTIFF,0,FiWOA,FiBabelTC,FiBabelPM,FiTGA,FiPICT
 
 FiTGA       asc   '93/Truevision Targa (.TGA): pictures from paint and video programs, usually '
             asc   'ProDOS type $06 (BIN).',0D,'Reads color-mapped, true color and '
@@ -300,12 +300,9 @@ FiTIFF      asc   '93/TIFF (.TIF): the Tagged Image File Format of desktop publi
             asc   'bits).',0D,'It becomes a true color picture, remapped to fit a 320 mode '
             asc   'screen./^#0',00
 
-FiNPS       asc   '93/New Print Shop graphics: the graphics of Broderbund',27,'s The New Print '
-            asc   'Shop for the Apple II, which keeps them in a format of its own.',0D
-            asc   'MegaconvertGS can',27,'t read them yet./^#0',00
-
-FiWOA       asc   '73/Works of Art: black and white clip art from Springboard Publishing',27
-            asc   's Works of Art collections.',0D,'MegaconvertGS can',27,'t read it yet./^#0',00
+FiWOA       asc   '93/Works of Art: black and white clip art from Springboard Publishing',27
+            asc   's Works of Art collections.',0D,'Each page chosen becomes a monochrome '
+            asc   'image./^#0',00
 
 FiBabelTC   asc   '93/Babelfish True Color Import: a picture read through Babelfish, Seven Hills '
             asc   'Software',27,'s file translator system, as a true color image.',0D

@@ -60,8 +60,9 @@ New in MegaconvertGS (not in SuperConvert) are marked with ★.
 | Any computer | JPEG (baseline and ★ progressive), GIF (87a, 89a, interlaced, transparent), PNG (every kind), CompuServe RLE, IPI, QRT, ★ TIFF, ★ Truevision Targa (TGA) |
 
 A picture larger than the screen is fitted to it; black & white pictures taller than a
-screen become true colour pictures. Not there yet: New Print Shop graphics and the
-Babelfish imports.
+screen become true colour pictures. Not there yet: the Babelfish imports. SuperConvert's
+New Print Shop graphics entry is left out: SuperConvert never loaded it, and its Apple II
+files are not described anywhere.
 
 ## Save formats
 

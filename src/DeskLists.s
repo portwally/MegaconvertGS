@@ -38,7 +38,7 @@ TypeMems    =     *
             dw    9,0,0
 * Each type's formats: where its members are, how many.
 TypeFmts    da    FmMems0,FmMems1,FmMems2,FmMems3,FmMems4,FmMems5,FmMems6,FmMems7,FmMems8,FmMems9
-TypeCount   dw    10,12,6,1,3,5,5,3,9,2
+TypeCount   dw    9,12,6,1,3,5,5,3,9,2
 FmMems0     =     *
             adrl  FmName0x0
             db    $80,0
@@ -57,19 +57,16 @@ FmMems0     =     *
             dw    fmtPSBW,1,Filt0x4
             adrl  FmName0x5
             db    0,0
-            dw    51,1,Filt0x5
+            dw    fmtTScan,2,Filt0x5
             adrl  FmName0x6
             db    0,0
-            dw    fmtTScan,2,Filt0x6
+            dw    52,4,Filt0x6
             adrl  FmName0x7
             db    0,0
-            dw    52,4,Filt0x7
+            dw    fmtTDM40,1,Filt0x7
             adrl  FmName0x8
             db    0,0
-            dw    fmtTDM40,1,Filt0x8
-            adrl  FmName0x9
-            db    0,0
-            dw    fmtTDM80,1,Filt0x9
+            dw    fmtTDM80,1,Filt0x8
 FmMems1     =     *
             adrl  FmName1x0
             db    $80,0
@@ -279,15 +276,13 @@ FmName0x3   dfb   17
             asc   'DoubleHiRes color'
 FmName0x4   dfb   24
             asc   'Print Shop B & W graphic'
-FmName0x5   dfb   23
-            asc   'New Print Shop graphics'
-FmName0x6   dfb   25
+FmName0x5   dfb   25
             asc   'ThunderScan raw scan file'
-FmName0x7   dfb   32
+FmName0x6   dfb   32
             asc   'Works of Art (Springboard Publ.)'
-FmName0x8   dfb   33
+FmName0x7   dfb   33
             asc   'TDM 40-column text screen capture'
-FmName0x9   dfb   33
+FmName0x8   dfb   33
             asc   'TDM 80-column text screen capture'
 TyName1     dfb   19
             asc   'Apple IIgs specific'
@@ -442,15 +437,13 @@ Filt0x3     dw    $0806,$0000,$FFFF
             adrl  $3FF8,$4100
 Filt0x4     dw    $0606,$0000,$FFFF
             adrl  $23C,$300
-Filt0x5     dw    $F5F5,$3000,$5FFF
+Filt0x5     dw    $0606,$5453,$5453
             adrl  $1,$FFFFFF
-Filt0x6     dw    $0606,$5453,$5453
+Filt0x6     dw    $F7F7,$0000,$0000
             adrl  $1,$FFFFFF
-Filt0x7     dw    $F7F7,$0000,$0000
-            adrl  $1,$FFFFFF
-Filt0x8     dw    $0606,$0000,$FFFF
+Filt0x7     dw    $0606,$0000,$FFFF
             adrl  $378,$400
-Filt0x9     dw    $0606,$0000,$FFFF
+Filt0x8     dw    $0606,$0000,$FFFF
             adrl  $778,$800
 Filt1x0     dw    $FFFF
             da    FList1x0
