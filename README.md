@@ -96,18 +96,30 @@ IIgs's 2.8 MHz:
 
 How it was done: [docs/speed-plan.md](docs/speed-plan.md).
 
-## Install and run
+## Download and run
 
-Build it ([docs/BUILDING.md](docs/BUILDING.md)), then copy these three files into one
-folder on your IIgs disk and start MegaconvertGS:
+Download **MegaconvertGS.po** from the
+[Releases](https://github.com/portwally/MegaconvertGS/releases) page: an 800K ProDOS disk
+with three files:
 
 - **MegaconvertGS:** the program (GS/OS type S16)
 - **MCGS.Help:** the help text, for Help! and Menu item help
 - **MCGS.Title:** the title picture shown at start-up (a click or a key skips it; without
   the file there is none)
 
-It needs GS/OS (it is tested with System 6.0.4) and a IIgs with enough memory for the
-pictures you open; it is tested in MAME with 4 MB. Preferences are saved in MCGS.Prefs.
+**You need** an Apple IIgs with GS/OS (it is tested with System 6.0.4) and enough memory
+for the pictures you open; it is tested in MAME with 4 MB. The disk doesn't start by
+itself: boot your System 6 disk or hard disk, then open the MegaconvertGS disk in the
+Finder and double-click MegaconvertGS. To keep it on a hard disk, copy the three files
+into one folder. Preferences are saved in MCGS.Prefs beside them.
+
+- **On a real IIgs:** write the image to a 3.5" disk, or use it with a FloppyEmu, BlueSCSI
+  or similar device.
+- **In MAME** (on a Mac, easiest through [Ample](https://github.com/ksherlock/ample)):
+  choose the Apple IIgs, boot your System 6 hard disk image, and put MegaconvertGS.po in a
+  3.5" drive.
+
+To build it yourself, see [docs/BUILDING.md](docs/BUILDING.md).
 
 ## Credits
 

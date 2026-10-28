@@ -29,6 +29,15 @@ All three go in one folder on the IIgs. Set `MERLIN32` if the assembler isn't in
 `~/Downloads/Merlin32_v1.2_b2/MacOs/`. The build stops on a local label defined twice
 under one global label (`test/labels.py`), which Merlin 32 accepts silently.
 
+## Make the release disk
+
+```bash
+./make_disk.sh
+```
+
+Makes `build/MegaconvertGS.po`, an 800K ProDOS disk with the three files and their file
+types (needs Cadius). Run `./build.sh` first.
+
 ## Run it in MAME
 
 ```bash
