@@ -189,7 +189,17 @@ fmtCount            =     51                 ; (Load formats lists some past the
 fmtWOA              =     52                 ; Works of Art (Apple.s WOA.s)
 fmtTGA              =     55                 ; Truevision Targa (Other.s TGA.s)
 fmtPICT             =     56                 ; QuickDraw PICT (Other.s PICT.s)
-fmtLast             =     56                 ; (the last format number)
+fmtZX               =     57                 ; ZX Spectrum screen (Other.s ZX.s)
+fmtMS2              =     58                 ; MSX Screen 2, 5, 7, 8 (Other.s MSX.s)
+fmtMS5              =     59
+fmtMS7              =     60
+fmtMS8              =     61
+fmtArtSt            =     62                 ; C64 Art Studio, Advanced Art Studio (Other.s)
+fmtAAS              =     63
+fmtCPC0             =     64                 ; Amstrad CPC screen, mode 0, 1, 2 (Other.s CPC.s)
+fmtCPC1             =     65
+fmtCPC2             =     66
+fmtLast             =     66                 ; (the last format number)
 saveCount           =     17                 ; save numbers 1-16 (but 14, 15: Babelfish)
 
 * The True color menu's filters (Filter.s), in menu order

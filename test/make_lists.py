@@ -36,7 +36,9 @@ TYPES = [
 ]
 # MegaconvertGS's own: TIFF, TGA and PICT to load (their file filters: types $06 or
 # $04, or none, at least 8, 18 or 10 bytes).
-EXTRA_FORMATS = {"Computer-independent": [("fmtTIFF", C, "TIFF (Tagged Image File Format)"),
+EXTRA_FORMATS = {"Commodore 64/128": [("fmtArtSt", S, "Art Studio (OCP)"),
+                                      ("fmtAAS", S, "Advanced Art Studio (OCP)")],
+                 "Computer-independent": [("fmtTIFF", C, "TIFF (Tagged Image File Format)"),
                                           ("fmtTGA", C, "Truevision Targa (.TGA)")],
                  "Macintosh": [("fmtPICT", C, "QuickDraw picture (PICT)")]}
 EXTRA_FILTERS = {"fmtTIFF": bytes.fromhex("000000000000060400000000080000000000ff000000ffff"),
@@ -47,6 +49,22 @@ RENAMED = {"PC Paintbrush (.PCX, .PCC) ???": "PC Paintbrush (.PCX, .PCC)"}
 # Save numbers in SuperConvert's order; "Icon resource (HyperCard, etc.)" adds to a file.
 SAVES = [4, 3, 2, 1, 5, 6, 8, 13, 9, 10, 11, 12, 14, 15]
 DROPPED = {"51"}
+# MegaconvertGS's own computer types (Amstrad CPC, MSX, ZX Spectrum), after Unix machines (so the rows above stay where
+# they were): their formats and file filters (types $06 or $04, or none; EOF 6144-6912
+# for the Spectrum, 8 or more for a BSAVE file).
+EXTRA_TYPES = [("Amstrad CPC", [("fmtCPC0", S, "Mode 0 screen (.SCR)"), ("fmtCPC1", S, "Mode 1 screen (.SCR)"),
+                                ("fmtCPC2", S, "Mode 2 screen (.SCR)")]),
+               ("MSX", [("fmtMS2", S, "Screen 2 (.SC2)"), ("fmtMS5", C, "Screen 5 (.SC5, .GE5)"),
+                        ("fmtMS7", C, "Screen 7 (.SC7)"), ("fmtMS8", C, "Screen 8 (.SC8)")]),
+               ("ZX Spectrum", [("fmtZX", S, "Screen (.SCR)")])]
+EXTRA_TYPE_AFTER = "Unix machines"
+for fmt in ("fmtMS2", "fmtMS5", "fmtMS7", "fmtMS8"):
+    EXTRA_FILTERS[fmt] = bytes.fromhex("000000000000060400000000" + "08000000" + "06000100" + "0000ffff")
+for fmt in ("fmtCPC0", "fmtCPC1", "fmtCPC2"):
+    EXTRA_FILTERS[fmt] = bytes.fromhex("000000000000060400000000" + "d03f0000" + "00000100" + "0000ffff")
+EXTRA_FILTERS["fmtArtSt"] = bytes.fromhex("000000000000060400000000" + "31230000" + "31230000" + "0000ffff")
+EXTRA_FILTERS["fmtAAS"] = bytes.fromhex("000000000000060400000000" + "22270000" + "22270000" + "0000ffff")
+EXTRA_FILTERS["fmtZX"] = bytes.fromhex("000000000000060400000000" + "00180000" + "001b0000" + "0000ffff")
 EXTRA_SAVES = [(7, "Icon resource (new file)"), (16, "BMP (Windows bitmap)")]
 
 types = DATA["computerTypes"]
@@ -60,6 +78,10 @@ for (name, ours), t in zip(TYPES, types):
     lists.append((name, [fmts[k] for k in keep] + EXTRA_FORMATS.get(name, [])))
     filters.append([(bytes.fromhex(t["formats"][k]["rawHex"]), t["formats"][k].get("fileTypeList")) for k in keep] +
                    [(EXTRA_FILTERS[code], None) for code, _, _ in EXTRA_FORMATS.get(name, [])])
+at = [n for n, _ in lists].index(EXTRA_TYPE_AFTER) + 1
+for k, (name, fmts) in enumerate(EXTRA_TYPES):
+    lists.insert(at + k, (name, fmts))
+    filters.insert(at + k, [(EXTRA_FILTERS[code], None) for code, _, _ in fmts])
 saves = [(code, s["name"]) for code, s in zip(SAVES, DATA["saveFormats"])] + EXTRA_SAVES
 assert len(SAVES) == len(DATA["saveFormats"])
 

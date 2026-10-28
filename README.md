@@ -4,7 +4,8 @@
 
 An image converter for the Apple IIgs, written from scratch in 65816 assembly for GS/OS.
 It opens pictures from the Apple II and IIgs, the Atari ST, the Amiga, the Commodore 64,
-the Macintosh, the PC, Unix machines and today's computers (PNG, JPEG, GIF, BMP, TIFF),
+the Macintosh, the PC, Unix machines, the Amstrad CPC, the MSX, the ZX Spectrum and
+today's computers (PNG, JPEG, GIF, BMP, TIFF),
 remaps them to Super Hi-Res in 320 or 640 mode or with a palette for every line, and
 saves them in IIgs and modern formats.
 
@@ -15,7 +16,7 @@ same result pixel for pixel.
 
 ## Features
 
-- **Over 50 load formats** from ten computer types, chosen in the Load formats window or
+- **Over 60 load formats** from thirteen computer types, chosen in the Load formats window or
   recognised by File > Open from the file's type, size or contents.
 - **Remap** true colour pictures to the screen: 320 x 200 in 16 colours, 640 x 200 in 4,
   640 dither mode, or multipalette (a palette for each line); a calculated, default,
@@ -43,6 +44,20 @@ same result pixel for pixel.
 | ![Load formats and Save formats](docs/images/main.png) | ![The Remap dialog](docs/images/remap.png) | ![The image window](docs/images/image-window.png) |
 | The Load formats and Save formats windows, with the Macintosh formats | The Remap dialog: mode, palette, rendering and size | A picture in the image window |
 
+## Examples
+
+Super Hi-Res pictures put through MegaconvertGS in the emulator: each converted to a true
+colour picture, then remapped, filtered or made monochrome.
+
+| | | | |
+|---|---|---|---|
+| ![A butterfly, the original](docs/images/examples/butterfly.png) | ![The butterfly in 640 dither mode](docs/images/examples/butterfly-640-dither.png) | ![The butterfly in greys](docs/images/examples/butterfly-greys.png) | ![The butterfly's edges](docs/images/examples/butterfly-find-edges.png) |
+| The original (320 mode) | Remapped to 640 dither mode | Greys, pattern dither | Find edges |
+| ![An owl, the original](docs/images/examples/owl.png) | ![The owl in black and white, error diffusion](docs/images/examples/owl-mono-diffusion.png) | ![The owl in black and white, halftone](docs/images/examples/owl-mono-halftone.png) | ![The owl in greys, error diffusion](docs/images/examples/owl-greys-diffusion.png) |
+| The original | Monochrome, error diffusion | Monochrome, halftone | Greys, error diffusion |
+| ![An eagle at sunset, the original](docs/images/examples/eagle.png) | ![The eagle embossed](docs/images/examples/eagle-emboss.png) | ![The eagle solarized](docs/images/examples/eagle-solarize.png) | ![The eagle in multipalette](docs/images/examples/eagle-multipalette.png) |
+| The original | Emboss | Solarize | Remapped to multipalette |
+
 ## Load formats
 
 New in MegaconvertGS (not in SuperConvert) are marked with ★.
@@ -53,10 +68,13 @@ New in MegaconvertGS (not in SuperConvert) are marked with ★.
 | Apple IIgs | Super Hi-Res ($C0 PackBytes and Apple Preferred, $C1), PaintWorks and Paintworks Gold, DreamGrafix (256 and 3200 colours), Print Shop IIgs colour graphics and library, Finder icons, AST and ComputerEyes digitizer files, "3200 color" pictures (plain, .3201 and compressed) |
 | Atari ST | Degas, Degas Elite, Neochrome, Tiny, Spectrum 512 (plain and compressed) |
 | Amiga | IFF ILBM (with HAM, Extra HalfBrite and 24-bit) |
-| Commodore 64/128 | Doodle, Koala, Print Shop screens |
+| Commodore 64/128 | Doodle, Koala, Print Shop screens, ★ Art Studio, ★ Advanced Art Studio |
 | Macintosh | MacPaint (three ways), ScreenMaker, ★ QuickDraw PICT (version 1 and 2, 1 to 32 bits) |
 | PC | BMP (1 to 32 bits, Windows and OS/2), GEM/Ventura IMG, PC Paintbrush, DeluxePaint LBM, FliAway frames |
 | Unix | Sun Rasterfile, SGI, PBM/PGM/PPM |
+| ★ Amstrad CPC | Screens (.SCR, 16K, with or without the AMSDOS header) in mode 0, 1 or 2 |
+| ★ MSX | Screen 2 (MSX1, 256 x 192), Screen 5, 7 and 8 (MSX2, 256 or 512 x 212, with the file's palette): BSAVE files |
+| ★ ZX Spectrum | Screen (.SCR, 6912 bytes, or 6144 without colours) |
 | Any computer | JPEG (baseline and ★ progressive), GIF (87a, 89a, interlaced, transparent), PNG (every kind), CompuServe RLE, IPI, QRT, ★ TIFF, ★ Truevision Targa (TGA) |
 
 A picture larger than the screen is fitted to it; black & white pictures taller than a

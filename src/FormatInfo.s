@@ -22,6 +22,50 @@ FmtInfo     da    FiSHR,FiC1,FiAPF,FiPacked,FiPW,FiBMP,FiGIF,FiPNG,FiJPEG,FiHGR,
             da    FiTiny,FiSPU,FiSPC,FiIFF,FiDoodle,FiKoala,FiC64PS,FiMac640,FiMac320
             da    FiMacMono,FiMacSM,FiGEM,FiPCX,FiFli,FiSun,FiSGI,FiPNM,FiRLE,FiIPI,FiQRT
             da    FiTIFF,0,FiWOA,FiBabelTC,FiBabelPM,FiTGA,FiPICT
+            da    FiZX,FiMS2,FiMS5,FiMS7,FiMS8,FiArtSt,FiAAS,FiCPC0,FiCPC1,FiCPC2
+
+FiArtSt     asc   '93/Art Studio (OCP): hires pictures from the Commodore 64',27,'s Art Studio, '
+            asc   '9009 bytes: 320 x 200 dots, a color pair for each 8 x 8 cell.',0D,'It becomes '
+            asc   'a screen image in the C64',27,'s 16 colors./^#0',00
+
+FiAAS       asc   '93/Advanced Art Studio (OCP): multicolor pictures from the Commodore 64',27,'s '
+            asc   'Advanced Art Studio, 10018 bytes: 160 x 200 wide dots in four colors for each '
+            asc   'cell.',0D,'It becomes a screen image in the C64',27,'s 16 colors./^#0',00
+
+FiCPC0      asc   '93/Amstrad CPC mode 0 screen (.SCR): the CPC',27,'s 16K of screen memory, with '
+            asc   'or without its AMSDOS header, as mode 0: 160 x 200 in 16 colors.',0D,'It '
+            asc   'becomes a screen image in the inks',27,' colors as the CPC starts up./^#0',00
+
+FiCPC1      asc   '93/Amstrad CPC mode 1 screen (.SCR): the CPC',27,'s 16K of screen memory, with '
+            asc   'or without its AMSDOS header, as mode 1: 320 x 200 in 4 colors (Open reads a '
+            asc   'CPC screen this way).',0D,'It becomes a screen image in the inks',27,' colors '
+            asc   'as the CPC starts up./^#0',00
+
+FiCPC2      asc   '93/Amstrad CPC mode 2 screen (.SCR): the CPC',27,'s 16K of screen memory, with '
+            asc   'or without its AMSDOS header, as mode 2: 640 x 200 in 2 colors.',0D,'It '
+            asc   'becomes a 640 mode screen image./^#0',00
+
+FiZX        asc   '93/ZX Spectrum screen (.SCR): the Sinclair ZX Spectrum',27,'s screen, 6912 '
+            asc   'bytes: 256 x 192 dots and a color pair for each 8 x 8 cell (a 6144-byte file: '
+            asc   'the dots alone, black on white).',0D,'It becomes a screen image in the '
+            asc   'Spectrum',27,'s 15 colors./^#0',00
+
+FiMS2       asc   '93/MSX Screen 2 (.SC2): the MSX',27,'s 256 x 192 graphics screen saved with '
+            asc   'BSAVE, a color pair for each line of each 8 x 8 cell.',0D,'It becomes a '
+            asc   'screen image in the MSX',27,'s 16 colors./^#0',00
+
+FiMS5       asc   '93/MSX2 Screen 5 (.SC5, .GE5): 256 x 212 in 16 colors from a palette of 512, '
+            asc   'saved with BSAVE (the palette from the file if it holds it, else the '
+            asc   'MSX2',27,'s own).',0D,'It becomes a true color picture, remapped to fit a 320 '
+            asc   'mode screen./^#0',00
+
+FiMS7       asc   '93/MSX2 Screen 7 (.SC7): 512 x 212 in 16 colors from a palette of 512, saved '
+            asc   'with BSAVE; its dots are half as wide as tall.',0D,'It becomes a true color '
+            asc   'picture, remapped to fit a 320 mode screen./^#0',00
+
+FiMS8       asc   '93/MSX2 Screen 8 (.SC8): 256 x 212 in 256 colors (3 bits of green, 3 of red, '
+            asc   '2 of blue), saved with BSAVE.',0D,'It becomes a true color picture, '
+            asc   'remapped to fit a 320 mode screen./^#0',00
 
 FiTGA       asc   '93/Truevision Targa (.TGA): pictures from paint and video programs, usually '
             asc   'ProDOS type $06 (BIN).',0D,'Reads color-mapped, true color and '

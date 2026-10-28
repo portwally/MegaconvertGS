@@ -1396,7 +1396,7 @@ TEnt        ds    24*18                 ; tag, type, count, value, kind, field
 CList       ds    512                   ; the colours, in order of value
 CMap        ds    4096                  ; by colour: its index + 1
 TDesc       ds    84                    ; the description (Pascal string)
-TxSoftware  asc   'MegaconvertGS 0.3',00
+TxSoftware  asc   'MegaconvertGS 0.4',00
 TxHost      asc   'Apple IIgs',00
 TxDate      asc   '0000:00:00 00:00:00',00
 * The dialog (SuperConvert's 26:195C)

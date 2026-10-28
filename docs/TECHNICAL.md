@@ -30,8 +30,8 @@ segment includes.
 - `src/Apple.s`: Apple II and IIgs formats (a segment of its own), with `src/WOA.s`
   (Works of Art pages, as monochrome images) and `src/Glyphs.s`, the Apple II character
   set drawn from the Print Char 21 font by Kreative Software (`test/glyphs.swift`)
-- `src/Other.s` with `src/OtherPC.s`, `src/TIFF.s`, `src/TGA.s` and `src/PICT.s`: the
-  other computers' formats (a segment of its own)
+- `src/Other.s` with `src/OtherPC.s`, `src/TIFF.s`, `src/TGA.s`, `src/PICT.s`, `src/ZX.s`,
+  `src/MSX.s` and `src/CPC.s`: the other computers' formats (a segment of its own)
 - `src/SegLib.s`: helpers each loader segment includes
 - `src/Save.s`: the save formats (a segment of its own)
 - `src/Screen.s`: full-screen view, and the title picture at start-up
@@ -156,6 +156,21 @@ segment includes.
   image's colours, square pixels as GS Remap's PNG). Open tries TGA and PICT by name (and
   PICT's signature) before the Apple formats' size guesses; a file so named that isn't
   one goes on to the other formats.
+- **Three computer types SuperConvert didn't have**, after Unix machines in Load formats:
+  the Amstrad CPC (its 16K screen memory, with or without the AMSDOS header, which is
+  known by its checksum; the file doesn't say its mode, so mode 0, 1 and 2 each have an
+  entry, and Open takes mode 1, the CPC's start-up mode; screen images in the inks'
+  start-up colours, mode 2 in 640 mode), the ZX Spectrum (its screen: 6912 bytes in the Spectrum's line order, a colour pair for
+  each 8 x 8 cell; a screen image in its 15 colours) and the MSX (BSAVE files: Screen 2
+  with its name, pattern and colour tables as a screen image; Screen 5, 7 and 8 as true
+  colour pictures, with the file's palette if it holds it, else the MSX2's own). Open
+  knows them by their name's ending (.SCR, .SC2, .SC5, .GE5, .SC7, .SC8), and a
+  Spectrum screen by its size; a .SCR file of 6912 bytes or less is a Spectrum screen,
+  a larger one a CPC screen.
+- **Two more Commodore 64 formats:** Art Studio (hires, 9009 bytes) and Advanced Art
+  Studio (multicolour, 10018 bytes), the same parts as Doodle and Koala in another order;
+  Open knows them by size (and .ART, .AAS, .MPIC). Advanced Art Studio's packed files
+  aren't read.
 - **A title picture at start-up** (`MCGS.Title`, a $C1 screen beside the program: until
   a click, a key or 3 seconds; none if the file isn't there).
 

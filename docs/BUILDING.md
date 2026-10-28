@@ -94,12 +94,16 @@ byte) or against a model written from SuperConvert's documented behaviour:
   loads each by its format and, where Open can tell, by itself, and compares the screens
   and pictures with GS Remap. `other` does the same for the other computers' formats
   (`test/make_other.py`; TIFF files made with ImageMagick).
-- `newfmt` loads TGA and PICT test files written from known pixels
-  (`test/make_newfmt.py`: every TGA kind and depth, run-length coded or not, either row
+- `newfmt` loads MegaconvertGS's own formats from test files written from known pixels
+  (`test/make_newfmt.py`): every TGA kind and depth, run-length coded or not, either row
   order; PICT version 1 and 2, bit maps and pixel maps of 1 to 32 bits with each kind of
-  packing, bands, scaling and the drawing commands passed over), plus a TGA from `sips`
-  and two PICTs from ImageMagick, by their format and by themselves, and checks them
-  pixel for pixel.
+  packing, bands, scaling and the drawing commands passed over; ZX Spectrum screens with
+  every ink, paper and bright, and without colours; MSX Screen 2 with its own name
+  table, Screen 5 with the file's palette and without it, Screen 7 and Screen 8; Amstrad
+  CPC screens in each mode, with and without the AMSDOS header; C64 Art Studio and
+  Advanced Art Studio pictures. Plus a
+  TGA from `sips` and two PICTs from ImageMagick. Each is loaded by its format and by
+  itself, and checked pixel for pixel (the screen images in the saved screen's colours).
 - `save` saves several pictures in every save format and compares the files with GS
   Remap's, made by `test/sc4save` (a small tool on GS Remap's engine, built with Swift).
 - `remap2` remaps pictures with each graphic mode, palette, rendering and some scale

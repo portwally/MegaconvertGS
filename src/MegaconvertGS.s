@@ -2473,7 +2473,7 @@ ExtrasMenu  asc   '>>  Extras  \N8',00
             asc   '--System info report...\N345',00
             asc   '.',00
 
-AboutText   asc   '93/MegaconvertGS 0.3',0D,'An image converter for the Apple IIgs.',0D,'Walter Tengler, 2026',0D,0D
+AboutText   asc   '93/MegaconvertGS 0.4',0D,'An image converter for the Apple IIgs.',0D,'Walter Tengler, 2026',0D,0D
             asc   'A successor to SuperConvert by Jason Harper and Ian Brumby, '
             asc   'published with the kind permission of Ian Brumby./^#0',00
 TxtProblem  asc   '52/The file could not be read or saved (error ',00
@@ -2506,9 +2506,20 @@ FmtIds      da    0,IdC1,IdAPF,IdPacked,IdPW,IdBMP,IdGIF,IdPNG,IdJPEG
             da    IdO35,IdO36,IdO37,IdO38,IdO39,IdO40,IdO41,IdO42
             da    IdO43,IdO44,IdO45,IdO46,IdO47,IdO48,IdO49,IdO50
             da    IdNone,IdWOA,IdNone,IdNone,IdTGA,IdPICT   ; (51: none)
+            da    IdZX,IdMS2,IdMS5,IdMS7,IdMS8,IdArtSt,IdAAS,IdCPC0,IdCPC1,IdCPC2
 IdNone      asc   '-',00                ; (53, 54: the Babelfish imports)
 IdTGA       asc   'tga',00
 IdPICT      asc   'pict',00
+IdZX        asc   'zx',00
+IdMS2       asc   'msx2',00
+IdMS5       asc   'msx5',00
+IdMS7       asc   'msx7',00
+IdMS8       asc   'msx8',00
+IdArtSt     asc   'artst',00
+IdAAS       asc   'aas',00
+IdCPC0      asc   'cpc0',00
+IdCPC1      asc   'cpc1',00
+IdCPC2      asc   'cpc2',00
 IdWOA       asc   'woa',00
 IdC1        asc   'c1',00
 IdAPF       asc   'apf',00

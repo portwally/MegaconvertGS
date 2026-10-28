@@ -315,6 +315,162 @@ if magick and os.path.exists(src):
         save(name, open(dst, "rb").read(), "pict",
              [[tuple(px[(y * w + x) * 3:(y * w + x) * 3 + 3]) for x in range(w)] for y in range(h)], w, h)
 
+
+# ---- ZX Spectrum (screen images: the expected colours are the Super Hi-Res palette's) ----
+def shr(c): return tuple(((c >> s) & 15) * 17 for s in (8, 4, 0))
+ZXPAL = [0x000, 0x00D, 0xD00, 0xD0D, 0x0D0, 0x0DD, 0xDD0, 0xDDD,
+         0x000, 0x00F, 0xF00, 0xF0F, 0x0F0, 0x0FF, 0xFF0, 0xFFF]
+
+def zx(bits, attrs):
+    """bits[y][x] 0/1 for 256 x 192; attrs[row][col] (24 x 32) or None."""
+    d = bytearray(6144 if attrs is None else 6912)
+    for y in range(192):
+        for xb in range(32):
+            v = 0
+            for b in range(8): v = v << 1 | bits[y][xb * 8 + b]
+            d[((y & 0xC0) << 5) | ((y & 7) << 8) | ((y & 0x38) << 2) | xb] = v
+    if attrs is not None:
+        for r in range(24):
+            for c in range(32): d[6144 + r * 32 + c] = attrs[r][c]
+    rows = []
+    for y in range(192):
+        row = []
+        for x in range(256):
+            a = 0x38 if attrs is None else attrs[y >> 3][x >> 3]
+            i = (a & 7) if bits[y][x] else (a >> 3) & 7
+            if a & 0x40: i += 8
+            row.append(shr(ZXPAL[i]))
+        rows.append(row)
+    return bytes(d), rows
+
+zbits = [[1 if ((x * 7 + y * 3) % 11 < 4 or (x // 16 + y // 12) % 5 == 0) else 0 for x in range(256)] for y in range(192)]
+zattr = [[(r * 32 + c) * 37 % 256 for c in range(32)] for r in range(24)]   # every ink, paper, bright, flash
+data, rows = zx(zbits, zattr)
+save("ZX.SCR", data, "zx", rows, 256, 192)
+data, rows = zx(zbits, None)
+save("ZXBW.SCR", data, "zx", rows, 256, 192)
+
+# ---- MSX (BSAVE files) ----
+MS3 = [0, 36, 73, 109, 146, 182, 219, 255]
+MSOWN = [(0, 0, 0), (0, 0, 0), (1, 6, 1), (3, 7, 3), (1, 1, 7), (2, 3, 7), (5, 1, 1), (2, 6, 7),
+         (7, 1, 1), (7, 3, 3), (6, 6, 1), (6, 6, 4), (1, 4, 1), (6, 2, 5), (5, 5, 5), (7, 7, 7)]
+MSPAL4 = [0x000, 0x000, 0x2D2, 0x6F6, 0x22F, 0x46F, 0xB22, 0x4DF,
+          0xF22, 0xF66, 0xDD2, 0xDD9, 0x292, 0xD4B, 0xBBB, 0xFFF]
+
+def bsave(vram, start, end):
+    return bytes([0xFE]) + struct.pack("<HHH", start, end, start) + bytes(vram[start:end + 1])
+
+# Screen 2: names in another order than 0-255, each cell line with its own colours.
+vram = bytearray(0x10000)
+for i in range(768): vram[0x1800 + i] = (i * 13 + 7) % 256
+for t in range(3):
+    for n in range(256):
+        for l in range(8):
+            vram[t * 2048 + n * 8 + l] = (n * 29 + l * 7 + t * 3) & 255
+            vram[0x2000 + t * 2048 + n * 8 + l] = ((n + l + t) % 16) << 4 | (n * 3 + l) % 16
+rows = []
+for y in range(192):
+    row = []
+    t, l = y >> 6, y & 7
+    for x in range(256):
+        name = vram[0x1800 + (y >> 3) * 32 + (x >> 3)]
+        bits, col = vram[t * 2048 + name * 8 + l], vram[0x2000 + t * 2048 + name * 8 + l]
+        i = col >> 4 if bits >> (7 - (x & 7)) & 1 else col & 15
+        row.append(shr(MSPAL4[i]))
+    rows.append(row)
+save("MSX.SC2", bsave(vram, 0, 0x37FF), "msx2", rows, 256, 192)
+
+def msx_palette(pal):
+    """16 (r, g, b) of 3 bits as the video memory's 32 bytes."""
+    return b"".join(bytes(((r << 4) | b, g)) for r, g, b in pal)
+
+def nibble_screen(name, fid, w, palat, own_pal, ext_end):
+    vram = bytearray(0x10000)
+    per = w // 2
+    for y in range(212):
+        for xb in range(per):
+            vram[y * per + xb] = ((xb * 3 + y) % 16) << 4 | (xb + y * 5) % 16
+    pal = [((i * 3) % 8, (i * 5 + 1) % 8, (7 - i) % 8) for i in range(16)]
+    if not own_pal: vram[palat:palat + 32] = msx_palette(pal)
+    use = MSOWN if own_pal else pal
+    rows = []
+    for y in range(212):
+        row = []
+        for x in range(w):
+            v = vram[y * per + x // 2]
+            i = v >> 4 if x % 2 == 0 else v & 15
+            r, g, b = use[i]
+            row.append((MS3[r], MS3[g], MS3[b]))
+        rows.append(row)
+    save(name, bsave(vram, 0, ext_end), fid, rows, w, 212)
+
+nibble_screen("MSX.SC5", "msx5", 256, 0x7680, False, 0x769F)
+nibble_screen("MSXOWN.GE5", "msx5", 256, 0x7680, True, 0x69FF)
+nibble_screen("MSX.SC7", "msx7", 512, 0xFA80, False, 0xFA9F)
+
+vram = bytearray(0x10000)
+for y in range(212):
+    for x in range(256): vram[y * 256 + x] = (x + y * 3) & 255
+rows = [[(MS3[(v >> 2) & 7], MS3[v >> 5], (0, 85, 170, 255)[v & 3]) for v in vram[y * 256:y * 256 + 256]] for y in range(212)]
+save("MSX.SC8", bsave(vram, 0, 0xD3FF), "msx8", rows, 256, 212)
+
+
+# ---- Commodore 64: Art Studio (hires) and Advanced Art Studio (multicolour) ----
+C64PAL = [0x000, 0xFFF, 0xD00, 0x0DD, 0xD0D, 0x0D0, 0x00D, 0xFE0,
+          0xF70, 0xB50, 0xF88, 0x666, 0x999, 0xBFB, 0xBBF, 0xCCC]
+bitmap = bytes((i * 73 + (i >> 5) * 11) & 255 for i in range(8000))
+screen = bytes((i * 29 + 5) & 255 for i in range(1000))
+colram = bytes((i * 7 + 3) & 15 for i in range(1000))
+rows = []
+for y in range(200):
+    row = []
+    for x in range(320):
+        cell = (y >> 3) * 40 + (x >> 3)
+        b = bitmap[cell * 8 + (y & 7)]
+        row.append(shr(C64PAL[screen[cell] >> 4 if b >> (7 - (x & 7)) & 1 else screen[cell] & 15]))
+    rows.append(row)
+save("ARTST.ART", b"\x00\x20" + bitmap + screen + bytes((6,)) + bytes(6), "artst", rows, 320, 200)
+back = 11
+rows = []
+for y in range(200):
+    row = []
+    for x in range(160):
+        cell = (y >> 3) * 40 + (x >> 2)
+        pair = bitmap[cell * 8 + (y & 7)] >> (6 - 2 * (x & 3)) & 3
+        c = (back, screen[cell] >> 4, screen[cell] & 15, colram[cell] & 15)[pair]
+        row += [shr(C64PAL[c])] * 2
+    rows.append(row)
+save("AAS.AAS", b"\x00\x20" + bitmap + screen + bytes((6, back)) + bytes(14) + colram, "aas", rows, 320, 200)
+
+# ---- Amstrad CPC screens (16K, line y at (y & 7) x 2048 + (y >> 3) x 80) ----
+CPCPAL = [0x008, 0xFF0, 0x0FF, 0xF00, 0xFFF, 0x000, 0x00F, 0xF0F,
+          0x088, 0x880, 0x88F, 0xF88, 0x0F0, 0x8F8, 0x008, 0xF88]
+cpc = bytearray((i * 37 + (i >> 7) * 5) & 255 for i in range(16384))
+def line(y): return (y & 7) * 2048 + (y >> 3) * 80
+def amsdos(body):
+    h = bytearray(128)
+    h[1:9] = b"SCREEN  "; h[9:12] = b"SCR"; h[18] = 2
+    h[24:26] = struct.pack("<H", len(body)); h[64:66] = struct.pack("<H", len(body))
+    h[67:69] = struct.pack("<H", sum(h[:67]))
+    return bytes(h) + body
+for mode, name, head in ((0, "CPC0.SCR", False), (1, "CPC1.SCR", True), (2, "CPC2.SCR", False)):
+    rows = []
+    for y in range(200):
+        row = []
+        for xb in range(80):
+            b = cpc[line(y) + xb]
+            if mode == 0:
+                for sh in (0, 1):
+                    v = b << sh & 255
+                    i = (v >> 7 & 1) | (v >> 3 & 1) << 1 | (v >> 5 & 1) << 2 | (v >> 1 & 1) << 3
+                    row += [shr(CPCPAL[i])] * 2
+            elif mode == 1:
+                for k in range(4): row.append(shr(CPCPAL[(b >> (7 - k) & 1) | (b >> (3 - k) & 1) << 1]))
+            else:
+                for k in range(8): row.append(shr(CPCPAL[b >> (7 - k) & 1]))
+        rows.append(row)
+    save(name, amsdos(bytes(cpc)) if head else bytes(cpc), "cpc%d" % mode, rows, 640 if mode == 2 else 320, 200)
+
 # Named as a PICT, but a PPM: Open goes on to what it is.
 ppm_rows = scene(40, 30)
 save("NOTPICT.PCT", b"P6 40 30 255\n" + bytes(c for r in ppm_rows for p in r for c in p), "pnm", ppm_rows, 40, 30)

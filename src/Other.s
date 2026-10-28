@@ -7,7 +7,9 @@
 * Koala, Print Shop. Macintosh: MacPaint, ScreenMaker.
 * PC: GEM IMG, PC Paintbrush, FliAway frames. Unix: Sun
 * Rasterfile, SGI, PBM/PGM/PPM. And CompuServe RLE, IPI, QRT
-* and TIFF (OtherPC.s).
+* and TIFF (OtherPC.s); Truevision Targa (TGA.s), Macintosh PICT
+* (PICT.s), ZX Spectrum screens (ZX.s), MSX screens (MSX.s) and
+* Amstrad CPC screens (CPC.s); and C64 Art Studio pictures.
 *
 * As in GS Remap, black & white pictures taller than a screen
 * (Atari ST high resolution, MacPaint, ScreenMaker) become true
@@ -47,7 +49,8 @@ OLoaders    da    LoadDegas,LoadDegasE,LoadNeo,LoadTiny,LoadSPU,LoadSPC,LoadIFF
             da    LoadDoodle,LoadKoala,LoadC64PS,LoadMac640,LoadMac320,LoadMacMono
             da    LoadMacSM,LoadGEM,LoadPCX,LoadFli,LoadSun,LoadSGI,LoadPNM,LoadRLE
             da    LoadIPI,LoadQRT,LoadTIFF,LoadNone,LoadNone,LoadNone,LoadNone
-            da    LoadTGA,LoadPICT
+            da    LoadTGA,LoadPICT,LoadZX,LoadMS2,LoadMS5,LoadMS7,LoadMS8
+            da    LoadArtSt,LoadAAS,LoadCPC0,LoadCPC1,LoadCPC2
 LoadNone    lda   #errNotImpl           ; (51-54: not in this segment)
             sec
             rts
@@ -78,6 +81,7 @@ ODetect     lda   Want
             cmp   Ext+2
             bne   :onext
             lda   ExtList+4,x
+            jsr   ExtFix
             cmp   #fmtTGA
             bcc   :onext
             clc
@@ -168,6 +172,7 @@ ODetect     lda   Want
             cmp   Ext+2
             bne   :nextExt
             lda   ExtList+4,x
+            jsr   ExtFix
             clc
             rts
 :nextExt    txa
@@ -250,6 +255,24 @@ ExtList     asc   'PI1',00
             dw    fmtPICT
             asc   'PICT'
             dw    fmtPICT
+            asc   'SCR',00
+            dw    fmtZX
+            asc   'SC2',00
+            dw    fmtMS2
+            asc   'SC5',00
+            dw    fmtMS5
+            asc   'GE5',00
+            dw    fmtMS5
+            asc   'SC7',00
+            dw    fmtMS7
+            asc   'SC8',00
+            dw    fmtMS8
+            asc   'ART',00
+            dw    fmtArtSt
+            asc   'AAS',00
+            dw    fmtAAS
+            asc   'MPIC'
+            dw    fmtAAS
             dw    0
 
 SizeList    dw    32034,fmtDegas
@@ -258,7 +281,23 @@ SizeList    dw    32034,fmtDegas
             dw    51104,fmtSPU
             dw    10003,fmtKoala
             dw    9218,fmtDoodle
+            dw    6912,fmtZX
+            dw    9009,fmtArtSt
+            dw    10018,fmtAAS
 SizeEnd
+
+* ExtFix: format A from a name's ending, put right where two computers
+* share it: .SCR is a ZX Spectrum screen at 6912 bytes or less, else an
+* Amstrad CPC screen (in mode 1, as the CPC starts up).
+ExtFix      cmp   #fmtZX                ; (keeps X)
+            bne   :done
+            ldy   flen+2
+            bne   :cpc
+            ldy   flen
+            cpy   #6913
+            bcc   :done
+:cpc        lda   #fmtCPC1
+:done       rts
 
 * GetExt: Ext = the end of the name after its last dot, in capitals.
 GetExt      stz   Ext
@@ -1230,6 +1269,22 @@ LoadDoodle  lda   #9026
             sta   HBase
             lda   #9026
             sta   HEnd
+            lda   #2
+            sta   HCol
+            stz   HFixed
+            jmp   C64Hires
+
+* Art Studio (OCP): load address, 8000 bitmap bytes, 1000 colour bytes,
+* the border colour and some unused bytes (9009 in all).
+LoadArtSt   lda   #9009
+            jsr   NeedLen
+            bcc   :ok
+            rts
+:ok         lda   #2
+            sta   HBase
+            lda   #8002
+            sta   HEnd
+            sta   HCol
             stz   HFixed
             jmp   C64Hires
 
@@ -1252,7 +1307,7 @@ LoadC64PS   lda   #8000
             jmp   C64Hires
 
 * C64Hires: bitmap at HBase (up to HEnd); each 8 x 8 cell has an ink (high
-* nibble) and paper (low nibble) colour: HFixed, or the byte at 2 + cell.
+* nibble) and paper (low nibble) colour: HFixed, or the byte at HCol + cell.
 C64Hires    jsr   ScrBegin
             ldx   #C64Pal
             jsr   SetTable0
@@ -1285,7 +1340,7 @@ C64Hires    jsr   ScrBegin
             bne   :colour
             lda   t2
             clc
-            adc   #2
+            adc   HCol
             tay
             lda   [fp],y
             and   #$00FF
@@ -1348,13 +1403,33 @@ LoadKoala   lda   #10003
             jsr   NeedLen
             bcc   :ok
             rts
-:ok         jsr   ScrBegin
+:ok         lda   #9002                 ; colour memory, background
+            sta   KColAt
+            lda   #10002
+            sta   KBackAt
+            bra   C64Multi
+
+* Advanced Art Studio (OCP): load address, bitmap, screen colours, border
+* and background, 14 unused bytes, colour memory (10018 bytes).
+LoadAAS     lda   #10018
+            jsr   NeedLen
+            bcc   :ok
+            rts
+:ok         lda   #9018
+            sta   KColAt
+            lda   #9003
+            sta   KBackAt
+
+* C64Multi: a multicolour picture: load address, bitmap, 1000 screen
+* colours (from 8002), 1000 bytes of colour memory (from KColAt) and the
+* background colour (at KBackAt).
+C64Multi    jsr   ScrBegin
             ldx   #C64Pal
             jsr   SetTable0
             stz   Is640
             lda   #320
             sta   PixW
-            ldy   #10002
+            ldy   KBackAt
             lda   [fp],y
             and   #$000F
             sta   KBack
@@ -1427,7 +1502,7 @@ LoadKoala   lda   #10003
             bra   :set
 :colRam     lda   t2                    ; 3: colour memory
             clc
-            adc   #9002
+            adc   KColAt
             tay
             lda   [fp],y
             bra   :set
@@ -1879,6 +1954,9 @@ HBase       dw    0
 HEnd        dw    0
 HFixed      dw    0
 KBack       dw    0
+KColAt      dw    0
+KBackAt     dw    0
+HCol        dw    0
 RLEH        dw    0
 RLEX        dw    0
 RLEColour   dw    0
@@ -1894,4 +1972,7 @@ MacBuf      ds    144
             put   TIFF.s
             put   TGA.s
             put   PICT.s
+            put   ZX.s
+            put   MSX.s
+            put   CPC.s
             put   SegLib.s

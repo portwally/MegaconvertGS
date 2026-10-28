@@ -8,10 +8,13 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 F = os.path.join(ROOT, "build", "fixtures")
 CASES = [  # computer type, format, folder
     (1, 0, "MCTEST"), (1, 1, "MCTEST"), (1, 1, "MCAPPLE"), (1, 4, "MCTEST"), (0, 0, "MCAPPLE"),
-    (0, 1, "MCAPPLE"), (0, 3, "MCAPPLE"), (1, 7, "MCAPPLE"), (1, 5, "MCAPPLE"), (8, 0, "MCTRUE"),
-    (8, 1, "MCTRUE"), (8, 2, "MCOTHER"), (2, 0, "MCOTHER"), (2, 2, "MCOTHER"), (6, 0, "MCOTHER"),
-    (5, 0, "MCOTHER"), (4, 1, "MCOTHER"), (8, 7, "MCOTHER"),
+    (0, 1, "MCAPPLE"), (0, 3, "MCAPPLE"), (1, 7, "MCAPPLE"), (1, 5, "MCAPPLE"), (11, 0, "MCTRUE"),
+    (11, 1, "MCTRUE"), (11, 2, "MCOTHER"), (2, 0, "MCOTHER"), (2, 2, "MCOTHER"), (6, 0, "MCOTHER"),
+    (5, 0, "MCOTHER"), (4, 1, "MCOTHER"), (11, 7, "MCOTHER"),
 ]
+# Load formats' computer types are SuperConvert's with MegaconvertGS's Amstrad CPC, MSX and
+# ZX Spectrum after Unix machines (8-10): the place of each in SuperConvert's list.
+SC_TYPE = {0: 0, 1: 1, 2: 2, 3: 3, 4: 4, 5: 5, 6: 6, 7: 7, 11: 8, 12: 9}
 
 def folder(name):
     """The folder's files in the order they were added: (NAME, type, aux, eof)."""
@@ -57,7 +60,7 @@ def rate(fmt, ftype, aux, eof):
     return 2 if ftype == 0x0F else 1
 
 def expected(t, f, name):
-    fmts = json.load(open(os.path.join(ROOT, "docs", "superconvert-ui-data.json")))["computerTypes"][t]["formats"]
+    fmts = json.load(open(os.path.join(ROOT, "docs", "superconvert-ui-data.json")))["computerTypes"][SC_TYPE[t]]["formats"]
     # (past SuperConvert's formats: MegaconvertGS's TIFF, with make_lists.py's filter)
     fmt = fmts[f] if f < len(fmts) else {"name": "TIFF (Tagged Image File Format)",
                                          "rawHex": "000000000000060400000000080000000000ff000000ffff" + "00" * 8}

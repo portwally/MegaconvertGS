@@ -1,5 +1,5 @@
 #!/bin/bash
-# MegaconvertGS's own load formats (TGA, PICT): test files written from known pixels
+# MegaconvertGS's own load formats (TGA, PICT, ZX Spectrum, MSX): test files written from known pixels
 # (test/make_newfmt.py) loaded in the emulator by their format and by their name, the
 # true colour pictures compared pixel for pixel with what was written.
 cd "$(dirname "$0")/.."
@@ -9,6 +9,7 @@ for line in open("build/fixtures/newfmt.list"):
     name, fmt = line.split()
     print(f"LOAD AS {fmt} *:MCNEWFMT:{name}")
     print(f"SAVE RGB *:MCOUT:{name}.R")
+    print(f"SAVE C1 *:MCOUT:{name}.C")
     print(f"LOAD *:MCNEWFMT:{name}")
 print("SHOW")
 PY
