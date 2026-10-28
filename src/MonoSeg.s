@@ -140,13 +140,19 @@ OutRow      stz   OutX
             stz   Byte
             lda   #$80
             sta   Mask
+            stz   OSrcX                 ; (x / H stepped: the source column,
+            stz   OPh                   ; and x mod H)
             ldy   #0                    ; the output byte
-:pix        lda   OutX
-            ldx   ScaleH
-            jsr   Over
+:pix        lda   OSrcX
             asl
             tax
-            lda   Lum,x
+            inc   OPh
+            lda   OPh
+            cmp   ScaleH
+            bcc   :step
+            stz   OPh
+            inc   OSrcX
+:step       lda   Lum,x
             jsr   Render                ; carry set: white
             bcc   :black
             lda   Mask
@@ -169,14 +175,19 @@ OutRow      stz   OutX
             ldx   ErrNext
             stx   ErrCur
             sta   ErrNext
-            tax                         ; (cleared for the row after)
+            tax                         ; (cleared for the row after, as far
+            lda   OutW                  ; as Diffuse reaches: 2 x width + 10
+            asl                         ; bytes)
+            clc
+            adc   #10
+            sta   ErrUse
             ldy   #0
 :clr        stz   |0,x
             inx
             inx
             iny
             iny
-            cpy   #ErrLen
+            cpy   ErrUse
             bcc   :clr
 :done       rts
 PutByte     lda   Byte
@@ -656,27 +667,82 @@ Blocks      lda   OutAspect             ; table row: (aspect - 1) x 3 + scale
 :g          rts
 
 * Value: A = 0 (white) .. 16 (black) for output pixel (OutX, OutY).
-Value       lda   OutY                  ; the block
-            ldx   RY
+* The block's rows are worked out once for each OutY, and its first column
+* stepped along when OutX goes up by one (VY = $FFFF: nothing kept).
+Value       lda   OutY
+            cmp   VY
+            beq   :rowsOK
+            sta   VY
+            ldx   RY                    ; the block's first source row
             jsr   Over
             ldx   BH
             jsr   Times
-            sta   mq4                   ; first source row
-            lda   OutX
-            ldx   RX
-            jsr   Over
-            ldx   BW
-            jsr   Times
-            sta   mq5                   ; first source column
-            stz   mq6                   ; the value
+            sta   mq4
+            stz   VNR                   ; its rows' places (those inside)
             ldx   BH
             stx   mq3
-:sy         lda   mq4
+:r          lda   mq4
             ldy   #mbH
             cmp   [mblk],y
+            bcs   :rows
+            jsr   MonoRow
+            lda   VNR
+            asl
+            asl
+            tax
+            lda   mo0
+            sta   VRP,x
+            lda   mo0+2
+            sta   VRP+2,x
+            inc   VNR
+            inc   mq4
+            dec   mq3
+            bne   :r
+:rows       lda   #$FFFE                ; (no column kept for this row: not
+            sta   VX                    ; OutX - 1 for any OutX)
+:rowsOK     lda   OutX                  ; the block's first source column
+            dec
+            cmp   VX
+            bne   :colNew
+            inc   VX                    ; (the next pixel: stepped)
+            inc   VPh
+            lda   VPh
+            cmp   RX
+            bcc   :colOK
+            stz   VPh
+            lda   VC0
+            clc
+            adc   BW
+            sta   VC0
+            bra   :colOK
+:colNew     lda   OutX
+            sta   VX
+            ldx   RX
+            jsr   Over
+            pha
+            ldx   RX
+            jsr   Times
+            eor   #$FFFF
+            sec
+            adc   OutX
+            sta   VPh                   ; (OutX mod RX)
+            pla
+            ldx   BW
+            jsr   Times
+            sta   VC0
+:colOK      stz   mq6                   ; the value
+            stz   VI
+:sy         lda   VI
+            cmp   VNR
             bcs   :done
-            jsr   MonoRow               ; mo0: source row mq4
-            lda   mq5
+            asl
+            asl
+            tax
+            lda   VRP,x
+            sta   mo0
+            lda   VRP+2,x
+            sta   mo0+2
+            lda   VC0
             sta   mq2
             ldx   BW
             stx   mq7
@@ -705,9 +771,8 @@ Value       lda   OutY                  ; the block
 :white      inc   mq2
             dec   mq7
             bne   :sx
-:nextRow    inc   mq4
-            dec   mq3
-            bne   :sy
+:nextRow    inc   VI
+            bra   :sy
 :done       lda   Weight                ; shrunk to black and white?
             cmp   #16
             bcs   :v
@@ -770,6 +835,8 @@ ToScreen    ldy   #0                    ; cleared
             bcc   :h
             lda   #200
 :h          sta   OutH
+            lda   #$FFFF                ; (Value: nothing kept)
+            sta   VY
             stz   OutY
 :row        lda   OutY
             jsr   Times160
@@ -884,7 +951,9 @@ ToTrue      lda   OutW
             jsl   NewTrueL              ; tp, tstride
             bcc   :ok
             rts
-:ok         stz   OutY
+:ok         lda   #$FFFF                ; (Value: nothing kept)
+            sta   VY
+            stz   OutY
 :row        lda   OutY
             ldx   tstride
             jsr   Mul16
@@ -1161,6 +1230,15 @@ Mul16       sta   mq0
 *-------------------------------------------------------------
 * Data
 *-------------------------------------------------------------
+OSrcX       dw    0                     ; (OutRow: x / H and x mod H)
+OPh         dw    0
+VY          dw    0                     ; (Value: the OutY and OutX kept, the
+VX          dw    0                     ; block's rows inside the image and
+VNR         dw    0                     ; their places, OutX mod RX, the
+VRP         ds    64                    ; block's first column, the row
+VPh         dw    0                     ; being summed)
+VC0         dw    0
+VI          dw    0
 Src         dw    0
 Dest        dw    0
 ScaleH      dw    1
@@ -1249,6 +1327,7 @@ GreyTab     =     *                     ; round(g x g / 255)
             dw    226,228,230,232,233,235,237,239,241,243,245,247,249,251,253,255
 Lum         ds    8192                  ; a source row's intensities (a word each)
 ErrLen      =     10016                 ; (5000 + 8 words)
+ErrUse      dw    0                     ; (OutRow: the bytes a row uses)
 ErrA        ds    ErrLen
 ErrB        ds    ErrLen
 

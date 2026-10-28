@@ -80,6 +80,7 @@
 *                        Finder icon's criteria). SAVEWARN logs the last save's warnings
 *                        (bits 0-4: 640 mode, mixed modes, colour tables, dithering, not
 *                        the default 640 dither colours)
+*   TIMING n             1: after each command a line "TIME $t": the ticks it took
 *   SMOOTH n             640 mode screens become true colour Exact (0) or Smoothed (1)
 *                        (the window's choice, which tests don't show; 2: the window)
 *   PREF n v             Preferences' option n (0-7, in the order of its check boxes)
@@ -129,13 +130,39 @@ RunTests    lda   #TestPath
             bne   :end
             jsr   GetLine
             bcs   :end
+            pha                         ; (TIMING: the command's start)
+            pha
+            Tool  _TickCount
+            pla
+            sta   CmdTick
+            pla
             jsr   DoCommand
+            jsr   TimeLine
             jsr   AppendLog             ; after every command, in case the next one fails
             bra   :next
 :end        jsr   AppendLog
             PushLongAt TestH
             Tool  _DisposeHandle
             jmp   MarkDone
+
+* TimeLine: with TIMING 1, "TIME $t" after each command's line: the ticks
+* (60ths of a second) it took.
+TimeLine    lda   TimeOn
+            beq   :out
+            pha
+            pha
+            Tool  _TickCount
+            pla
+            sec
+            sbc   CmdTick
+            sta   Ticks
+            pla
+            lda   #TxtTime
+            jsr   LogC
+            lda   Ticks
+            jsr   LogHex
+            jmp   LogCR
+:out        rts
 
 * MarkDone: DONE at the start of the text screen memory, where the
 * emulator's test script looks to see that the commands are done.
@@ -1064,7 +1091,16 @@ DoCommand   lda   #CmdBuf
             jsl   SaveWarned
             jsr   LogHex
             jmp   LogCR
-:notSWarn   lda   #CmdSmoothTxt
+:notSWarn   lda   #CmdTimingTxt
+            jsr   Match
+            bcs   :notTiming
+            jsr   ParseArgs             ; TIMING n
+            lda   Args
+            sta   TimeOn
+            lda   #TxtOK
+            jsr   LogC
+            jmp   LogCR
+:notTiming  lda   #CmdSmoothTxt
             jsr   Match
             bcs   :notSmooth
             jsr   ParseArgs             ; SMOOTH n
@@ -1606,6 +1642,10 @@ CmdDeskTxt  asc   'DESK ',00
 CmdQueueTxt asc   'QUEUE ',00
 CmdPrefTxt  asc   'PREF ',00
 CmdSmoothTxt asc  'SMOOTH ',00
+CmdTimingTxt asc  'TIMING ',00
+TxtTime     asc   'TIME ',00
+TimeOn      dw    0                     ; (TIMING: log each command's time)
+CmdTick     dw    0
 CmdSaveDlgTxt asc 'SAVEDLG ',00
 CmdSaveWarnTxt asc 'SAVEWARN',00
 CmdNameTxt  asc   'NAME ',00

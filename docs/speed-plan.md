@@ -641,6 +641,37 @@ Every decoded picture still matches GS Remap's (the true suite); the whole Open:
 What is left of JBIG.JPG's decoding: the IDCT about 6 s, the colour rows 5 s, the Huffman
 decoding 3 s.
 
+### Saving and the monochrome conversions
+
+Measured with `test/timing.sh` (the `TIMING 1` test command logs each command's ticks), on
+RGB8.PNG's 320 x 200 screen and true colour image (S640.C1 for the 640 mode saves); every
+saved file and monochrome result still matches GS Remap's (the save and mono suites):
+
+| Operation | Before | Now |
+|---|---:|---:|
+| Save as PNG (640 mode screen) | 62.0 (109.4) | 27.6 (43.9) |
+| Save as GIF (640 mode screen) | 41.8 (71.5) | 25.6 (29.3) |
+| Save as TIFF (640 mode screen) | 32.5 (71.2) | 17.9 (29.6) |
+| Monochrome, error diffusion, from true colour | 29.8 | 13.8 |
+| Monochrome, pattern dither / threshold / halftone | 15.9-17.5 | 7.1-8.7 |
+| Monochrome image to a screen / true colour image | 75.3 / 73.7 | 19.8 / 18.1 |
+
+- **The colours shown** (`RowCols`): a line's colour table and mode read once, its bytes
+  converted in a loop, for the palette (`Shown`) and each line (`ShownRow`); a picture
+  line shown twice (GIF, TIFF) converted once.
+- **PNG's bits:** an accumulator takes a whole code at a time (`Bits`), the fixed codes
+  reversed once into a table (`RevCode`); a repeated line's 0s taken in bulk
+  (`RawZeros`: the run and the Adler sums as one byte at a time would leave them).
+- **GIF's LZW:** a string that goes on, found at the first place it hashes to, is
+  handled in the pixel loop; anything else through `LzwChar` as before.
+- **Monochrome:** `OutRow`'s x / H stepped instead of divided (H is mostly 1), and only
+  the used part of the next row's error buffer cleared; `Value` keeps an output row's
+  block rows and steps its first column along the row.
+
+Tried and dropped: the median from sorted columns of three (the largest of the smallest,
+the middle of the middles, the smallest of the largest), reusing each column's sort as
+the window moves: in 8 bits the 19 compare-and-swaps are cheap, and it came out slower.
+
 ## Appendix A: the model against the measured times
 
 Measured (`build/suite_remap2.txt`) and model, seconds:

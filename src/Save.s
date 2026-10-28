@@ -155,6 +155,160 @@ Colour      sta   t2
 Off640      db    8,12,0,4
 PalEnd      dw    0
 
+* RowCols: RowC = the 12-bit colours shown along line PY (pw of them), as
+* Pix and Colour give them: the line's table read once, then its bytes
+* (a line in the picture's own mode; any other through Pix and Colour).
+RowCols     lda   PY
+            clc
+            adc   cscb
+            tay
+            lda   [scrp],y
+            and   #$00FF
+            sta   RScb
+            and   #$000F                ; the line's table
+            asl
+            asl
+            asl
+            asl
+            asl
+            clc
+            adc   cpal
+            tay
+            ldx   #0
+:c          lda   [scrp],y
+            and   #$0FFF
+            sta   LCol,x
+            iny
+            iny
+            inx
+            inx
+            cpx   #32
+            bcc   :c
+            lda   pw
+            asl
+            sta   RPW2
+            lda   PY
+            jsr   TimesStr
+            tay                         ; (Y: the line's bytes)
+            ldx   #0                    ; (X: RowC)
+            lda   RScb
+            and   #$0080
+            beq   :l320
+            lda   p640
+            bne   :f640
+            bra   :slow
+:l320       lda   p640
+            beq   :f320
+:slow       stz   PX                    ; (the line in the other mode)
+:sl         phx
+            jsr   Pix
+            jsr   Colour
+            plx
+            sta   RowC,x
+            inx
+            inx
+            inc   PX
+            lda   PX
+            cmp   pw
+            bcc   :sl
+            rts
+:f320       lda   [scrp],y              ; two pixels a byte
+            and   #$00FF
+            sta   t1
+            lsr
+            lsr
+            lsr
+            and   #$001E
+            phx
+            tax
+            lda   LCol,x
+            plx
+            sta   RowC,x
+            inx
+            inx
+            cpx   RPW2
+            bcs   :done
+            lda   t1
+            asl
+            and   #$001E
+            phx
+            tax
+            lda   LCol,x
+            plx
+            sta   RowC,x
+            inx
+            inx
+            iny
+            cpx   RPW2
+            bcc   :f320
+:done       rts
+:f640       lda   [scrp],y              ; four a byte: entries 8, 12, 0, 4 on
+            and   #$00FF
+            sta   t1
+            lsr
+            lsr
+            lsr
+            lsr
+            lsr
+            lsr
+            ora   #8
+            asl
+            phx
+            tax
+            lda   LCol,x
+            plx
+            sta   RowC,x
+            inx
+            inx
+            cpx   RPW2
+            bcs   :done
+            lda   t1
+            lsr
+            lsr
+            lsr
+            lsr
+            and   #3
+            ora   #12
+            asl
+            phx
+            tax
+            lda   LCol,x
+            plx
+            sta   RowC,x
+            inx
+            inx
+            cpx   RPW2
+            bcs   :done
+            lda   t1
+            lsr
+            lsr
+            and   #3
+            asl
+            phx
+            tax
+            lda   LCol,x
+            plx
+            sta   RowC,x
+            inx
+            inx
+            cpx   RPW2
+            bcs   :done
+            lda   t1
+            and   #3
+            ora   #4
+            asl
+            phx
+            tax
+            lda   LCol,x
+            plx
+            sta   RowC,x
+            inx
+            inx
+            iny
+            cpx   RPW2
+            bcc   :f640
+            rts
+
 * TimesStr: A x the picture's bytes a line (cstr: 160 or 320).
 TimesStr    asl
             asl
@@ -927,6 +1081,8 @@ Shown       lda   pw
             lda   ph
             asl
             sta   OH
+            lda   #$FFFF                ; (no line in ShowLine yet)
+            sta   ShowPY
             ldx   #8190                 ; no colours yet
             lda   #$FFFF
 :clr        sta   CIdx,x
@@ -935,9 +1091,12 @@ Shown       lda   pw
             bpl   :clr
             stz   NCol
             stz   PY
-:row        stz   PX
-:pix        jsr   Pix
-            jsr   Colour
+:row        jsr   RowCols               ; (the line's colours)
+            stz   PX
+:pix        lda   PX
+            asl
+            tax
+            lda   RowC,x
             asl
             tax
             lda   CIdx,x
@@ -978,13 +1137,18 @@ Shown       lda   pw
 
 * ShownRow: ShowLine = output line A (OW indexes).
 ShownRow    lsr
+            cmp   ShowPY                ; (the picture's line is already
+            bne   :new                  ; there: lines are shown twice)
+            rts
+:new        sta   ShowPY
             sta   PY
+            jsr   RowCols               ; (the line's colours)
             stz   PX
             ldy   #0
-:pix        phy                         ; (they use Y)
-            jsr   Pix
-            jsr   Colour
-            ply
+:pix        lda   PX
+            asl
+            tax
+            lda   RowC,x
             asl
             tax
             lda   CIdx,x
@@ -1236,11 +1400,8 @@ Deflate     lda   #$78                  ; zlib: deflate, 32K window; no dictiona
             bra   :byte
 :dup        lda   #2                    ; the same line again: Up, all zeros
             jsr   Raw
-            ldy   OW
-:z          lda   #0
-            jsr   Raw
-            dey
-            bne   :z
+            lda   OW
+            jsr   RawZeros
 :next       inc   LineNo
             lda   LineNo
             cmp   OH
@@ -1508,6 +1669,58 @@ Raw         and   #$00FF
             sta   RunLen
 :done       rts
 
+* RawZeros: A bytes of 0, as Raw would take them one by one: their Adler
+* sums, then the run they continue or start (a copy each time it reaches
+* 258, a new literal after that).
+RawZeros    sta   ZLeft
+            beq   :done
+            tax                         ; Adler: A stays, B gains A each time
+            lda   AdB
+:ad         clc
+            adc   AdA
+            bcs   :wrap
+            cmp   #65521
+            bcc   :ok
+:wrap       sbc   #65521
+:ok         dex
+            bne   :ad
+            sta   AdB
+            stz   RawB
+:z          lda   ZLeft
+            beq   :done
+            lda   RunLen                ; a run of 0s going on?
+            beq   :lit
+            lda   RunByte
+            beq   :more
+            jsr   Flush
+:lit        stz   RunByte               ; a literal 0 starts the next run
+            lda   #0
+            jsr   Sym
+            lda   #1
+            sta   RunLen
+            dec   ZLeft
+            bra   :z
+:more       lda   #258                  ; as many as fit in the run
+            sec
+            sbc   RunLen
+            cmp   ZLeft
+            bcc   :part
+            lda   ZLeft
+:part       sta   t2
+            clc
+            adc   RunLen
+            sta   RunLen
+            lda   ZLeft
+            sec
+            sbc   t2
+            sta   ZLeft
+            lda   RunLen
+            cmp   #258
+            bcc   :z
+            jsr   Flush
+            bra   :z
+:done       rts
+
 * Flush: the repeats of the last literal: copies at distance 1 (3-258 at a time).
 Flush       lda   RunLen
             beq   :done
@@ -1568,82 +1781,137 @@ LenBase     dw    3,4,5,6,7,8,9,10,11,13,15,17,19,23,27,31
 LenExt      dw    0,0,0,0,0,0,0,0,1,1,1,1,2,2,2,2
             dw    3,3,3,3,4,4,4,4,5,5,5,5,0,0
 
-* Sym: a symbol of the fixed literal/length code.
-Sym         cmp   #144
+* Sym: a symbol of the fixed literal/length code, its code reversed from
+* RevCode (made the first time).
+Sym         pha                         ; (keeps Y, as Bits does)
+            lda   RevDone
+            bne   :have
+            jsr   RevMake
+:have       pla
+            asl
+            tax
+            lda   RevCode,x
+            sta   SymR
+            txa
+            lsr
+            cmp   #144
+            ldx   #8
+            bcc   :len
+            cmp   #256
+            ldx   #9
+            bcc   :len
+            cmp   #280
+            ldx   #7
+            bcc   :len
+            ldx   #8
+:len        lda   SymR
+            jmp   Bits
+
+* RevMake: RevCode = each symbol's fixed code, its bits reversed.
+RevMake     stz   RevSym
+:s          lda   RevSym
+            jsr   SymCode               ; A = the code, X = its bits
+            sta   t0
+            stz   t1
+:r          lsr   t0
+            rol   t1
+            dex
+            bne   :r
+            lda   RevSym
+            asl
+            tax
+            lda   t1
+            sta   RevCode,x
+            inc   RevSym
+            lda   RevSym
+            cmp   #288
+            bcc   :s
+            inc   RevDone
+            rts
+
+* SymCode: symbol A's fixed code (A) and its length (X).
+SymCode     cmp   #144
             bcs   :s9
             clc
             adc   #$30                  ; 0-143: 8 bits from $30
             ldx   #8
-            jmp   BitsRev
+            rts
 :s9         cmp   #256
             bcs   :s7
             clc
             adc   #$190-144             ; 144-255: 9 bits from $190
             ldx   #9
-            jmp   BitsRev
+            rts
 :s7         cmp   #280
             bcs   :s8
             sec
             sbc   #256                  ; 256-279: 7 bits from 0
             ldx   #7
-            jmp   BitsRev
+            rts
 :s8         sec
             sbc   #280-$C0              ; 280-287: 8 bits from $C0
             ldx   #8
-            jmp   BitsRev
-
-* BitsRev: a Huffman code of X bits, highest bit first.
-BitsRev     sta   t0
-            stx   t1
-:bit        lda   t1
-            beq   :done
-            dec   t1
-            ldx   t1
-            lda   t0
-:sh         cpx   #0
-            beq   :b
-            lsr
-            dex
-            bra   :sh
-:b          and   #$0001
-            jsr   Bit
-            bra   :bit
-:done       rts
-
-* Bits: the low X bits of A, lowest first.
-Bits        sta   t0
-:bit        cpx   #0
-            beq   :done
-            lda   t0
-            and   #$0001
-            jsr   Bit
-            lsr   t0
-            dex
-            bra   :bit
-:done       rts
-
-* Bit: one bit (A = 0 or 1) into the output, lowest bit of each byte first.
-Bit         phx
-            ldx   BitCnt
-            cmp   #0
-            beq   :zero
-            lda   BitMask,x
-            and   #$00FF
-            tsb   BitBuf
-:zero       inx
-            stx   BitCnt
-            cpx   #8
-            bcc   :done
-            lda   BitBuf
-            phy
-            jsr   CPut
-            ply
-            stz   BitBuf
-            stz   BitCnt
-:done       plx
             rts
 
-BitMask     db    1,2,4,8,16,32,64,128,0
+* BitsRev: a Huffman code of X bits (1-16), highest bit first: reversed,
+* then as Bits.
+BitsRev     sta   t0
+            stx   t1
+            stz   BRev
+:r          lsr   t0
+            rol   BRev
+            dex
+            bne   :r
+            lda   BRev
+            ldx   t1
+
+* Bits: the low X bits of A (up to 16), lowest first: into the BitCnt
+* (0-7) bits waiting in BitBuf, and out a byte at a time. Keeps Y.
+Bits        cpx   #0
+            beq   :none
+            stx   BN
+            pha
+            txa
+            asl
+            tax
+            pla
+            and   BitsMask,x
+            stz   BVH
+            ldx   BitCnt                ; shifted past the bits waiting
+            beq   :or
+:sh         asl
+            rol   BVH
+            dex
+            bne   :sh
+:or         ora   BitBuf
+            sta   BitBuf
+            lda   BVH
+            sta   BitHi
+            lda   BitCnt
+            clc
+            adc   BN
+            sta   BitCnt
+            cmp   #8
+            bcc   :none
+            phy
+:emit       lda   BitBuf                ; a whole byte: out, and the rest
+            and   #$00FF                ; down 8 (BitHi follows BitBuf)
+            jsr   CPut
+            lda   BitBuf+1
+            sta   BitBuf
+            lda   BitHi+1
+            and   #$00FF
+            sta   BitHi
+            lda   BitCnt
+            sec
+            sbc   #8
+            sta   BitCnt
+            cmp   #8
+            bcs   :emit
+            ply
+:none       rts
+
+BitsMask    dw    0,1,3,7,15,31,63,127,255,511,1023,2047,4095,8191,16383,32767,65535
 
 * Adler: the Adler-32 sums with byte t2.
 Adler       lda   AdA
@@ -1869,14 +2137,41 @@ Lzw         ldx   MinCode               ; clear = 2^min, end = clear + 1
             lda   LineNo
             jsr   ShownRow
             ldy   #0
-:pix        cpy   OW
-            bcs   :nextLine
-            phy
-            lda   ShowLine,y
+:pix        cpy   OW                    ; (a string that goes on, found at
+            bcs   :nextLine             ; the first place it hashes to: here;
+            lda   ShowLine,y            ; anything else through LzwChar,
+            iny                         ; which looks it up again)
+            sty   LzY
             and   #$00FF
+            sta   Ch
+            ldx   Cur
+            bmi   :slow
+            asl
+            asl
+            asl
+            asl
+            eor   Cur
+            cmp   #5003
+            bcc   :in
+            sbc   #5003
+:in         asl
+            tax
+            lda   HCode,x
+            bmi   :slow
+            lda   HPre,x
+            cmp   Cur
+            bne   :slow
+            lda   HChr,x
+            and   #$00FF
+            cmp   Ch
+            bne   :slow
+            lda   HCode,x
+            sta   Cur
+            ldy   LzY
+            bra   :pix
+:slow       lda   Ch
             jsr   LzwChar
-            ply
-            iny
+            ldy   LzY
             bra   :pix
 :nextLine   inc   LineNo
             lda   LineNo
@@ -2385,8 +2680,23 @@ LenAt       adrl  0
 DataAt      adrl  0
 AdA         dw    0
 AdB         dw    0
-BitBuf      dw    0
+LzY         dw    0                     ; (Lzw: the next pixel)
+ShowPY      dw    0
+RevDone     dw    0                     ; (RevCode made; RevMake's symbol;
+RevSym      dw    0                     ; each fixed code reversed)
+RevCode     ds    576
+ZLeft       dw    0                     ; (RawZeros: the 0s left)
+SymR        dw    0                     ; (Sym: the code reversed)                     ; (ShownRow: the line ShowLine holds)
+RScb        dw    0                     ; (RowCols: the line's SCB, its colours,
+RPW2        dw    0                     ; the line's pixels x 2, the colours
+LCol        ds    32                    ; along it)
+RowC        ds    1280
+BitBuf      dw    0                     ; (the bits waiting, and above them
+BitHi       dw    0                     ; up to 16 more: Bits)
 BitCnt      dw    0
+BRev        dw    0                     ; (BitsRev: the code reversed;
+BN          dw    0                     ; Bits: how many, and the bits
+BVH         dw    0                     ; shifted past 16)
 RunLen      dw    0
 RunByte     dw    0
 RawB        dw    0
