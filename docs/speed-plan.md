@@ -612,6 +612,28 @@ are the whole Open, which remaps the picture to fit the screen afterwards:
   two from a table of quotients (a 32K pool made with the planes) instead of eight rounds
   of division for each channel.
 
+### Opening JPEG files
+
+Every decoded picture still matches GS Remap's (the true suite); the whole Open:
+
+| File | Before | Now |
+|---|---:|---:|
+| J420.JPG / J422.JPG / J444.JPG, 320 x 200 | 11.2 / 11.9 / 13.0 | 9.0 / 9.5 / 10.1 |
+| JOPT.JPG (optimised Huffman tables) | 14.7 | 10.5 |
+| JBIG.JPG, quality 90 | 41.0 | 28.3 |
+
+- **The IDCT's multiplications** by 277, 362, 473 and 669 (and the colour tables' 359
+  and 454): `|A| x K / 256` as `hi x K + lo x K / 256` (|A| = 256 hi + lo) from two
+  tables per constant, the low 16 bits as before, instead of a multiply loop.
+- **Dequantising:** the coefficient is the multiplier (Mul16 goes round once per bit of
+  it, and coefficients are mostly small).
+- **The colour rows:** one component or three decided once a row; the clamps and the
+  pixel's store inline; the green part's signed / 128 by swapping bytes.
+- `FillBig` (every loader's new picture) fills two bytes at a time.
+
+What is left of JBIG.JPG's decoding: the colour rows 6 s, the IDCT 6 s, the Huffman
+decoding 3 s.
+
 ## Appendix A: the model against the measured times
 
 Measured (`build/suite_remap2.txt`) and model, seconds:

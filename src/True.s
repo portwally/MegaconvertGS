@@ -206,16 +206,29 @@ FillBig     sta   FillVal
             bcc   :part
 :full       lda   #$8000
 :part       sta   u0
-            ldy   #0
-            sep   #$20
-            mx    %10
+            and   #$FFFE                ; two bytes at a time, then the odd
+            sta   FillE                 ; one alone
             lda   FillVal
+            and   #$00FF
+            sta   FillW
+            xba
+            ora   FillW
+            ldy   #0
+            cpy   FillE
+            bcs   :odd
 :loop       sta   [q1],y
             iny
-            cpy   u0
+            iny
+            cpy   FillE
             bcc   :loop
+:odd        cpy   u0
+            bcs   :filled
+            sep   #$20
+            mx    %10
+            sta   [q1],y
             rep   #$20
             mx    %00
+:filled
             lda   q1
             clc
             adc   u0
@@ -769,6 +782,8 @@ TrueSize    adrl  0
 TrueHnd     adrl  0
 TrueP       adrl  0
 FillVal     dw    0
+FillW       dw    0                     ; (FillBig: the byte, the even count)
+FillE       dw    0
 CR          dw    0
 CG          dw    0
 CB          dw    0

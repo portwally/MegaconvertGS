@@ -18,8 +18,11 @@ CbG         =     Work+6656
 Coef        =     Work+7168             ; one block's coefficients (64 words)
 WS          =     Work+7296             ; IDCT work space (64 words)
 Blk         =     Work+7424             ; the block's samples (64 bytes)
+MTab        =     Work+8192             ; MulK's tables, 1024 bytes for each
+                                        ; constant: lo x K / 256, then hi x K
 
-DecodeJPEG  stz   JNComp
+DecodeJPEG  jsr   MulTables
+            stz   JNComp
             stz   RestartInt
             stz   CHnd
             stz   CHnd+2
@@ -791,20 +794,20 @@ DecodeBlock ldx   #126
             rts
 
 * DeQuant: A (signed) times quantisation entry Y of the table at u2 (low 16 bits).
-DeQuant     pha
-            lda   (u2),y
-            tax
-            pla
-            cmp   #0
-            bpl   :pos
-            eor   #$FFFF
+DeQuant     cmp   #0                    ; (the value is the multiplier: Mul16
+            bpl   :pos                  ; goes round once per bit of it, and
+            eor   #$FFFF                ; it is mostly small)
             inc
+            tax
+            lda   (u2),y
             jsr   Mul16
             lda   ProdLo
             eor   #$FFFF
             inc
             rts
-:pos        jsr   Mul16
+:pos        tax
+            lda   (u2),y
+            jsr   Mul16
             lda   ProdLo
             rts
 
@@ -1093,36 +1096,90 @@ Butterfly   lda   In0                   ; even part
             sta   T4
             rts
 
-* M277...M669: (A * constant) / 256, signed. Keep X and Y.
-M277        pha
-            lda   #277
+* M277...M669: (A * constant) / 256, signed, the low 16 bits. Keep X and
+* Y. With |A| = 256 hi + lo: hi x K + lo x K / 256, from MTab.
+M277        phx
+            ldx   #0
             bra   MulK
-M362        pha
-            lda   #362
+M362        phx
+            ldx   #1024
             bra   MulK
-M473        pha
-            lda   #473
+M473        phx
+            ldx   #2048
             bra   MulK
-M669        pha
-            lda   #669
-MulK        sta   MKc
-            pla
-            phx
-            ldx   MKc
+M669        phx
+            ldx   #3072
+MulK        stx   MKt
             cmp   #0
             bpl   :pos
             eor   #$FFFF
             inc
-            jsr   Mul16
-            lda   ProdLo+1
+            jsr   :mag
             eor   #$FFFF
             inc
             plx
             rts
-:pos        jsr   Mul16
-            lda   ProdLo+1
+:pos        jsr   :mag
             plx
             rts
+:mag        sta   MKv
+            and   #$00FF
+            asl
+            adc   MKt                   ; (carry clear: lo x 2 < 512)
+            tax
+            lda   MTab,x
+            sta   MKs
+            lda   MKv
+            xba
+            and   #$00FF
+            asl
+            adc   MKt
+            tax
+            lda   MTab+512,x
+            clc
+            adc   MKs
+            rts
+
+* MulTables: MTab for 277, 362, 473, 669, 359 and 454.
+MulTables   ldx   #0
+            ldy   #0
+:k          lda   MulKs,y
+            sta   MKc
+            stz   MKs                   ; lo x K (24 bits: MKs, MKv)
+            stz   MKv
+            stz   t1                    ; hi x K (16 bits)
+            phy
+            ldy   #256
+:e          lda   MKs+1                 ; (/ 256)
+            sta   MTab,x
+            lda   t1
+            sta   MTab+512,x
+            lda   MKs
+            clc
+            adc   MKc
+            sta   MKs
+            bcc   :nc
+            inc   MKv
+:nc         lda   t1
+            clc
+            adc   MKc
+            sta   t1
+            inx
+            inx
+            dey
+            bne   :e
+            ply
+            txa                         ; (the next constant's 1024)
+            clc
+            adc   #512
+            tax
+            iny
+            iny
+            cpy   #12
+            bcc   :k
+            rts
+
+MulKs       dw    277,362,473,669,359,454
 
 * Range: a sample from an IDCT output: v / 32 + 128, kept within 0-255.
 Range       clc
@@ -1241,11 +1298,11 @@ ColourTables lda  JNComp
             bcc   :entry
 :done       rts
 
-M359        pha
-            lda   #359
+M359        phx
+            ldx   #4096
             jmp   MulK
-M454        pha
-            lda   #454
+M454        phx
+            ldx   #5120
             jmp   MulK
 
 * SMul: A (signed) * X, low 16 bits. Keeps Y.
@@ -1332,18 +1389,31 @@ OutRows     stz   SR
             sta   p3+2
             stz   DestOff
             ldx   #0
+            lda   JNComp
+            cmp   #3
+            beq   :pix
+:grey       txy                         ; one component: grey (each byte
+            lda   [p1],y                ; three times)
+            ldy   DestOff
+            sep   #$20
+            mx    %10
+            sta   [q0],y
+            iny
+            sta   [q0],y
+            iny
+            sta   [q0],y
+            iny
+            rep   #$20
+            mx    %00
+            sty   DestOff
+            inx
+            cpx   TrueW
+            bcc   :grey
+            jmp   :rowDone
 :pix        txy
             lda   [p1],y
             and   #$00FF
             sta   JY
-            lda   JNComp
-            cmp   #3
-            beq   :colour
-            lda   JY
-            sta   CR
-            sta   CG
-            sta   CB
-            jmp   :put
 :colour     txa
             ldy   ShX+2
             beq   :cb
@@ -1362,45 +1432,63 @@ OutRows     stz   SR
             and   #$00FF
             asl
             sta   JCr
-            tay
+            tay                         ; (Clamp8 inline)
             lda   CrR,y
             clc
             adc   JY
-            jsr   Clamp8
-            sta   CR
+            bmi   :r0
+            cmp   #256
+            bcc   :r1
+            lda   #255
+            bra   :r1
+:r0         lda   #0
+:r1         sta   CR
             ldy   JCb
             lda   CbB,y
             clc
             adc   JY
-            jsr   Clamp8
-            sta   CB
+            bmi   :b0
+            cmp   #256
+            bcc   :b1
+            lda   #255
+            bra   :b1
+:b0         lda   #0
+:b1         sta   CB
             lda   CbG,y
             ldy   JCr
             clc
             adc   CrG,y
             clc
             adc   #64
-            cmp   #$8000                ; / 128, keeping the sign
-            ror
-            cmp   #$8000
-            ror
-            cmp   #$8000
-            ror
-            cmp   #$8000
-            ror
-            cmp   #$8000
-            ror
-            cmp   #$8000
-            ror
-            cmp   #$8000
-            ror
-            eor   #$FFFF
+            asl                         ; / 128, keeping the sign: bits 7-14,
+            xba                         ; and bit 15 above them
+            and   #$00FF
+            bcc   :gp
+            ora   #$FF00
+:gp         eor   #$FFFF
             sec
             adc   JY
-            jsr   Clamp8
-            sta   CG
-:put        ldy   DestOff
-            jsr   PutRGB
+            bmi   :g0
+            cmp   #256
+            bcc   :g1
+            lda   #255
+            bra   :g1
+:g0         lda   #0
+:g1         ldy   DestOff               ; (PutRGB inline: green at +1,
+            sep   #$20                  ; red, blue)
+            mx    %10
+            iny
+            sta   [q0],y
+            dey
+            lda   CR
+            sta   [q0],y
+            iny
+            iny
+            lda   CB
+            sta   [q0],y
+            iny
+            rep   #$20
+            mx    %00
             sty   DestOff
             inx
             cpx   TrueW
@@ -1456,6 +1544,9 @@ JBuf        dw    0
 JVal        dw    0
 MarkerHit   dw    0
 MKc         dw    0
+MKs         dw    0                     ; (MulK: lo x K / 256; MulTables: lo x
+MKv         dw    0                     ; K, 24 bits, with MKv after MKs)
+MKt         dw    0                     ; (MulK: the constant's table)
 JY          dw    0
 JCb         dw    0
 JCr         dw    0
