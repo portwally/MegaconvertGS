@@ -65,6 +65,9 @@
 *                        handshaking off, as MAME's null modem gives none)
 *   PNGOPT l f text      the next PNG saved with the options window's choices: level
 *                        l (1-9), filter f (0 None, 1 Auto), text as comments
+*   TIFFOPT w m f text   the next TIFF saved with TIFF Save Options' answers: image w
+*                        (0 screen, 1 true colour, 2 both), m 1 Motorola, f bit 0
+*                        more compatible, bit 1 sizing left to the receiver; text
 *   HELP label           the help window at that page; HELPLOG logs the page shown
 *                        (its label, navigation labels, buttons, height)
 *   HEXOPT s|t|e         Hex data's options: s before each line, t between its bytes,
@@ -965,7 +968,24 @@ DoCommand   lda   #CmdBuf
             lda   #TxtOK
             jsr   LogC
             jmp   LogCR
-:notPO      lda   #CmdHelpLogTxt
+:notPO      lda   #CmdTiffOptTxt
+            jsr   Match
+            bcs   :notTO
+            jsr   ParseArgs             ; TIFFOPT w m f text
+            tya
+            clc
+            adc   #CmdBuf
+            sta   dctl
+            lda   #^CmdBuf
+            sta   dctl+2
+            lda   Args
+            ldx   Args+2
+            ldy   Args+4
+            jsl   TiffSet
+            lda   #TxtOK
+            jsr   LogC
+            jmp   LogCR
+:notTO      lda   #CmdHelpLogTxt
             jsr   Match
             bcs   :notHLog
             lda   #HelpBuf              ; HELPLOG: the help page shown
@@ -1595,6 +1615,7 @@ CmdHexOptTxt asc 'HEXOPT ',00
 CmdWoaTxt   asc 'WOAPAGE ',00
 CmdBParamTxt asc 'BPARAM ',00
 CmdPngOptTxt asc 'PNGOPT ',00
+CmdTiffOptTxt asc 'TIFFOPT ',00
 CmdHelpLogTxt asc 'HELPLOG',00
 CmdHelpTxt  asc 'HELP ',00
 HelpLab     ds    40

@@ -62,3 +62,8 @@
             KND   #$1000
             ALI   None
             LNA   MegaconvertGS
+            ASM   TiffOpt.s
+            SNA   TiffOpt
+            KND   #$1000
+            ALI   None
+            LNA   MegaconvertGS

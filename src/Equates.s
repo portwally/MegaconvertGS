@@ -425,6 +425,7 @@ _RealFreeMem        =     $2F02
 _GetPathname2       =     $2211
 _ReadBParam         =     $0C03
 _WriteBParam        =     $0B03
+_ReadTimeHex        =     $0D03
 _FWEntry            =     $2403
 _GetKeyTranslation  =     $1B06
 _GetVersionGS       =     $202A

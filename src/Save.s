@@ -20,6 +20,7 @@
             use   macros/Macs.s
             put   Equates.s
 
+TiffSave    ext
 svPW        =     4
 svIcon      =     5
 svIconAdd   =     6
@@ -2066,7 +2067,14 @@ BlkFlush    lda   BlkLen
 *-------------------------------------------------------------
 * TIFF: Intel order, 8-bit palette picture in one strip, PackBits
 *-------------------------------------------------------------
-SaveTIFF    jsr   Shown
+SaveTIFF    lda   DlgOn                 ; (with the save's dialogs: SuperConvert's
+            jsl   TiffSave              ; TIFF Save Options, TiffOpt.s)
+            bcs   :done
+            cmp   #$FFFF
+            beq   :std
+            clc
+:done       rts
+:std        jsr   Shown
             lda   OW                    ; room: OW * OH * 9 / 8 + 4096
             ldx   OH
             jsr   Mul16

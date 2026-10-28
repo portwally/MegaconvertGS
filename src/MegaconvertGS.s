@@ -20,6 +20,7 @@ SaveTest    ext
 SaveWarned  ext
 HexSet      ext
 PngSet      ext
+TiffSet     ext
 SaveDone    ext
 RemapRun    ext                         ; RemapSeg.s: Remap, and its dialog
 RemapSet    ext
@@ -1959,7 +1960,13 @@ SaveAs      cmp   #4
             bcs   :seg
             jmp   SavePath
 :seg        sta   SvCode
-            jsr   SaveCanvas            ; (the picture to save, as chosen)
+            jsr   SetRemapDP            ; (the true colour image too: TIFF)
+            stz   dhave
+            lda   IsTrue
+            beq   :canvas
+            lda   #2
+            sta   dhave
+:canvas     jsr   SaveCanvas            ; (the picture to save, as chosen)
             stz   SvRead
             stz   SvMsg
             lda   SvCode

@@ -107,6 +107,8 @@ COMMANDS=test/remap.test ./test/run.sh && python3 test/check_remap.py
 ./test/oscope.sh
 ./test/woa.sh
 ./test/deskinit.sh
+./test/help.sh
+./test/tiffopt.sh
 ```
 
 Or all of them, one after the other (each suite's report goes to `build/suite_*.txt`):
@@ -344,11 +346,13 @@ A test run stops by itself once the test commands are done.
   the original does. Save as Desktop background image INIT: MegaconvertGS's own INIT, which
   puts the picture on the desktop at start-up from SYSTEM.SETUP.
 
-PNG save options (compression level: from 6, matches against the line above; filter None
+TIFF Save Options (the screen image as a palette image, the true colour image as RGB, or both;
+Intel or Motorola order; the fewest palette bits or 1, 4 or 8; the resolution's unit; a
+description; `src/TiffOpt.s`). PNG save options (compression level: from 6, matches against the line above; filter None
 or Auto; comments as a tEXt chunk). Help! and Menu item help, with MegaconvertGS's own help text (`help/MCGS.Help.txt`, built
 into `build/MCGS.Help`, which goes beside the program). File > Print alignment page.
 
 Next: Print (normal) and (enhanced) (copying the picture to the printer port fails with
 error $1212 under MAME's System 6.0.4 driver, except for small areas), Print banner, the
-TIFF save options and the "more than one way" window, then speed (`docs/speed-plan.md`: box averaging without division, faster rendering and
+"more than one way" window, then speed (`docs/speed-plan.md`: box averaging without division, faster rendering and
 palette search) and progressive JPEG.
