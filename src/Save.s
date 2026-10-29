@@ -32,6 +32,7 @@ svPNG       =     11
 svTIFF      =     12
 svDesk      =     13
 svBMP       =     16                    ; (14, 15: the Babelfish exports, not here)
+svDHRBW     =     20                    ; (17-20: Apple II HiRes and Double HiRes)
 
 * SaveFormat: A = format. Out: carry clear, or carry set and A = error.
 SaveFormat  ent
@@ -44,7 +45,7 @@ SaveFormat  ent
             stz   ohnd+2
             sec
             sbc   #svPW
-            cmp   #svBMP-svPW+1
+            cmp   #svDHRBW-svPW+1
             bcs   :bad
             asl
             tax
@@ -58,6 +59,7 @@ SaveFormat  ent
             rtl
 :kinds      da    SavePW,SaveIcon,SaveIconAdd,SaveRIcon,SaveRIconAdd,SaveHex
             da    SaveGIF,SavePNG,SaveTIFF,SaveDesk,SaveNone,SaveNone,SaveBMP
+            da    SaveHGR,SaveHGRBW,SaveDHR,SaveDHRBW
 SaveNone    lda   #errNotImpl
             sec
             rts
@@ -528,6 +530,481 @@ SaveBMP     jsr   Shown
             stz   oaux+2
             clc
             rts
+
+*-------------------------------------------------------------
+* Apple II HiRes and Double HiRes ($06 BIN, A$2000; Double HiRes: the
+* auxiliary half first): the picture stretched to the Apple II screen,
+* each place taking the colour shown there, as the closest Apple II
+* colour, or as a dot that is on where that colour is bright. They load
+* back as Apple.s reads them.
+*   HiRes colour: 280 dots; a byte's top bit set where more of its 7 dots
+*   want blue or orange than violet or green; white on, black off, a colour
+*   on where its dot shows it (violet, blue: even dots; green, orange: odd).
+*   Double HiRes colour: 140 pixels of 4 dots, the colour's bits from the
+*   top one first.
+*-------------------------------------------------------------
+SaveHGR     lda   #0
+            bra   SaveA2
+SaveHGRBW   lda   #1
+            bra   SaveA2
+SaveDHR     lda   #2
+            bra   SaveA2
+SaveDHRBW   lda   #3
+SaveA2      sta   A2Kind
+            asl
+            tax
+            lda   A2Ws,x                ; places on a line
+            sta   A2W
+            lda   A2Dots,x              ; dots on a line
+            sta   A2DotN
+            lda   A2Sizes,x
+            sta   n0
+            stz   n0+2
+            jsr   OutNew
+            bcc   :buf
+            rts
+:buf        ldx   n0                    ; (all dots off)
+            jsr   PutZeros
+            ldx   #8190                 ; no colours matched yet
+            lda   #$FFFF
+:clr        sta   CIdx,x
+            dex
+            dex
+            bpl   :clr
+            lda   pw                    ; the column of each place: its
+            asl                         ; middle, (2i + 1) pw / 2W
+            sta   A2Step
+            lda   A2W
+            asl
+            sta   A2W2
+            stz   t1
+            lda   pw
+            sta   t2
+            ldx   #0
+:cx         lda   t2
+:cn         cmp   A2W2
+            bcc   :cs
+            sbc   A2W2
+            inc   t1
+            bra   :cn
+:cs         clc
+            adc   A2Step
+            sta   t2
+            lda   t1
+            asl
+            sta   SrcX,x                ; (as an index into RowC)
+            inx
+            inx
+            txa
+            lsr
+            cmp   A2W
+            bcc   :cx
+            lda   ph                    ; the lines: (2y + 1) ph / 384
+            asl
+            sta   A2StepY
+            sta   A2AccY
+            lsr
+            sta   A2AccY
+            stz   A2SY
+            lda   #$FFFF
+            sta   A2Last
+            stz   A2Y
+:row        lda   A2AccY
+:rn         cmp   #384
+            bcc   :rs
+            sbc   #384
+            inc   A2SY
+            bra   :rn
+:rs         clc
+            adc   A2StepY
+            sta   A2AccY
+            lda   A2SY
+            cmp   A2Last
+            beq   :have
+            sta   A2Last
+            sta   PY
+            jsr   RowCols               ; (the picture's line)
+:have       jsr   A2Line
+            lda   A2Y
+            jsr   HRowOff
+            sta   A2Off
+            lda   A2Kind
+            bne   :dots
+            jsr   PackHGR
+            bra   :next
+:dots       jsr   PackDots
+:next       inc   A2Y
+            lda   A2Y
+            cmp   #192
+            bcc   :row
+            lda   #$0006
+            sta   otype
+            lda   #$2000
+            sta   oaux
+            stz   oaux+2
+            clc
+            rts
+
+* A2Line: Dots = the line's places (RowC): colour numbers, or dots on
+* (1) and off; Double HiRes colour then spread to 4 dots a pixel.
+A2Line      ldx   #0
+            ldy   #0
+:s          phx
+            lda   SrcX,x
+            tax
+            lda   RowC,x
+            jsr   A2Value
+            plx
+            sep   #$20
+            mx    %10
+            sta   Dots,y
+            rep   #$20
+            mx    %00
+            inx
+            inx
+            iny
+            cpy   A2W
+            bcc   :s
+            lda   A2Kind
+            cmp   #2
+            bne   :done
+            ldy   #139                  ; (from the end: the pixels' places
+            ldx   #556                  ; are not overwritten before read)
+:e          lda   Dots,y
+            and   #$000F
+            sta   A2V
+            lda   #8
+            sta   A2Mask
+            phx
+:eb         lda   A2V
+            and   A2Mask
+            beq   :z
+            lda   #1
+:z          sep   #$20
+            mx    %10
+            sta   Dots,x
+            rep   #$20
+            mx    %00
+            inx
+            lsr   A2Mask
+            bne   :eb
+            plx
+            dex
+            dex
+            dex
+            dex
+            dey
+            bpl   :e
+:done       rts
+
+* A2Value: A = a 12-bit colour -> its colour number (HiRes: of black,
+* white, violet, green, blue, orange; Double HiRes: of all 16), or 1
+* where it is bright (3R + 6G + B of 150 at least 75), else 0. Keeps Y.
+A2Value     sta   A2C
+            lda   A2Kind
+            lsr
+            bcc   :near
+            lda   A2C
+            xba
+            and   #$000F
+            sta   A2V
+            asl
+            adc   A2V
+            sta   A2D
+            lda   A2C
+            lsr
+            lsr
+            lsr
+            lsr
+            and   #$000F
+            sta   A2V
+            asl
+            adc   A2V
+            asl
+            clc
+            adc   A2D
+            sta   A2D
+            lda   A2C
+            and   #$000F
+            clc
+            adc   A2D
+            cmp   #75
+            lda   #0
+            bcc   :dark
+            inc
+:dark       rts
+:near       lda   A2C
+            asl
+            tax
+            lda   CIdx,x                ; (worked out before)
+            bmi   :work
+            rts
+:work       phy
+            lda   A2C
+            xba
+            and   #$000F
+            sta   A2R
+            lda   A2C
+            lsr
+            lsr
+            lsr
+            lsr
+            and   #$000F
+            sta   A2G
+            lda   A2C
+            and   #$000F
+            sta   A2B
+            lda   #$FFFF
+            sta   A2Best
+            ldx   #0
+:c          lda   A2Kind
+            bne   :all
+            cpx   #6
+            bcs   :done
+            lda   HCand,x
+            and   #$00FF
+            bra   :try
+:all        cpx   #16
+            bcs   :done
+            txa
+:try        sta   A2V
+            asl
+            tay
+            lda   A2Pal,y
+            sta   A2P
+            xba
+            and   #$000F
+            sec
+            sbc   A2R
+            jsr   Square
+            sta   A2D
+            lda   A2P
+            lsr
+            lsr
+            lsr
+            lsr
+            and   #$000F
+            sec
+            sbc   A2G
+            jsr   Square
+            clc
+            adc   A2D
+            sta   A2D
+            lda   A2P
+            and   #$000F
+            sec
+            sbc   A2B
+            jsr   Square
+            clc
+            adc   A2D
+            cmp   A2Best
+            bcs   :nx
+            sta   A2Best
+            lda   A2V
+            sta   A2BestI
+:nx         inx
+            bra   :c
+:done       lda   A2C
+            asl
+            tax
+            lda   A2BestI
+            sta   CIdx,x
+            ply
+            rts
+
+* Square: A = -15 to 15 -> its square. Keeps X and Y.
+Square      cmp   #0
+            bpl   :p
+            eor   #$FFFF
+            inc
+:p          asl
+            phx
+            tax
+            lda   Squares,x
+            plx
+            rts
+
+* PackHGR: the HiRes colour line (Dots: colour numbers) into its 40
+* bytes at A2Off.
+PackHGR     ldx   #0
+:byte       stz   A2Bal                 ; blue, orange against violet, green
+            lda   #7
+            sta   A2N
+            phx
+:b1         lda   Dots,x
+            and   #$00FF
+            cmp   #12
+            beq   :plus
+            cmp   #3
+            beq   :plus
+            cmp   #9
+            beq   :minus
+            cmp   #6
+            bne   :nb
+:minus      dec   A2Bal
+            bra   :nb
+:plus       inc   A2Bal
+:nb         inx
+            dec   A2N
+            bne   :b1
+            plx
+            stz   A2Bits
+            lda   A2Bal
+            bmi   :lo
+            beq   :lo
+            lda   #$80
+            sta   A2Bits
+:lo         lda   #1
+            sta   A2Mask
+            lda   #7
+            sta   A2N
+:b2         lda   Dots,x
+            and   #$00FF
+            beq   :off                  ; black
+            cmp   #15
+            beq   :on
+            cmp   #9
+            beq   :even
+            cmp   #12
+            beq   :even
+            txa                         ; green, orange: odd dots
+            lsr
+            bcs   :on
+            bra   :off
+:even       txa                         ; violet, blue: even dots
+            lsr
+            bcs   :off
+:on         lda   A2Bits
+            ora   A2Mask
+            sta   A2Bits
+:off        asl   A2Mask
+            inx
+            dec   A2N
+            bne   :b2
+            lda   A2Off
+            tay
+            sep   #$20
+            mx    %10
+            lda   A2Bits
+            sta   [outp],y
+            rep   #$20
+            mx    %00
+            inc   A2Off
+            cpx   #280
+            bcs   :done
+            jmp   :byte
+:done       rts
+
+* PackDots: the line's dots (Dots: 1 on), 7 a byte from bit 0, into its
+* bytes at A2Off; Double HiRes: the auxiliary half, then the main one.
+PackDots    ldx   #0
+            stz   A2Grp
+:g          stz   A2Bits
+            lda   #1
+            sta   A2Mask
+            lda   #7
+            sta   A2N
+:b          lda   Dots,x
+            and   #$00FF
+            beq   :z
+            lda   A2Bits
+            ora   A2Mask
+            sta   A2Bits
+:z          asl   A2Mask
+            inx
+            dec   A2N
+            bne   :b
+            lda   A2Grp
+            ldy   A2Kind
+            cpy   #2
+            bcc   :put
+            lsr                         ; Double HiRes: byte groups by turns
+            bcc   :put                  ; in auxiliary and main memory
+            adc   #8192-1
+:put        clc
+            adc   A2Off
+            tay
+            sep   #$20
+            mx    %10
+            lda   A2Bits
+            sta   [outp],y
+            rep   #$20
+            mx    %00
+            inc   A2Grp
+            cpx   A2DotN
+            bcc   :g
+            rts
+
+* HRowOff: A = screen line -> A = its offset in a HiRes page.
+HRowOff     sta   t0
+            and   #$0007                ; (y & 7) * $400
+            xba
+            asl
+            asl
+            sta   t1
+            lda   t0                    ; ((y >> 3) & 7) * $80
+            lsr
+            lsr
+            lsr
+            and   #$0007
+            xba
+            lsr
+            clc
+            adc   t1
+            sta   t1
+            lda   t0                    ; (y >> 6) * 40
+            lsr
+            lsr
+            lsr
+            lsr
+            lsr
+            lsr
+            sta   t0
+            asl
+            asl
+            clc
+            adc   t0
+            asl
+            asl
+            asl
+            clc
+            adc   t1
+            rts
+
+* The Apple II colours, numbered as Apple.s loads them (Double HiRes
+* bit order), and HiRes's six: black, white, violet, green, blue, orange.
+A2Pal       dw    $000,$D03,$852,$F60,$070,$555,$0D0,$FF0
+            dw    $009,$D0D,$AAA,$F98,$22F,$6AF,$0F9,$FFF
+HCand       db    0,15,9,6,12,3
+Squares     dw    0,1,4,9,16,25,36,49,64,81,100,121,144,169,196,225
+A2Ws        dw    280,280,140,560
+A2Dots      dw    280,280,560,560
+A2Sizes     dw    8192,8192,16384,16384
+A2Kind      dw    0
+A2W         dw    0
+A2W2        dw    0
+A2DotN      dw    0
+A2Step      dw    0
+A2StepY     dw    0
+A2AccY      dw    0
+A2SY        dw    0
+A2Last      dw    0
+A2Y         dw    0
+A2Off       dw    0
+A2C         dw    0
+A2V         dw    0
+A2D         dw    0
+A2P         dw    0
+A2R         dw    0
+A2G         dw    0
+A2B         dw    0
+A2Best      dw    0
+A2BestI     dw    0
+A2Mask      dw    0
+A2Bits      dw    0
+A2Bal       dw    0
+A2N         dw    0
+A2Grp       dw    0
 
 * PutW0: A as a 32-bit number (high word 0), low byte first.
 PutW0       jsr   PutW
@@ -2862,8 +3339,6 @@ PalR        ds    512
 PalG        ds    512
 PalB        ds    512
 ShowLine    ds    1284
-CurRaw      ds    1286                  ; PNG lines (DeflateM): this one,
-PrevRaw     ds    1286                  ; the one above
 RowLen      dw    0
 RI          dw    0
 HavePrev    dw    0
@@ -2874,6 +3349,10 @@ CrcHi       =     CrcLo+2
 CIdx        ds    8192
 HCode       ds    10008
 HPre        ds    10008
+SrcX        =     HCode                 ; (Apple II: each place's column,
+Dots        =     HPre                  ; and its line)
 HChr        ds    10008
+CurRaw      =     HChr                  ; PNG lines (DeflateM): this one, the one
+PrevRaw     =     HChr+1286             ; above (in GIF's table: PNG doesn't use it)
             put   SaveDlg.s
             put   SaveOpts.s

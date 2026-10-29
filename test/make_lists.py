@@ -36,7 +36,7 @@ TYPES = [
 ]
 # MegaconvertGS's own: TIFF, TGA and PICT to load (their file filters: types $06 or
 # $04, or none, at least 8, 18 or 10 bytes).
-EXTRA_FORMATS = {"Commodore 64/128": [("fmtArtSt", S, "Art Studio (OCP)"),
+EXTRA_FORMATS = {"Commodore 64/128": [("fmtArtSt", S, "Art Studio, Interpaint hires"),
                                       ("fmtAAS", S, "Advanced Art Studio (OCP)"),
                                       ("fmtFLI", S, "FLI Graph (.FLI)"), ("fmtAmica", S, "Amica Paint (.AMI)")],
                  "Computer-independent": [("fmtTIFF", C, "TIFF (Tagged Image File Format)"),
@@ -65,14 +65,16 @@ for fmt in ("fmtMS2", "fmtMS5", "fmtMS7", "fmtMS8"):
     EXTRA_FILTERS[fmt] = bytes.fromhex("000000000000060400000000" + "08000000" + "06000100" + "0000ffff")
 for fmt in ("fmtCPC0", "fmtCPC1", "fmtCPC2"):
     EXTRA_FILTERS[fmt] = bytes.fromhex("000000000000060400000000" + "d03f0000" + "00000100" + "0000ffff")
-EXTRA_FILTERS["fmtArtSt"] = bytes.fromhex("000000000000060400000000" + "31230000" + "31230000" + "0000ffff")
+EXTRA_FILTERS["fmtArtSt"] = bytes.fromhex("000000000000060400000000" + "2a230000" + "31230000" + "0000ffff")
 EXTRA_FILTERS["fmtAAS"] = bytes.fromhex("000000000000060400000000" + "22270000" + "22270000" + "0000ffff")
 for fmt in ("fmtMIC", "fmtGR8", "fmtGR9"):
     EXTRA_FILTERS[fmt] = bytes.fromhex("000000000000060400000000" + "28000000" + "65250000" + "0000ffff")
 EXTRA_FILTERS["fmtFLI"] = bytes.fromhex("000000000000060400000000" + "01440000" + "01440000" + "0000ffff")
 EXTRA_FILTERS["fmtAmica"] = bytes.fromhex("000000000000060400000000" + "04000000" + "13270000" + "0000ffff")
 EXTRA_FILTERS["fmtZX"] = bytes.fromhex("000000000000060400000000" + "00180000" + "001b0000" + "0000ffff")
-EXTRA_SAVES = [(7, "Icon resource (new file)"), (16, "BMP (Windows bitmap)")]
+EXTRA_SAVES = [(7, "Icon resource (new file)"), (16, "BMP (Windows bitmap)"), (17, "Apple II HiRes color"),
+               (18, "Apple II HiRes black & white"), (19, "Apple II Double HiRes color"),
+               (20, "Apple II Double HiRes b & w")]
 
 types = DATA["computerTypes"]
 assert [t["name"] for t in types] == [n for n, _ in TYPES], "computer types differ"

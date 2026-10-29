@@ -275,7 +275,7 @@ FmMems13     =     *
             adrl  FmName13x1
             db    0,0
             dw    54,1,Filt13x1
-NSaves      =     16
+NSaves      =     20
 SaveMems    =     *
             adrl  SvName0
             db    0,0
@@ -325,6 +325,18 @@ SaveMems    =     *
             adrl  SvName15
             db    0,0
             dw    16,1,0
+            adrl  SvName16
+            db    0,0
+            dw    17,1,0
+            adrl  SvName17
+            db    0,0
+            dw    18,1,0
+            adrl  SvName18
+            db    0,0
+            dw    19,1,0
+            adrl  SvName19
+            db    0,0
+            dw    20,1,0
 TyName0     dfb   15
             asc   'Apple II family'
 FmName0x0   dfb   19
@@ -397,8 +409,8 @@ FmName4x1   dfb   17
             asc   'Koala Illustrator'
 FmName4x2   dfb   17
             asc   'Print Shop screen'
-FmName4x3   dfb   16
-            asc   'Art Studio (OCP)'
+FmName4x3   dfb   28
+            asc   'Art Studio, Interpaint hires'
 FmName4x4   dfb   25
             asc   'Advanced Art Studio (OCP)'
 FmName4x5   dfb   16
@@ -525,6 +537,14 @@ SvName14    dfb   24
             asc   'Icon resource (new file)'
 SvName15    dfb   20
             asc   'BMP (Windows bitmap)'
+SvName16    dfb   20
+            asc   'Apple II HiRes color'
+SvName17    dfb   28
+            asc   'Apple II HiRes black & white'
+SvName18    dfb   27
+            asc   'Apple II Double HiRes color'
+SvName19    dfb   27
+            asc   'Apple II Double HiRes b & w'
 * File filters: types (A, B; $FFFF: a list), aux min, max, EOF min, max.
 Filt0x0     dw    $0806,$0000,$FFFF
             adrl  $1FF8,$2100
@@ -599,7 +619,7 @@ Filt4x1     dw    $0406,$0000,$FFFF
 Filt4x2     dw    $0406,$0000,$FFFF
             adrl  $1F40,$2AF8
 Filt4x3     dw    $0406,$0000,$FFFF
-            adrl  $2331,$2331
+            adrl  $232A,$2331
 Filt4x4     dw    $0406,$0000,$FFFF
             adrl  $2722,$2722
 Filt4x5     dw    $0406,$0000,$FFFF

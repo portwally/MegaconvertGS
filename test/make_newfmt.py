@@ -437,6 +437,12 @@ for y in range(200):
         row.append(shr(C64PAL[screen[cell] >> 4 if b >> (7 - (x & 7)) & 1 else screen[cell] & 15]))
     rows.append(row)
 save("ARTST.ART", b"\x00\x20" + bitmap + screen + bytes((6,)) + bytes(6), "artst", rows, 320, 200)
+# the same picture without Art Studio's last 7 bytes (Interpaint and others), by name and by size
+save("PIC.IPH", b"\x00\x20" + bitmap + screen, "artst", rows, 320, 200)
+save("HIRESPIC", b"\x00\x20" + bitmap + screen, "artst", rows, 320, 200)
+# a bitmap alone (8002 bytes): white on black, by size
+save("BITMAP", b"\x00\x20" + bitmap, "c64ps", [[shr(C64PAL[1] if bitmap[(y >> 3) * 320 + (x >> 3) * 8 + (y & 7)] >> (7 - (x & 7)) & 1
+                                               else C64PAL[0]) for x in range(320)] for y in range(200)], 320, 200)
 back = 11
 rows = []
 for y in range(200):

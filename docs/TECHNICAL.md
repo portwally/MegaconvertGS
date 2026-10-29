@@ -171,13 +171,24 @@ segment includes.
   knows them by their name's ending (.SCR, .SC2, .SC5, .GE5, .SC7, .SC8), and a
   Spectrum screen by its size; a .SCR file of 6912 bytes or less is a Spectrum screen,
   a larger one a CPC screen.
+- **Apple II save formats** (Save.s, save numbers 17-20): HiRes and Double HiRes, colour
+  and black & white, as $06 files with aux type $2000 (Double HiRes: the auxiliary half
+  first), written so Apple.s loads them back. The picture is stretched to the Apple II
+  screen, each place taking the middle of its part of it; colour places take the closest
+  Apple II colour (HiRes: of its six; a byte's top bit set where more of its dots want
+  blue or orange than violet or green), black & white dots are on where 3R + 6G + B is at
+  least half of white. The segment was at the 64K limit: the new code uses GIF's LZW
+  tables for its line buffers, and PNG's two line buffers moved into GIF's tables too.
 - **Four more Commodore 64 formats:** Art Studio (hires, 9009 bytes) and Advanced Art
   Studio (multicolour, 10018 bytes), the same parts as Doodle and Koala in another order;
   FLI Graph (17409 bytes: new screen colours on every line; the first three columns, which
   the C64 can't show, black); Amica Paint (a Koala picture packed, unpacked into a buffer
   that stands for the file). Open knows them by size or name (.ART, .AAS, .MPIC, .FLI,
   .AMI). Advanced Art Studio's packed files aren't read. The layouts were checked against
-  RECOIL's.
+  RECOIL's. Art Studio's loader also takes 9002 and 9003-byte hires pictures (the same
+  parts without its last bytes: Interpaint, Gigapaint and others; by size or .IPH), and
+  the Print Shop screen decoder any 8002-byte bitmap (by size or .HIR), as found on the
+  C64 picture disks.
 - **A title picture at start-up** (`MCGS.Title`, a $C1 screen beside the program: until
   a click, a key or 3 seconds; none if the file isn't there).
 

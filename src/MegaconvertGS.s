@@ -2580,7 +2580,7 @@ IdO50   asc   'tiff',00
 
 * Save formats, by number: short names for the test commands.
 SaveIds     da    0,IdC1,IdAPF,IdPacked,IdPW,SiIcon,SiIconAdd,SiRIcon,SiRIconAdd,SiHex,IdGIF,IdPNG,IdO50
-            da    SiDesk,SiNone,SiNone,IdBMP
+            da    SiDesk,SiNone,SiNone,IdBMP,IdHGR,IdHGRBW,IdDHR,IdDHRBW
 SiDesk      asc   'desk',00
 SiNone      asc   '-',00                ; (14, 15: the Babelfish exports)
 SiIcon      asc   'icon',00

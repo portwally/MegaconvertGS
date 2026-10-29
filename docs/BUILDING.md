@@ -103,9 +103,14 @@ byte) or against a model written from SuperConvert's documented behaviour:
   table, Screen 5 with the file's palette and without it, Screen 7 and Screen 8; Amstrad
   CPC screens in each mode, with and without the AMSDOS header, with a .PAL file beside
   them and packed; Atari 8-bit MicroPainter (with and without colours), Graphics 8 and 9
-  screens; C64 Art Studio, Advanced Art Studio, FLI Graph and Amica Paint pictures. Plus a
+  screens; C64 Art Studio (and the same picture as a 9002-byte .IPH file and without a
+  name ending), Advanced Art Studio, FLI Graph and Amica Paint pictures, and an 8002-byte
+  hires bitmap known by its size. Plus a
   TGA from `sips` and two PICTs from ImageMagick. Each is loaded by its format and by
   itself, and checked pixel for pixel (the screen images in the saved screen's colours).
+- `a2save` saves screens in the Apple II save formats and compares every byte with a
+  model of them (`test/check_a2save.py`); Double HiRes pictures loaded from Apple II
+  files must save back as they were.
 - `save` saves several pictures in every save format and compares the files with GS
   Remap's, made by `test/sc4save` (a small tool on GS Remap's engine, built with Swift).
 - `remap2` remaps pictures with each graphic mode, palette, rendering and some scale

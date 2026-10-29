@@ -271,6 +271,10 @@ ExtList     asc   'PI1',00
             dw    fmtMS8
             asc   'ART',00
             dw    fmtArtSt
+            asc   'IPH',00
+            dw    fmtArtSt
+            asc   'HIR',00
+            dw    fmtC64PS
             asc   'AAS',00
             dw    fmtAAS
             asc   'MPIC'
@@ -295,6 +299,9 @@ SizeList    dw    32034,fmtDegas
             dw    9218,fmtDoodle
             dw    6912,fmtZX
             dw    9009,fmtArtSt
+            dw    9002,fmtArtSt
+            dw    9003,fmtArtSt
+            dw    8002,fmtC64PS
             dw    10018,fmtAAS
             dw    17409,fmtFLI
             dw    7684,fmtMIC
@@ -1289,8 +1296,9 @@ LoadDoodle  lda   #9026
             jmp   C64Hires
 
 * Art Studio (OCP): load address, 8000 bitmap bytes, 1000 colour bytes,
-* the border colour and some unused bytes (9009 in all).
-LoadArtSt   lda   #9009
+* the border colour and some unused bytes (9009 in all); the same without
+* those last bytes (9002 or 9003: Interpaint, Gigapaint and others).
+LoadArtSt   lda   #9002
             jsr   NeedLen
             bcc   :ok
             rts

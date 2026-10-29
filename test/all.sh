@@ -42,4 +42,5 @@ suite deskinit ./test/deskinit.sh
 suite help ./test/help.sh
 suite tiffopt ./test/tiffopt.sh
 suite newfmt ./test/newfmt.sh
+suite a2save ./test/a2save.sh
 exit $failed

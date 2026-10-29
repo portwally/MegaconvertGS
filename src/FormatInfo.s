@@ -43,7 +43,8 @@ FiGR9       asc   '93/Atari Graphics 9 screen (.GR9): 80 x 192 in 16 grays, 7680
             asc   'becomes a screen image in 16 grays, its dots four times as wide./^#0',00
 
 FiArtSt     asc   '93/Art Studio (OCP): hires pictures from the Commodore 64',27,'s Art Studio, '
-            asc   '9009 bytes: 320 x 200 dots, a color pair for each 8 x 8 cell.',0D,'It becomes '
+            asc   '9009 bytes: 320 x 200 dots, a color pair for each 8 x 8 cell; and the same '
+            asc   'pictures of 9002 bytes (Interpaint, Gigapaint and others).',0D,'It becomes '
             asc   'a screen image in the C64',27,'s 16 colors./^#0',00
 
 FiAAS       asc   '93/Advanced Art Studio (OCP): multicolor pictures from the Commodore 64',27,'s '
@@ -99,7 +100,7 @@ FiPICT      asc   '93/QuickDraw picture (PICT): the Macintosh',27,'s picture for
 
 SaveInfo    da    0,FiSvC1,FiSvAPF,FiSvPack,FiSvPW,FiSvIcon,FiSvIconAdd,FiSvRIcon
             da    FiSvRIcAdd,FiSvHex,FiSvGIF,FiSvPNG,FiSvTIFF,FiSvDesk,FiSvBabelTC
-            da    FiSvBabelPM,FiSvBMP
+            da    FiSvBabelPM,FiSvBMP,FiSvHGR,FiSvHGRBW,FiSvDHR,FiSvDHRBW
 
 * Load formats
 
@@ -290,7 +291,7 @@ FiKoala     asc   '93/Koala: Commodore 64 multicolor pictures from the KoalaPad'
 FiC64PS     asc   '93/C64 Print Shop screen: a Commodore 64 Print Shop screen, a load address and '
             asc   'then a 320 x 200 bitmap (8000 bytes) in black and white.',0D,'Loaded as 320 x '
             asc   '200 in 320 mode, white on black. Other C64 bitmaps can be viewed this way too, '
-            asc   'without their colors./^#0',00
+            asc   'without their colors; Open takes any 8002-byte file this way./^#0',00
 
 FiMac640    asc   '93/MacPaint as 640 mode grays: MacPaint documents (Mac file type PNTG) are 576 '
             asc   'x 720 dots, black and white, packed with PackBits. A MacBinary header is '
@@ -453,6 +454,30 @@ FiSvBMP     asc   '93/BMP: a Windows bitmap for today',27,'s computers, ProDOS t
             asc   '8 bits a pixel, uncompressed.',0D,'Written as it looks, with square pixels: '
             asc   'lines twice and 320 mode pixels twice across (a full screen gives 640 x 400). '
             asc   'Each pixel keeps the color it shows, whatever its palette./^#0',00
+
+FiSvHGR     asc   '93/HiRes color: the Apple II high resolution screen, ProDOS type $06 (BIN), '
+            asc   'aux type $2000, 8192 bytes: 280 x 192 dots in black, white, violet, green, blue '
+            asc   'and orange.',0D,'The picture is stretched to the Apple II screen and each '
+            asc   'place takes the closest of the six colors; a byte of 7 dots shows blue and '
+            asc   'orange or violet and green, whichever more of them want. Remap to those colors '
+            asc   'first for the best result./^#0',00
+
+FiSvHGRBW   asc   '93/HiRes black & white: the Apple II high resolution screen, ProDOS type $06 '
+            asc   '(BIN), aux type $2000, 8192 bytes: 280 x 192 dots.',0D,'The picture is '
+            asc   'stretched to the Apple II screen; a dot is on where the color there is bright '
+            asc   '(half of white or more). Make a monochrome image and a screen from it first to '
+            asc   'dither it./^#0',00
+
+FiSvDHR     asc   '93/Double HiRes color: the double high resolution screen of the Apple IIe, IIc '
+            asc   'and IIgs, ProDOS type $06 (BIN), aux type $2000, 16384 bytes, the auxiliary '
+            asc   'memory half first: 140 x 192 pixels in 16 colors.',0D,'The picture is '
+            asc   'stretched to the Apple II screen and each pixel takes the closest Apple II '
+            asc   'color. Remap to those colors first for the best result./^#0',00
+
+FiSvDHRBW   asc   '93/Double HiRes black & white: the Apple II double high resolution screen, '
+            asc   'ProDOS type $06 (BIN), aux type $2000, 16384 bytes, the auxiliary half first: '
+            asc   '560 x 192 dots.',0D,'The picture is stretched to the Apple II screen; a dot is '
+            asc   'on where the color there is bright (half of white or more)./^#0',00
 
 FiSvBabelPM asc   '93/Babelfish PixelMap Export: the screen picture written through Babelfish, '
             asc   'Seven Hills Software',27,'s file translator system, in a format its '

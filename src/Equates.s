@@ -205,7 +205,7 @@ fmtMIC              =     69                 ; Atari 8-bit: MicroPainter, Graphi
 fmtGR8              =     70
 fmtGR9              =     71
 fmtLast             =     71                 ; (the last format number)
-saveCount           =     17                 ; save numbers 1-16 (but 14, 15: Babelfish)
+saveCount           =     21                 ; save numbers 1-20 (but 14, 15: Babelfish)
 
 * The True color menu's filters (Filter.s), in menu order
 fxEqualize          =     0

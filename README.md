@@ -33,7 +33,8 @@ same result pixel for pixel.
 - **Load & convert:** many files or whole folders at once, loaded one after another, and
   saved automatically if you like.
 - **Save** as Apple Preferred, $C1, PackBytes, PaintWorks, Finder icons, icon resources,
-  a desktop background INIT, hex data, GIF, PNG, TIFF and BMP.
+  a desktop background INIT, hex data, GIF, PNG, TIFF and BMP, and as Apple II HiRes and
+  Double HiRes screens.
 - **Extras:** Oscilloscope Art, Examine file (hex, text and histogram), the System info
   report, font lists and key chart, Preferences, and help for every menu item.
 
@@ -68,7 +69,7 @@ New in MegaconvertGS (not in SuperConvert) are marked with ★.
 | Apple IIgs | Super Hi-Res ($C0 PackBytes and Apple Preferred, $C1), PaintWorks and Paintworks Gold, DreamGrafix (256 and 3200 colours), Print Shop IIgs colour graphics and library, Finder icons, AST and ComputerEyes digitizer files, "3200 color" pictures (plain, .3201 and compressed) |
 | Atari ST | Degas, Degas Elite, Neochrome, Tiny, Spectrum 512 (plain and compressed) |
 | Amiga | IFF ILBM (with HAM, Extra HalfBrite and 24-bit) |
-| Commodore 64/128 | Doodle, Koala, Print Shop screens, ★ Art Studio, ★ Advanced Art Studio, ★ FLI Graph, ★ Amica Paint |
+| Commodore 64/128 | Doodle, Koala, Print Shop screens (and other 8002-byte hires bitmaps), ★ Art Studio (and Interpaint and other 9002-byte hires pictures), ★ Advanced Art Studio, ★ FLI Graph, ★ Amica Paint |
 | Macintosh | MacPaint (three ways), ScreenMaker, ★ QuickDraw PICT (version 1 and 2, 1 to 32 bits) |
 | PC | BMP (1 to 32 bits, Windows and OS/2), GEM/Ventura IMG, PC Paintbrush, DeluxePaint LBM, FliAway frames |
 | Unix | Sun Rasterfile, SGI, PBM/PGM/PPM |
@@ -88,8 +89,12 @@ files are not described anywhere.
 Apple Preferred ($C0/2), uncompressed screen ($C1), PackBytes ($C0/1), PaintWorks ($C0/0),
 Finder icon (a new file, or added to one), icon resource (★ a new file, or added to one),
 desktop background image INIT, hex data, GIF, PNG (with compression and comment options),
-TIFF (with SuperConvert's TIFF Save Options) and ★ BMP. GIF, PNG, TIFF and BMP are written
-with square pixels, as the picture looks. Not there yet: the Babelfish exports.
+TIFF (with SuperConvert's TIFF Save Options), ★ BMP and ★ Apple II HiRes and Double HiRes
+(colour or black & white). GIF, PNG, TIFF and BMP are written with square pixels, as the
+picture looks. The Apple II screens are stretched to 280 x 192 (Double HiRes: 140 x 192
+colour pixels or 560 x 192 dots), each place taking the closest Apple II colour, or a dot
+on where the picture is bright; remap to the Apple II colours first for the best
+result. Not there yet: the Babelfish exports.
 
 ## Speed
 
