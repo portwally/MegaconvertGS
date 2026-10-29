@@ -207,6 +207,15 @@ segment includes.
   files (aux type below $4000, byte 120: 1-7 for HiRes colour or black & white, Double
   HiRes colour or black & white, pages 1 and 2; 0, which most files leave, is taken as
   unset). To fit, PNG's CRC table moved into GIF's tables and is made for each PNG.
+- **Apple II save options** (SaveOpts.s A2Opts, a window in the style of PNG save
+  options, shown when the save's dialogs are; the choices kept for the next save): the
+  dithering, error diffusion, pattern (a 4 x 4 Bayer offset, (2n - 15) x 5 on each colour
+  channel or x 80 on black & white's 0-2550, before the closest colour) or none; and the
+  size, the whole screen or the picture's proportions (A2Fit: a full IIgs screen in either
+  mode fills the Apple II one; the shorter side rounded, centred). Places outside the
+  picture are black, and no errors go into or out of them. Tests set the choices with
+  `A2OPT d f`. To fit, PNG's fixed-code table and the Apple II savers' divide-by-3 table
+  are made in GIF's tables for each save.
 - **Four more Commodore 64 formats:** Art Studio (hires, 9009 bytes) and Advanced Art
   Studio (multicolour, 10018 bytes), the same parts as Doodle and Koala in another order;
   FLI Graph (17409 bytes: new screen colours on every line; the first three columns, which

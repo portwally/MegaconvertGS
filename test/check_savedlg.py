@@ -104,4 +104,17 @@ for name, label, want_f, want_t, same in (
     elif same and d != result("PNGDEF"): prob = "bytes differ"
     elif not same and len(d) >= len(result("PNGDEF")) and name != "PNGWIN": prob = f"{len(d)} bytes, not smaller"
     report(label, prob)
+# Apple II save options, OK with its last choices (A2OPT 1 1): a small picture in Double
+# HiRes colour with pattern dither, keeping its proportions (test/check_a2save.py's model).
+import importlib.util
+spec = importlib.util.spec_from_file_location("a2", os.path.join(os.path.dirname(os.path.abspath(__file__)), "check_a2save.py"))
+src = open(spec.origin).read().split("ok = True")[0].replace('if sys.argv[1:] == ["commands"]:', 'if False:')
+a2 = {"__file__": spec.origin}
+exec(src, a2)
+scr, got = result("A2PSG.C"), result("A2WIN")
+if scr is None or got is None:
+    report("Apple II save options window (OK): Pattern, Keep proportions", "no file")
+else:
+    want = a2["model"](a2["colours"](scr, 88, 52), 88, 52, "dhr", 1, 1)
+    report("Apple II save options window (OK): Pattern, Keep proportions", None if got == want else "differs from the model")
 sys.exit(0 if ok else 1)

@@ -571,6 +571,10 @@ SaveA2      tax
             txa
             and   #$007F
             sta   A2Kind
+            jsr   A2Opts                ; (the options window: its choices)
+            bcc   :opts
+            rts
+:opts       lda   A2Kind
             asl
             tax
             lda   A2Ws,x                ; places on a line
@@ -584,6 +588,7 @@ SaveA2      tax
             sta   A2H
             lda   A2Auxs,x
             sta   A2Aux
+            jsr   A2Fit
             jsr   OutNew
             bcc   :buf
             rts
@@ -594,18 +599,42 @@ SaveA2      tax
             dex
             dex
             bpl   :clr
-            stz   t1                    ; the columns of each place: from
-            stz   t2                    ; i pw / W up to (i + 1) pw / W (one
-            ldx   #0                    ; at least)
+            ldx   #0                    ; Third: n / 3 for n = 0-765
+            lda   #0
+            ldy   #0
+            sep   #$20
+            mx    %10
+:third      sta   Third,x
+            iny
+            cpy   #3
+            bcc   :t3
+            ldy   #0
+            inc
+:t3         inx
+            cpx   #766
+            bcc   :third
+            rep   #$20
+            mx    %00
+            ldx   #1118                 ; the columns of each place (none
+:nb         stz   SrcN,x                ; outside the picture's part): from
+            dex                         ; i pw / Wa up to (i + 1) pw / Wa (one
+            dex                         ; at least), i counted from X0
+            bpl   :nb
+            stz   t1
+            stz   t2
+            lda   A2X0
+            asl
+            tax
+            stz   A2I
 :cx         lda   t1
             asl
             sta   SrcX,x                ; (as an index into RowC)
             lda   t2
             clc
             adc   pw
-:cn         cmp   A2W
+:cn         cmp   A2WA
             bcc   :cs
-            sbc   A2W
+            sbc   A2WA
             inc   t1
             bra   :cn
 :cs         sta   t2
@@ -619,31 +648,14 @@ SaveA2      tax
 :cnt        sta   SrcN,x
             inx
             inx
-            txa
-            lsr
-            cmp   A2W
+            inc   A2I
+            lda   A2I
+            cmp   A2WA
             bcc   :cx
-            stz   A2SY                  ; the lines: from y ph / H up to
-            stz   A2AccY                ; (y + 1) ph / H (one at least)
-            stz   A2Y
-:row        lda   A2SY
-            sta   PY
-            lda   A2AccY
-            clc
-            adc   ph
-:rn         cmp   A2H
-            bcc   :rs
-            sbc   A2H
-            inc   A2SY
-            bra   :rn
-:rs         sta   A2AccY
-            lda   A2SY
-            sec
-            sbc   PY
-            bne   :nr
-            inc
-:nr         sta   A2NR
-            ldx   A2W                   ; no sums yet
+            stz   A2SY                  ; the lines: from y ph / Ha up to
+            stz   A2AccY                ; (y + 1) ph / Ha (one at least), y
+            stz   A2Y                   ; counted from Y0
+:row        ldx   A2W                   ; no sums yet
             dex
             txa
             asl
@@ -654,7 +666,33 @@ SaveA2      tax
             dex
             dex
             bpl   :zs
-            lda   A2NR
+            lda   A2Y                   ; outside the picture's part?
+            sec
+            sbc   A2Y0
+            stz   A2Edge
+            cmp   #0
+            bmi   :edge
+            cmp   A2HA
+            bcc   :in
+:edge       inc   A2Edge
+            bra   :line
+:in         lda   A2SY
+            sta   PY
+            lda   A2AccY
+            clc
+            adc   ph
+:rn         cmp   A2HA
+            bcc   :rs
+            sbc   A2HA
+            inc   A2SY
+            bra   :rn
+:rs         sta   A2AccY
+            lda   A2SY
+            sec
+            sbc   PY
+            bne   :nr
+            inc
+:nr         sta   A2NR
             sta   A2RL
 :add        jsr   RowCols               ; (each of the picture's lines)
             jsr   AddRow
@@ -662,7 +700,7 @@ SaveA2      tax
             dec   A2RL
             bne   :add
             jsr   Average
-            jsr   A2Line
+:line       jsr   A2Line
             lda   A2Kind
             cmp   #4
             bcc   :hires
@@ -749,6 +787,7 @@ A2Packed    lda   ohnd                  ; (the screen: kept until packed)
 AddRow      ldx   #0
 :p          stx   A2I2
             lda   SrcN,x
+            beq   :skip                 ; (outside the picture's part)
             sta   A2N
             lda   SrcX,x
             tay
@@ -787,6 +826,7 @@ AddRow      ldx   #0
             iny
             dec   A2N
             bne   :px
+:skip       ldx   A2I2
             inx
             inx
             txa
@@ -798,6 +838,7 @@ AddRow      ldx   #0
 * Average: each place's sums / its pixels (columns x lines), rounded down.
 Average     ldx   #0
 :p          lda   SrcN,x
+            beq   :next
             ldy   A2NR
 :m          dey
             beq   :n
@@ -912,7 +953,34 @@ A2Line      lda   A2Kind
 :place      lda   A2I
             asl
             sta   A2I2
+            lda   A2Edge                ; outside the picture's part: black
+            bne   :blank
+            ldy   A2I2
+            lda   SrcN,y
+            bne   :inpic
+:blank      jmp   :border
+:inpic      stz   A2Pat                 ; pattern dither: this place's offset
+            lda   A2Dith                ; (4 x 4, by the line and the place)
+            cmp   #1
+            bne   :kind
+            lda   A2Y
+            and   #$0003
+            asl
+            asl
+            sta   t0
+            lda   A2I
+            and   #$0003
+            ora   t0
+            asl
+            tax
             lda   A2Kind
+            lsr
+            bcs   :pw
+            lda   BayC,x
+            bra   :ps
+:pw         lda   BayW,x
+:ps         sta   A2Pat
+:kind       lda   A2Kind
             lsr
             bcc   :rgb
             jmp   :bw
@@ -922,6 +990,8 @@ A2Line      lda   A2Kind
             adc   E0+2,y
             clc
             adc   Car
+            clc
+            adc   A2Pat
             bpl   :Rp
             lda   #0
 :Rp         cmp   #256
@@ -933,6 +1003,8 @@ A2Line      lda   A2Kind
             adc   E0+1202,y
             clc
             adc   Car+2
+            clc
+            adc   A2Pat
             bpl   :Gp
             lda   #0
 :Gp         cmp   #256
@@ -944,6 +1016,8 @@ A2Line      lda   A2Kind
             adc   E0+2402,y
             clc
             adc   Car+4
+            clc
+            adc   A2Pat
             bpl   :Bp
             lda   #0
 :Bp         cmp   #256
@@ -959,6 +1033,8 @@ A2Line      lda   A2Kind
 :near       jsr   Near
             lda   BestI
             sta   A2Out
+            lda   A2Dith                ; (errors: for error diffusion only)
+            bne   :nosp
             lda   VR
             sec
             sbc   PR
@@ -974,15 +1050,16 @@ A2Line      lda   A2Kind
             sbc   PB
             ldx   #4
             jsr   Spread
-            lda   A2Kind
-            bne   :one
-            lda   A2K                   ; HiRes: the pair's dots
+:nosp       lda   A2Kind
+            beq   :pair
+            jmp   :one
+:pair       lda   A2K                   ; HiRes: the pair's dots
             asl
             tay
             ldx   A2I2
             lda   PairBits,y
             sta   Dots,x
-            bra   :nextp
+            jmp   :nextp
 :bw         ldy   A2I2                  ; black & white: 3R + 6G + B, 0-2550,
             lda   SumR,y                ; with the errors brought here
             asl
@@ -998,6 +1075,8 @@ A2Line      lda   A2Kind
             adc   E0+2,y
             clc
             adc   Car
+            clc
+            adc   A2Pat
             bpl   :bp
             lda   #0
 :bp         cmp   #2550
@@ -1008,8 +1087,27 @@ A2Line      lda   A2Kind
             bcc   :dark
             sbc   #2550
             inc   A2Out
-:dark       ldx   #0
+:dark       ldx   A2Dith
+            bne   :one
+            ldx   #0
             jsr   Spread
+            bra   :one
+:border     stz   A2Out                 ; black: no errors in or out
+            stz   A2K
+            ldy   A2I2
+            lda   #0
+            sta   E0+2,y
+            sta   E0+1202,y
+            sta   E0+2402,y
+            ldx   #4
+:bz         stz   Car,x
+            stz   E1v,x
+            dex
+            dex
+            bpl   :bz
+            lda   A2Kind
+            bne   :one
+            jmp   :pair
 :one        ldx   A2I
             sep   #$20
             mx    %10
@@ -1419,6 +1517,97 @@ PackLo      lda   A2Y                   ; the text line's offset:
             bcc   :p
             rts
 
+* A2Fit: the part of the Apple II screen the picture takes: all of it
+* (A2FitK 0), or as large as its proportions let it, centred (1): A2WA x
+* A2HA places from A2X0, A2Y0. A full screen in either IIgs mode fills
+* the Apple II one: the picture's share across is pw / 320 (or 640), down
+* ph / 200; compared as A = 5 pw and B = 8 ph (16 ph in 640 mode). The
+* shorter side: H B / A (or W A / B), rounded, one at least.
+A2Fit       lda   A2W
+            sta   A2WA
+            lda   A2H
+            sta   A2HA
+            stz   A2X0
+            stz   A2Y0
+            lda   A2FitK
+            bne   :keep
+            rts
+:keep       lda   pw
+            asl
+            asl
+            clc
+            adc   pw
+            sta   FtA
+            lda   ph
+            asl
+            asl
+            asl
+            ldx   p640
+            beq   :b
+            asl
+:b          sta   FtB
+            cmp   FtA
+            beq   :wide
+            bcs   :tall
+:wide       lda   A2H                   ; across: all; down: (2 H B + A) / 2A
+            asl
+            ldx   FtB
+            jsr   Mul16
+            lda   FtA
+            jsr   :round
+            sta   A2HA
+            lda   A2H
+            sec
+            sbc   A2HA
+            lsr
+            sta   A2Y0
+            rts
+:tall       lda   A2W                   ; down: all; across: (2 W A + B) / 2B
+            asl
+            ldx   FtA
+            jsr   Mul16
+            lda   FtB
+            jsr   :round
+            sta   A2WA
+            lda   A2W
+            sec
+            sbc   A2WA
+            lsr
+            sta   A2X0
+            rts
+:round      sta   FtD                   ; (MHi:MLo + A) / 2A, one at least
+            clc
+            adc   MLo
+            sta   MLo
+            bcc   :nc
+            inc   MHi
+:nc         lda   FtD
+            asl
+            tax
+            jsr   Div32
+            cmp   #0
+            bne   :r
+            inc
+:r          rts
+
+* Div32: MHi:MLo / X (the quotient under 65536) -> A.
+Div32       stx   FtD
+            stz   FtR
+            ldx   #32
+:bit        asl   MLo
+            rol   MHi
+            rol   FtR
+            lda   FtR
+            sec
+            sbc   FtD
+            bcc   :no
+            sta   FtR
+            inc   MLo
+:no         dex
+            bne   :bit
+            lda   MLo
+            rts
+
 * HRowOff: A = screen line -> A = its offset in a HiRes page.
 HRowOff     sta   t0
             and   #$0007                ; (y & 7) * $400
@@ -1472,39 +1661,6 @@ PalG8       dw    0,0,85,102,119,85,221,255
 PalB8       dw    0,51,34,0,0,85,0,0
             dw    153,221,170,136,255,255,153,255
 T17         dw    0,17,34,51,68,85,102,119,136,153,170,187,204,221,238,255
-* Third: n / 3 for n = 0-765.
-Third       db    0,0,0,1,1,1,2,2,2,3,3,3,4,4,4,5,5,5,6,6,6,7,7,7
-            db    8,8,8,9,9,9,10,10,10,11,11,11,12,12,12,13,13,13,14,14,14,15,15,15
-            db    16,16,16,17,17,17,18,18,18,19,19,19,20,20,20,21,21,21,22,22,22,23,23,23
-            db    24,24,24,25,25,25,26,26,26,27,27,27,28,28,28,29,29,29,30,30,30,31,31,31
-            db    32,32,32,33,33,33,34,34,34,35,35,35,36,36,36,37,37,37,38,38,38,39,39,39
-            db    40,40,40,41,41,41,42,42,42,43,43,43,44,44,44,45,45,45,46,46,46,47,47,47
-            db    48,48,48,49,49,49,50,50,50,51,51,51,52,52,52,53,53,53,54,54,54,55,55,55
-            db    56,56,56,57,57,57,58,58,58,59,59,59,60,60,60,61,61,61,62,62,62,63,63,63
-            db    64,64,64,65,65,65,66,66,66,67,67,67,68,68,68,69,69,69,70,70,70,71,71,71
-            db    72,72,72,73,73,73,74,74,74,75,75,75,76,76,76,77,77,77,78,78,78,79,79,79
-            db    80,80,80,81,81,81,82,82,82,83,83,83,84,84,84,85,85,85,86,86,86,87,87,87
-            db    88,88,88,89,89,89,90,90,90,91,91,91,92,92,92,93,93,93,94,94,94,95,95,95
-            db    96,96,96,97,97,97,98,98,98,99,99,99,100,100,100,101,101,101,102,102,102,103,103,103
-            db    104,104,104,105,105,105,106,106,106,107,107,107,108,108,108,109,109,109,110,110,110,111,111,111
-            db    112,112,112,113,113,113,114,114,114,115,115,115,116,116,116,117,117,117,118,118,118,119,119,119
-            db    120,120,120,121,121,121,122,122,122,123,123,123,124,124,124,125,125,125,126,126,126,127,127,127
-            db    128,128,128,129,129,129,130,130,130,131,131,131,132,132,132,133,133,133,134,134,134,135,135,135
-            db    136,136,136,137,137,137,138,138,138,139,139,139,140,140,140,141,141,141,142,142,142,143,143,143
-            db    144,144,144,145,145,145,146,146,146,147,147,147,148,148,148,149,149,149,150,150,150,151,151,151
-            db    152,152,152,153,153,153,154,154,154,155,155,155,156,156,156,157,157,157,158,158,158,159,159,159
-            db    160,160,160,161,161,161,162,162,162,163,163,163,164,164,164,165,165,165,166,166,166,167,167,167
-            db    168,168,168,169,169,169,170,170,170,171,171,171,172,172,172,173,173,173,174,174,174,175,175,175
-            db    176,176,176,177,177,177,178,178,178,179,179,179,180,180,180,181,181,181,182,182,182,183,183,183
-            db    184,184,184,185,185,185,186,186,186,187,187,187,188,188,188,189,189,189,190,190,190,191,191,191
-            db    192,192,192,193,193,193,194,194,194,195,195,195,196,196,196,197,197,197,198,198,198,199,199,199
-            db    200,200,200,201,201,201,202,202,202,203,203,203,204,204,204,205,205,205,206,206,206,207,207,207
-            db    208,208,208,209,209,209,210,210,210,211,211,211,212,212,212,213,213,213,214,214,214,215,215,215
-            db    216,216,216,217,217,217,218,218,218,219,219,219,220,220,220,221,221,221,222,222,222,223,223,223
-            db    224,224,224,225,225,225,226,226,226,227,227,227,228,228,228,229,229,229,230,230,230,231,231,231
-            db    232,232,232,233,233,233,234,234,234,235,235,235,236,236,236,237,237,237,238,238,238,239,239,239
-            db    240,240,240,241,241,241,242,242,242,243,243,243,244,244,244,245,245,245,246,246,246,247,247,247
-            db    248,248,248,249,249,249,250,250,250,251,251,251,252,252,252,253,253,253,254,254,254,255
 A2Kc        dw    0
 A2NR        dw    0
 A2RL        dw    0
@@ -1544,6 +1700,20 @@ A2Hs        dw    192,192,192,192,48,0,48
 A2Auxs      dw    $2000,$2000,$2000,$2000,$0400,0,$0400
 A2ToLo      db    0,1,8,9,4,5,12,13,2,3,10,11,6,7,14,15
 A2H         dw    0
+* Pattern dither: each place's offset by its line and place (4 x 4 Bayer
+* order, 2n - 15), x 5 for each colour channel, x 80 for black & white.
+BayC        dw    -75,5,-55,25,45,-35,65,-15,-45,35,-65,15,75,-5,55,-25
+BayW        dw    -1200,80,-880,400,720,-560,1040,-240,-720,560,-1040,240,1200,-80,880,-400
+A2Pat       dw    0
+A2Edge      dw    0
+A2WA        dw    0
+A2HA        dw    0
+A2X0        dw    0
+A2Y0        dw    0
+FtA         dw    0
+FtB         dw    0
+FtD         dw    0
+FtR         dw    0
 A2Pack      dw    0
 PkHnd       adrl  0
 PkRoom      dw    0
@@ -2338,7 +2508,8 @@ Times17     sta   t0
 * PNG: 8-bit palette picture; zlib data in one fixed-code block,
 * each line filtered None (the doubled ones Up), runs as copies
 *-------------------------------------------------------------
-SavePNG     jsr   PngOpts               ; (the options window: its choices)
+SavePNG     stz   RevDone               ; (its codes: made again, see RevCode)
+            jsr   PngOpts               ; (the options window: its choices)
             bcc   :go
             rts
 :go         jsr   Shown
@@ -3842,7 +4013,6 @@ BOff        dw    0                     ; file's size)
 BSize       adrl  0
 RevDone     dw    0                     ; (RevCode made; RevMake's symbol;
 RevSym      dw    0                     ; each fixed code reversed)
-RevCode     ds    576
 ZLeft       dw    0                     ; (RawZeros: the 0s left)
 SymR        dw    0                     ; (Sym: the code reversed)                     ; (ShownRow: the line ShowLine holds)
 RScb        dw    0                     ; (RowCols: the line's SCB, its colours,
@@ -3906,6 +4076,9 @@ CrcLo       =     HCode+8000            ; PNG's CRC table (low and high words, 4
 CrcHi       =     CrcLo+2               ; bytes apart): made for each PNG save, as
                                       ; GIF uses this space too)
 HPre        ds    10008
+RevCode     =     HPre+8000             ; PNG's fixed codes (GIF uses this space
+                                      ; too: made again for each PNG)
+Third       =     HPre+1000             ; (Apple II: n / 3, made for each save)
 SrcX        =     HCode                 ; (Apple II: each place's column,
 Dots        =     HPre                  ; and its line,
 E0          =     HChr                  ; the errors for the next line,

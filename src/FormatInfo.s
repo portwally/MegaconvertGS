@@ -470,36 +470,47 @@ FiSvBMP     asc   '93/BMP: a Windows bitmap for today',27,'s computers, ProDOS t
 
 FiSvHGR     asc   '93/HiRes color: the Apple II high resolution screen, ProDOS type $06 (BIN), '
             asc   'aux type $2000, 8192 bytes: 280 x 192 dots in black, white, violet, green, blue '
-            asc   'and orange.',0D,'The picture is fitted to the Apple II screen and dithered '
-            asc   'with error diffusion, a pair of dots at a time; each byte of 7 dots shows blue '
-            asc   'and orange or violet and green, whichever its part of the picture is closer to./^#0',00
+            asc   'and orange.',0D,'The picture is fitted to the Apple II screen and dithered, '
+            asc   'a pair of dots at a time; each byte of 7 dots shows blue '
+            asc   'and orange or violet and green, whichever its part of the picture is closer to. '
+            asc   'Apple II save options choose the dithering (error diffusion, pattern or none) '
+            asc   'and whether the picture fills the screen or keeps its proportions./^#0',00
 
 FiSvHGRBW   asc   '93/HiRes black & white: the Apple II high resolution screen, ProDOS type $06 '
             asc   '(BIN), aux type $2000, 8192 bytes: 280 x 192 dots.',0D,'The picture is fitted '
-            asc   'to the Apple II screen and dithered with error diffusion; a black & white '
-            asc   'picture keeps its dots where they fit./^#0',00
+            asc   'to the Apple II screen and dithered; a black & white '
+            asc   'picture keeps its dots where they fit. '
+            asc   'Apple II save options choose the dithering (error diffusion, pattern or none) '
+            asc   'and whether the picture fills the screen or keeps its proportions./^#0',00
 
 FiSvDHR     asc   '93/Double HiRes color: the double high resolution screen of the Apple IIe, IIc '
             asc   'and IIgs, ProDOS type $06 (BIN), aux type $2000, 16384 bytes, the auxiliary '
             asc   'memory half first: 140 x 192 pixels in 16 colors.',0D,'The picture is fitted '
-            asc   'to the Apple II screen and dithered with error diffusion; a picture in the '
-            asc   'Apple II colors keeps them./^#0',00
+            asc   'to the Apple II screen and dithered; a picture in the '
+            asc   'Apple II colors keeps them. '
+            asc   'Apple II save options choose the dithering (error diffusion, pattern or none) '
+            asc   'and whether the picture fills the screen or keeps its proportions./^#0',00
 
 FiSvDHRBW   asc   '93/Double HiRes black & white: the Apple II double high resolution screen, '
             asc   'ProDOS type $06 (BIN), aux type $2000, 16384 bytes, the auxiliary half first: '
-            asc   '560 x 192 dots.',0D,'The picture is fitted to the Apple II screen and dithered '
-            asc   'with error diffusion./^#0',00
+            asc   '560 x 192 dots.',0D,'The picture is fitted to the Apple II screen and dithered. '
+            asc   'Apple II save options choose the dithering (error diffusion, pattern or none) '
+            asc   'and whether the picture fills the screen or keeps its proportions./^#0',00
 
 FiSvLoRes   asc   '93/LoRes: the Apple II low resolution screen, ProDOS type $06 (BIN), aux type '
             asc   '$0400, 1024 bytes (the text page): 40 x 48 blocks in 16 colors.',0D,'The picture '
-            asc   'is fitted to the Apple II screen and dithered with error diffusion; a picture '
-            asc   'in the Apple II colors keeps them./^#0',00
+            asc   'is fitted to the Apple II screen and dithered; a picture '
+            asc   'in the Apple II colors keeps them. '
+            asc   'Apple II save options choose the dithering (error diffusion, pattern or none) '
+            asc   'and whether the picture fills the screen or keeps its proportions./^#0',00
 
 FiSvDLoRes  asc   '93/Double LoRes: the low resolution screen of the Apple IIe, IIc and IIgs with '
             asc   '80 columns, ProDOS type $06 (BIN), aux type $0400, 2048 bytes, the auxiliary '
             asc   'memory half first: 80 x 48 blocks in 16 colors.',0D,'The picture is fitted to '
-            asc   'the Apple II screen and dithered with error diffusion; a picture in the Apple II '
-            asc   'colors keeps them./^#0',00
+            asc   'the Apple II screen and dithered; a picture in the Apple II '
+            asc   'colors keeps them. '
+            asc   'Apple II save options choose the dithering (error diffusion, pattern or none) '
+            asc   'and whether the picture fills the screen or keeps its proportions./^#0',00
 
 FiSvHGRP    asc   '93/HiRes color, packed: the Apple II high resolution screen packed with '
             asc   'PackBytes, ProDOS type $08 (FOT), aux type $4000, as Apple',27,'s File Type Note '

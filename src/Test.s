@@ -70,6 +70,9 @@
 *                        more compatible, bit 1 sizing left to the receiver; text
 *   HELP label           the help window at that page; HELPLOG logs the page shown
 *                        (its label, navigation labels, buttons, height)
+*   A2OPT d f            the Apple II saves from now on: dithering d (0 error diffusion,
+*                        1 pattern, 2 none), size f (0 the whole screen, 1 proportions),
+*                        also the options window's last choices; A2OPT 3 0: the window again
 *   HEXOPT s|t|e         Hex data's options: s before each line, t between its bytes,
 *                        e after it (as typed into its options window)
 *   SAVEDLG n [s a w]    Save conversion's dialogs (size, alignment, warnings) in tests
@@ -995,7 +998,17 @@ DoCommand   lda   #CmdBuf
             lda   #TxtOK
             jsr   LogC
             jmp   LogCR
-:notPO      lda   #CmdTiffOptTxt
+:notPO      lda   #CmdA2OptTxt
+            jsr   Match
+            bcs   :notA2
+            jsr   ParseArgs             ; A2OPT d f
+            lda   Args
+            ldx   Args+2
+            jsl   A2Set
+            lda   #TxtOK
+            jsr   LogC
+            jmp   LogCR
+:notA2      lda   #CmdTiffOptTxt
             jsr   Match
             bcs   :notTO
             jsr   ParseArgs             ; TIFFOPT w m f text
@@ -1655,6 +1668,7 @@ CmdHexOptTxt asc 'HEXOPT ',00
 CmdWoaTxt   asc 'WOAPAGE ',00
 CmdBParamTxt asc 'BPARAM ',00
 CmdPngOptTxt asc 'PNGOPT ',00
+CmdA2OptTxt asc  'A2OPT ',00
 CmdTiffOptTxt asc 'TIFFOPT ',00
 CmdHelpLogTxt asc 'HELPLOG',00
 CmdHelpTxt  asc 'HELP ',00

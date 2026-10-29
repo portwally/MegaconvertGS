@@ -872,6 +872,265 @@ PngSet      ent
             rtl
 
 *-------------------------------------------------------------
+* Apple II save options: the dithering (error diffusion, pattern, none)
+* and the size (fill the screen, or keep the picture's proportions).
+* MegaconvertGS's own window, in the style of PNG save options; the
+* choices are kept for the next Apple II save. Without the window (a
+* test's save): error diffusion, the whole screen, unless A2Set gave
+* others.
+*   out: A2Dith (0-2), A2FitK (0-1); carry set, A = errCancel, if cancelled
+*-------------------------------------------------------------
+A2Opts      lda   A2SetOn               ; (a test gave them)
+            beq   :dlg
+            lda   A2TDith
+            sta   A2Dith
+            lda   A2TFit
+            sta   A2FitK
+            clc
+            rts
+:dlg        stz   A2Dith
+            stz   A2FitK
+            lda   DlgOn
+            bne   :show
+            clc
+            rts
+:show       ldx   #6                    ; the last choices, set
+:v          stz   AoV0,x
+            dex
+            dex
+            bpl   :v
+            lda   A2LDith
+            asl
+            tax
+            lda   #1
+            sta   AoV0,x
+            lda   A2LFit
+            asl
+            tax
+            lda   #1
+            sta   AoV3,x
+            lda   AoV0
+            sta   AoDiff+30
+            lda   AoV1
+            sta   AoPat+30
+            lda   AoV2
+            sta   AoNone+30
+            lda   AoV3
+            sta   AoFill+30
+            lda   AoV4
+            sta   AoKeep+30
+            pha
+            pha
+            PushLong 0
+            PushLong 0
+            PushLong PgDraw
+            PushLong 0
+            pea   0
+            PushLong AoParms
+            pea   $800E
+            Tool  _NewWindow2
+            pla
+            sta   AoWin
+            pla
+            sta   AoWin+2
+:loop       pha
+            pha
+            PushLong PgEvent
+            PushLong 0
+            PushLong 0
+            PushLong 0
+            pea   $0008
+            Tool  _DoModalWindow
+            pla
+            plx
+            cmp   #1
+            beq   :ok
+            cmp   #2
+            bne   :loop
+            jsr   :close
+            lda   #errCancel
+            sec
+            rts
+:ok         ldx   #2                    ; which of each family is on
+            ldy   #22
+            jsr   :which
+            sta   A2Dith
+            sta   A2LDith
+            ldx   #1
+            ldy   #24
+            jsr   :which
+            sta   A2FitK
+            sta   A2LFit
+            jsr   :close
+            clc
+            rts
+* :which: of the radio buttons with IDs Y-X to Y, the one on (0 the first).
+:which      stx   AoN
+            sty   AoId
+:w          pha
+            PushLongAt AoWin
+            pea   0
+            lda   AoId
+            pha
+            Tool  _GetCtlValueByID
+            pla
+            bne   :on
+            dec   AoId
+            dec   AoN
+            bpl   :w
+            lda   #0
+            rts
+:on         lda   AoN
+            rts
+:close      PushLongAt AoWin
+            Tool  _CloseWindow
+            rts
+
+* A2Set: for tests: the Apple II saves from now on with dithering A (0
+* error diffusion, 1 pattern, 2 none) and size X (0 the whole screen, 1
+* the picture's proportions), without the window; they are also the
+* window's last choices. A = 3: the window (or its defaults) again.
+A2Set       ent
+            phb
+            phk
+            plb
+            cmp   #3
+            bcc   :set
+            stz   A2SetOn
+            plb
+            rtl
+:set        sta   A2TDith
+            sta   A2LDith
+            stx   A2TFit
+            stx   A2LFit
+            lda   #1
+            sta   A2SetOn
+            plb
+            rtl
+
+A2SetOn     dw    0
+A2TDith     dw    0
+A2TFit      dw    0
+A2LDith     dw    0                     ; (the last choices, for the window)
+A2LFit      dw    0
+A2Dith      dw    0
+A2FitK      dw    0
+AoWin       adrl  0
+AoN         dw    0
+AoId        dw    0
+AoV0        dw    0                     ; (the radio buttons' values)
+AoV1        dw    0
+AoV2        dw    0
+AoV3        dw    0
+AoV4        dw    0
+AoParms     dw    $50,$2020
+            adrl  0,0
+            dw    0,0,0,0
+            adrl  0
+            dw    0,0,0,0,0,0,0,0,0,0
+            adrl  0
+            dw    0
+            adrl  0,0,0
+            dw    32,166,168,472
+            adrl  $FFFFFFFF
+            adrl  AoCtls
+            dw    $0003
+AoCtls      adrl  AoTitle,AoDLab,AoDiff,AoPat,AoNone,AoSLab,AoFill,AoKeep
+            adrl  AoCancel,AoOK,0
+AoTitle     dw    9
+            adrl  3
+            dw    4,12,14,284
+            adrl  $81000000
+            dw    0,$1000
+            adrl  0
+            adrl  TxAoTitle
+            dw    21,0
+AoDLab      dw    9
+            adrl  4
+            dw    22,12,32,140
+            adrl  $81000000
+            dw    0,$1000
+            adrl  0
+            adrl  TxAoDith
+            dw    10,0
+AoDiff      dw    8                     ; dithering: IDs 20-22, family 1
+            adrl  20
+            dw    34,20,0,0
+            adrl  $84000000
+            dw    1,$1000
+            adrl  0
+            adrl  TxAoDiff
+            dw    1
+AoPat       dw    8
+            adrl  21
+            dw    46,20,0,0
+            adrl  $84000000
+            dw    1,$1000
+            adrl  0
+            adrl  TxAoPat
+            dw    0
+AoNone      dw    8
+            adrl  22
+            dw    58,20,0,0
+            adrl  $84000000
+            dw    1,$1000
+            adrl  0
+            adrl  TxAoNone
+            dw    0
+AoSLab      dw    9
+            adrl  5
+            dw    72,12,82,140
+            adrl  $81000000
+            dw    0,$1000
+            adrl  0
+            adrl  TxAoSize
+            dw    5,0
+AoFill      dw    8                     ; size: IDs 23-24, family 2
+            adrl  23
+            dw    84,20,0,0
+            adrl  $84000000
+            dw    2,$1000
+            adrl  0
+            adrl  TxAoFill
+            dw    1
+AoKeep      dw    8
+            adrl  24
+            dw    96,20,0,0
+            adrl  $84000000
+            dw    2,$1000
+            adrl  0
+            adrl  TxAoKeep
+            dw    0
+AoCancel    dw    9
+            adrl  2
+            dw    114,130,127,207
+            adrl  $80000000
+            dw    0,$3000
+            adrl  0
+            adrl  TxPgCancel
+            adrl  0
+            db    $1B,$1B
+            dw    0,0
+AoOK        dw    9
+            adrl  1
+            dw    114,219,127,290
+            adrl  $80000000
+            dw    $0001,$3000
+            adrl  0
+            adrl  TxPgOK
+            adrl  0
+            db    $0D,$0D
+            dw    0,0
+TxAoTitle   asc   'Apple II save options'
+TxAoDith    asc   'Dithering:'
+TxAoSize    asc   'Size:'
+TxAoDiff    str   'Error diffusion'
+TxAoPat     str   'Pattern'
+TxAoNone    str   'None'
+TxAoFill    str   'Fill the screen'
+TxAoKeep    str   'Keep proportions'
+
+*-------------------------------------------------------------
 * Desktop background image INIT ($B7)
 *-------------------------------------------------------------
 

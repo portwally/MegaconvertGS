@@ -6,10 +6,12 @@
 # and multiple colour tables for PaintWorks, cancelled and saved anyway) and the icon size
 # limit; Hex data's options (HEXOPT: what goes before, between and after); with SAVEDLG 3
 # the formats' own windows, closed with Return: Hex data's options, the GIF upload note and
-# progress, the Finder icon's criteria. The files are checked against
+# progress, the Finder icon's criteria, Apple II save options (its last choices, Pattern
+# and Keep proportions, from A2OPT). The files are checked against
 # test/savedlg_model.py's pictures and each other.
 cd "$(dirname "$0")/.."
 [ -f build/fixtures/S320.c1 ] || ./test/fixtures.sh > /dev/null
+python3 -I test/make_apple.py build/fixtures/apple build/fixtures > /dev/null
 cp System604.img build/vol.po                          # (cadius goes by the extension)
 VOL=$(cadius CATALOG build/vol.po | awk '/^\//{print $1; exit}' | tr / :); rm -f build/vol.po
 sed "s/:VOL:/$VOL/g" test/savedlg.test > build/savedlg.test

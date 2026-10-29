@@ -93,12 +93,13 @@ TIFF (with SuperConvert's TIFF Save Options), ★ BMP, ★ Apple II HiRes and Do
 (colour or black & white, plain or ★ packed) and ★ Apple II LoRes and Double LoRes. GIF, PNG, TIFF and BMP
 are written with square pixels, as the picture looks. The Apple II screens are fitted to
 280 x 192 (Double HiRes: 140 x 192 colour pixels or 560 x 192 dots; LoRes: 40 x 48
-blocks; Double LoRes: 80 x 48) and dithered with error diffusion in the Apple II
-colours; HiRes colour works in dot pairs and picks each byte's colour pair. A picture
-already in Apple II colours (Remap's Other palettes have them) keeps them exactly. The
-packed ones are Apple's own: type $08 (FOT), aux type $4000 or $4001, packed with
-PackBytes. Not
-there yet: the Babelfish exports.
+blocks; Double LoRes: 80 x 48) and dithered in the Apple II colours; HiRes colour works
+in dot pairs and picks each byte's colour pair. ★ Apple II save options choose the
+dithering (error diffusion, a 4 x 4 pattern, or none) and whether the picture fills the
+screen or keeps its proportions, centred on black. A picture already in Apple II colours
+(Remap's Other palettes have them) keeps them exactly. The packed ones are Apple's own:
+type $08 (FOT), aux type $4000 or $4001, packed with PackBytes. Not there yet: the
+Babelfish exports.
 
 ## Speed
 

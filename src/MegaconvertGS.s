@@ -20,6 +20,7 @@ SaveTest    ext
 SaveWarned  ext
 HexSet      ext
 PngSet      ext
+A2Set       ext
 TiffSet     ext
 SaveDone    ext
 RemapRun    ext                         ; RemapSeg.s: Remap, and its dialog
