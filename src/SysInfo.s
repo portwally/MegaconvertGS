@@ -904,7 +904,7 @@ SEvent      dw    0
 TxNameAs    str   'Name to save as:'
 TxReportName dw   13
             asc   'SysInfoReport'
-TxVersion   asc   '1.0',00
+TxVersion   asc   '1.1',00
 TxMem       asc   'MEMORY USAGE:  TotalMem=',00
 TxFree      asc   ', FreeMem=',00
 TxReal      asc   ', RealFreeMem=',00
