@@ -115,7 +115,8 @@ IIgs's 2.8 MHz:
 | Remap a picture to multipalette | 46.5 s | 15.6 s | 3.0x |
 | Open the 22 test PNGs | 463 s | 227 s | 2.0x |
 | Open a 700 x 500 PNG | 177 s | 64 s | 2.8x |
-| Open a 400 x 300 JPEG | 41.0 s | 25.6 s | 1.6x |
+| Open a 320 x 200 JPEG (quality 90) | 41.0 s | 18.1 s | 2.3x |
+| Open a 640 x 480 JPEG photograph | 127.3 s | 82.9 s | 1.5x |
 | Save as PNG | 62.0 s | 27.6 s | 2.2x |
 | Save as GIF | 41.8 s | 25.6 s | 1.6x |
 | Save as TIFF | 32.5 s | 17.9 s | 1.8x |

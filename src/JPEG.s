@@ -8,7 +8,326 @@
 * The inverse DCT is the fast integer one with scaled quantisation
 * tables (Arai, Agui and Nakajima), as in the IJG's jidctfst.
 * Chroma is widened by repeating samples.
+* Huffman codes up to 8 bits long come from a lookup table (the next 8
+* bits of the data: length and symbol), longer ones bit by bit.
 *-------------------------------------------------------------
+
+hl          =     $A4                   ; the Huffman table's lookup (long)
+jb          =     $A8                   ; data bits, highest first (left aligned)
+jn          =     $AA                   ;   and how many
+CHK         =     $AC                   ; (IDCT: a row's outputs, OR'd)
+T0          =     $B0                   ; (IDCT: the butterfly's values)
+T1          =     $B2
+T2          =     $B4
+T3          =     $B6
+T4          =     $B8
+T5          =     $BA
+T6          =     $BC
+T7          =     $BE
+T10         =     $C0
+T11         =     $C2
+T12         =     $C4
+T13         =     $C6
+Z5          =     $C8
+Z10         =     $CA
+Z11         =     $CC
+Z12         =     $CE
+Z13         =     $D0
+MKs         =     $D2                   ; (MulK: lo x K / 256; MulTables: lo x
+MKv         =     $D4                   ; K, 24 bits, with MKv after MKs)
+GT          =     $D6                   ; (OutRows: a green part, two luma
+LP          =     $D8                   ;   samples, pixels left)
+PCnt        =     $DA
+Out0        =     $DC                   ; (IDCT: a row's samples, high bytes)
+Out1        =     $DE
+Out2        =     $E0
+Out3        =     $E2
+Out4        =     $E4
+Out5        =     $E6
+Out6        =     $E8
+Out7        =     $EA
+ha          =     $EC                   ; an AC table's fast lookup (long)
+
+* BFLY: one 8-point inverse DCT of ]1-]8 (,x) into T0-T7. Keeps X.
+* Products are floor(v x K / 256), from MTab (lo x K / 256 + hi x K, hi
+* signed), as libjpeg's fast integer IDCT works them out.
+BFLY        MAC
+            lda   ]1,x                  ; even part
+            clc
+            adc   ]5,x
+            sta   T10
+            lda   ]1,x
+            sec
+            sbc   ]5,x
+            sta   T11
+            lda   ]3,x
+            clc
+            adc   ]7,x
+            sta   T13
+            lda   ]3,x
+            sec
+            sbc   ]7,x
+            sta   MKv                   ; x 362
+            and   #$00FF
+            asl
+            tay
+            lda   MTab+1024,y
+            sta   MKs
+            lda   MKv
+            xba
+            and   #$00FF
+            asl
+            tay
+            lda   MTab+1536,y
+            clc
+            adc   MKs
+            sec
+            sbc   T13
+            sta   T12
+            lda   T10
+            clc
+            adc   T13
+            sta   T0
+            lda   T10
+            sec
+            sbc   T13
+            sta   T3
+            lda   T11
+            clc
+            adc   T12
+            sta   T1
+            lda   T11
+            sec
+            sbc   T12
+            sta   T2
+            lda   ]6,x                  ; odd part
+            clc
+            adc   ]4,x
+            sta   Z13
+            lda   ]6,x
+            sec
+            sbc   ]4,x
+            sta   Z10
+            lda   ]2,x
+            clc
+            adc   ]8,x
+            sta   Z11
+            lda   ]2,x
+            sec
+            sbc   ]8,x
+            sta   Z12
+            lda   Z11
+            clc
+            adc   Z13
+            sta   T7
+            lda   Z11
+            sec
+            sbc   Z13
+            sta   MKv                   ; x 362
+            and   #$00FF
+            asl
+            tay
+            lda   MTab+1024,y
+            sta   MKs
+            lda   MKv
+            xba
+            and   #$00FF
+            asl
+            tay
+            lda   MTab+1536,y
+            clc
+            adc   MKs
+            sta   T11
+            lda   Z10
+            clc
+            adc   Z12
+            sta   MKv                   ; x 473
+            and   #$00FF
+            asl
+            tay
+            lda   MTab+2048,y
+            sta   MKs
+            lda   MKv
+            xba
+            and   #$00FF
+            asl
+            tay
+            lda   MTab+2560,y
+            clc
+            adc   MKs
+            sta   Z5
+            lda   Z12
+            sta   MKv                   ; x 277
+            and   #$00FF
+            asl
+            tay
+            lda   MTab,y
+            sta   MKs
+            lda   MKv
+            xba
+            and   #$00FF
+            asl
+            tay
+            lda   MTab+512,y
+            clc
+            adc   MKs
+            sec
+            sbc   Z5
+            sta   T10
+            lda   Z10                   ; x -669
+            eor   #$FFFF
+            inc
+            sta   MKv
+            and   #$00FF
+            asl
+            tay
+            lda   MTab+3072,y
+            sta   MKs
+            lda   MKv
+            xba
+            and   #$00FF
+            asl
+            tay
+            lda   MTab+3584,y
+            clc
+            adc   MKs
+            clc
+            adc   Z5
+            sec                         ; tmp6 = tmp12 - tmp7
+            sbc   T7
+            sta   T6
+            lda   T11                   ; tmp5 = tmp11 - tmp6
+            sec
+            sbc   T6
+            sta   T5
+            lda   T10                   ; tmp4 = tmp10 + tmp5
+            clc
+            adc   T5
+            sta   T4
+            <<<
+
+* HBFLY: BFLY when ]5-]8 are 0: only ]1-]4 (,x). Keeps X.
+HBFLY       MAC
+            lda   ]3,x                  ; even part: tmp10 = tmp11 = In0,
+            sta   MKv                   ; tmp13 = In2; x 362
+            and   #$00FF
+            asl
+            tay
+            lda   MTab+1024,y
+            sta   MKs
+            lda   MKv
+            xba
+            and   #$00FF
+            asl
+            tay
+            lda   MTab+1536,y
+            clc
+            adc   MKs
+            sec
+            sbc   ]3,x
+            sta   T12
+            lda   ]1,x
+            clc
+            adc   ]3,x
+            sta   T0
+            lda   ]1,x
+            sec
+            sbc   ]3,x
+            sta   T3
+            lda   ]1,x
+            clc
+            adc   T12
+            sta   T1
+            lda   ]1,x
+            sec
+            sbc   T12
+            sta   T2
+            lda   ]2,x                  ; odd part: z11 = z12 = In1, z13 = In3,
+            clc                         ; z10 = -In3
+            adc   ]4,x
+            sta   T7
+            lda   ]2,x
+            sec
+            sbc   ]4,x
+            sta   Z10                   ; (z11 - z13 = z10 + z12 = In1 - In3)
+            sta   MKv                   ; x 362
+            and   #$00FF
+            asl
+            tay
+            lda   MTab+1024,y
+            sta   MKs
+            lda   MKv
+            xba
+            and   #$00FF
+            asl
+            tay
+            lda   MTab+1536,y
+            clc
+            adc   MKs
+            sta   T11
+            lda   Z10
+            sta   MKv                   ; x 473
+            and   #$00FF
+            asl
+            tay
+            lda   MTab+2048,y
+            sta   MKs
+            lda   MKv
+            xba
+            and   #$00FF
+            asl
+            tay
+            lda   MTab+2560,y
+            clc
+            adc   MKs
+            sta   Z5
+            lda   ]2,x
+            sta   MKv                   ; x 277
+            and   #$00FF
+            asl
+            tay
+            lda   MTab,y
+            sta   MKs
+            lda   MKv
+            xba
+            and   #$00FF
+            asl
+            tay
+            lda   MTab+512,y
+            clc
+            adc   MKs
+            sec
+            sbc   Z5
+            sta   T10
+            lda   ]4,x
+            sta   MKv                   ; x -669 (of z10)
+            and   #$00FF
+            asl
+            tay
+            lda   MTab+3072,y
+            sta   MKs
+            lda   MKv
+            xba
+            and   #$00FF
+            asl
+            tay
+            lda   MTab+3584,y
+            clc
+            adc   MKs
+            clc
+            adc   Z5
+            sec                         ; tmp6 = tmp12 - tmp7
+            sbc   T7
+            sta   T6
+            lda   T11                   ; tmp5 = tmp11 - tmp6
+            sec
+            sbc   T6
+            sta   T5
+            lda   T10                   ; tmp4 = tmp10 + tmp5
+            clc
+            adc   T5
+            sta   T4
+            <<<
 
 JHCnt       =     Work                  ; 8 Huffman tables: counts by length (17 words)
 JHSym       =     Work+512              ;   and symbols (256 words each)
@@ -19,9 +338,9 @@ CrG         =     Work+6144
 CbG         =     Work+6656
 Coef        =     Work+7168             ; one block's coefficients (64 words)
 WS          =     Work+7296             ; IDCT work space (64 words)
-Blk         =     Work+7424             ; the block's samples (64 bytes)
 JLim        =     Work+14336            ; per table and length (as JHCnt): the
 JOff        =     Work+14608            ;   code limit, and symbol index - first
+JClamp      =     Work+14880            ; 0-255 for -384 to 639 (1024 bytes)
 MTab        =     Work+8192             ; MulK's tables, 1024 bytes for each
                                         ; constant: lo x K / 256, then hi x K
 
@@ -32,9 +351,25 @@ DecodeJPEG  stz   JProg                 ; (a progressive picture's
             dex
             dex
             bpl   :none
+            lda   #6144                 ; the Huffman lookups: 8 x 512 bytes,
+            sta   n0                    ; and 4 fast AC ones (in one bank)
+            stz   n0+2
+            jsr   NewBuffer
+            bcs   :nomem
+            lda   n1
+            sta   LkHnd
+            lda   n1+2
+            sta   LkHnd+2
+            lda   p0
+            sta   LkP
+            lda   p0+2
+            sta   hl+2
+            sta   ha+2
             jsr   JMain
             php
             pha
+            ldx   #LkHnd
+            jsr   FreeHandleAt
             ldx   #CfHnd
             jsr   FreeHandleAt
             ldx   #CfHnd+4
@@ -43,7 +378,7 @@ DecodeJPEG  stz   JProg                 ; (a progressive picture's
             jsr   FreeHandleAt
             pla
             plp
-            rts
+:nomem      rts
 
 JMain       jsr   MulTables
             stz   JNComp
@@ -466,6 +801,8 @@ ReadSOS     jsr   GetBE16
             sta   DCCnt,x
             lda   hs
             sta   DCSym,x
+            lda   hl
+            sta   DCLk,x
             lda   t1
             and   #$0003
             ora   #$0004
@@ -474,6 +811,8 @@ ReadSOS     jsr   GetBE16
             sta   ACCnt,x
             lda   hs
             sta   ACSym,x
+            lda   hl
+            sta   ACLk,x
             inc   u1
             lda   u1
             cmp   JNComp
@@ -487,7 +826,7 @@ ReadSOS     jsr   GetBE16
             sec
             rts
 
-* TableAddr: hc, hs for Huffman table A. Keeps X.
+* TableAddr: hc, hs and hl for Huffman table A. Keeps X.
 TableAddr   sta   t2
             asl
             sta   t3
@@ -503,9 +842,14 @@ TableAddr   sta   t2
             lda   t2
             xba
             asl
+            pha
             clc
             adc   #JHSym
             sta   hs
+            pla
+            clc
+            adc   LkP
+            sta   hl
             rts
 
 *-------------------------------------------------------------
@@ -566,11 +910,20 @@ DecodeScan  jsr   McuDims
             cmp   JNComp
             bcc   :buf
             jsr   ColourTables
+            lda   #1                    ; (every row is written, or filled
+            sta   NoFill                ; at the end when the data is damaged)
             jsr   NewTrue
+            stz   NoFill
             bcc   :start
             rts
-:start      jsr   MakeLims
-            stz   JCnt
+:start      ldx   #126                  ; (the IDCT leaves them clear)
+:clr        stz   Coef,x
+            dex
+            dex
+            bpl   :clr
+            jsr   MakeLims
+            stz   jn
+            stz   jb
             stz   MarkerHit
             stz   Pred
             stz   Pred+2
@@ -596,8 +949,13 @@ DecodeScan  jsr   McuDims
             bcc   :ok
             inc   JErr                  ; damaged: keep what was decoded
             bra   :rows
-:ok         jsr   IDCT
-            jsr   StoreBlock
+:ok         jsr   BlockAt
+            lda   ACAny                 ; (only DC: the same all over)
+            bne   :idct
+            jsr   DCOnly
+            bra   :stored
+:idct       jsr   IDCT
+:stored
             ldx   CI
             inc   HB
             lda   HB
@@ -619,13 +977,40 @@ DecodeScan  jsr   McuDims
             bcc   :mcu
 :rows       jsr   OutRows
             lda   JErr
-            bne   :done
+            bne   :fill
             inc   MY
             lda   MY
             cmp   McusY
             bcs   :done
             jmp   :mcuRow
 :done       clc
+            rts
+:fill       lda   MY                    ; damaged: the rows below the last
+            inc                         ; strip white
+            ldx   McuH
+            jsr   Mul16
+            lda   ProdLo
+            cmp   TrueH
+            bcs   :done
+            pha
+            jsr   TrueRowAt
+            lda   q0
+            sta   p0
+            lda   q0+2
+            sta   p0+2
+            pla
+            eor   #$FFFF
+            sec
+            adc   TrueH
+            ldx   TrueStride
+            jsr   Mul16
+            lda   ProdLo
+            sta   n0
+            lda   ProdHi
+            sta   n0+2
+            lda   TrueFill
+            jsr   FillBig
+            clc
             rts
 
 * McuDims: MCUs across and down.
@@ -718,7 +1103,7 @@ JpInit      jsr   McuDims
             rol   n0+2
             dex
             bne   :x128
-            jsr   NewBuffer
+            jsr   NewBig                ; (often more than a bank)
             bcs   :out
             lda   CI
             asl
@@ -784,6 +1169,8 @@ JpScan      jsr   GetBE16               ; (its length)
             sta   DCCnt,x
             lda   hs
             sta   DCSym,x
+            lda   hl
+            sta   DCLk,x
             lda   t1
             and   #$0003
             ora   #$0004
@@ -792,6 +1179,8 @@ JpScan      jsr   GetBE16               ; (its length)
             sta   ACCnt,x
             lda   hs
             sta   ACSym,x
+            lda   hl
+            sta   ACLk,x
             inc   u1
             inc   u1
             lda   u1
@@ -821,8 +1210,8 @@ JpScan      jsr   GetBE16               ; (its length)
             lda   JpSs
             bne   :ac
             lda   JpSe
-            bne   :bad
-            bra   :kind
+            beq   :kind
+            jmp   :bad
 :ac         lda   JpNs
             cmp   #1
             beq   :jx7
@@ -843,7 +1232,8 @@ JpScan      jsr   GetBE16               ; (its length)
             bra   :p1
 :p1d        sta   JpP1
             jsr   MakeLims
-            stz   JCnt
+            stz   jn
+            stz   jb
             stz   MarkerHit
             stz   Pred
             stz   Pred+2
@@ -990,6 +1380,8 @@ JpBlkAt     ldx   CI
 * JpDC0: the DC coefficient's first bits: a difference, as in a baseline
 * scan, shifted up by Al.
 JpDC0       ldx   CI
+            lda   DCLk,x
+            sta   hl
             lda   DCCnt,x
             sta   hc
             lda   DCSym,x
@@ -1034,6 +1426,8 @@ JpAC0       lda   JpEOB
             clc
             rts
 :go         ldx   CI
+            lda   ACLk,x
+            sta   hl
             lda   ACCnt,x
             sta   hc
             lda   ACSym,x
@@ -1123,8 +1517,11 @@ JpAC1       lda   JpP1
             lda   JpSs
             sta   K
             lda   JpEOB
-            bne   :eob
-            ldx   CI
+            beq   :go
+            jmp   :eob
+:go         ldx   CI
+            lda   ACLk,x
+            sta   hl
             lda   ACCnt,x
             sta   hc
             lda   ACSym,x
@@ -1224,34 +1621,36 @@ JpCorr      jsr   GetBitJ
 JBlock      lda   JProg
             bne   :kept
             jmp   DecodeBlock
-:kept       jsr   JpAt
-            ldx   #126
-:clear      stz   Coef,x
-            dex
-            dex
-            bpl   :clear
-            ldx   CI
-            lda   CQ,x
+:kept       lda   #1                    ; (no shortcut for only DC)
+            sta   ACAny
+            jsr   JpAt
+            ldx   CI                    ; (Coef is clear: the IDCT leaves it
+            lda   CQ,x                  ; so)
             sta   u2
-            ldx   #0
-:k          txy
-            lda   [q1],y
-            beq   :next
-            phx
-            ldy   ZigZag,x
-            jsr   DeQuant
-            plx
-            ldy   ZigZag,x
-            sta   Coef,y
-:next       inx
-            inx
-            cpx   #128
+            ldy   #0
+:k          lda   [q1],y
+            bne   :nz
+:next       iny
+            iny
+            cpy   #128
             bcc   :k
+            lda   Coef                  ; (the IDCT's 128 and rounding)
+            clc
+            adc   #4112
+            sta   Coef
             clc
             rts
+:nz         sty   u3                    ; dequantised, in natural order
+            ldx   ZigZag,y
+            txy
+            jsr   DeQuant
+            sta   Coef,y
+            ldy   u3
+            bra   :next
 
 * Restart: at a restart marker: realign and reset the DC predictions.
-Restart     stz   JCnt
+Restart     stz   jn
+            stz   jb
             lda   MarkerHit
             beq   :search
             stz   MarkerHit
@@ -1269,46 +1668,144 @@ Restart     stz   JCnt
             stz   Pred+4
             rts
 
-* GetBitJ: the next bit (highest first) in the carry; past a marker, zeros.
-* Keeps X and Y.
-GetBitJ     dec   JCnt
-            bpl   :have
-            lda   MarkerHit
+* JFill: bytes into jb while it has 8 bits or fewer (9 to 16 after).
+* Keeps Y.
+JFill       lda   jn
+            asl
+            tax
+            lda   MarkerHit             ; (GetByte, inline; at a marker or
+                                        ; the file's end: zeros)
             bne   :zero
-            jsr   GetByte
-            bcs   :zero
+            lda   InLeft
+            bne   :have
+            lda   InLeft+2
+            beq   :zero
+            dec   InLeft+2
+:have       dec   InLeft
+            lda   [s0]
+            inc   s0
+            bne   :s
+            inc   s0+2
+:s          and   #$00FF
             cmp   #$FF
-            bne   :byte
-            jsr   GetByte               ; $FF $00 is a data byte $FF
+            beq   :ff
+:byte       xba                         ; under the bits there already
+            jsr   (JShrT,x)
+            ora   jb
+            sta   jb
+            lda   jn
+            clc
+            adc   #8
+            sta   jn
+            cmp   #9
+            bcc   JFill
+            rts
+:ff         phx                         ; $FF $00 is $FF; else a marker:
+            jsr   GetByte               ; the data has ended
+            plx
+            bcs   :zero
             cmp   #0
             beq   :isFF
-            sta   JMark                 ; a marker: the data has ended
+            sta   JMark
             inc   MarkerHit
-            bra   :zero
+:zero       lda   #0
+            bra   :byte
 :isFF       lda   #$FF
-:byte       xba
-            sta   JBuf
-            lda   #7
-            sta   JCnt
-:have       asl   JBuf
-            rts
-:zero       stz   JCnt
-            clc
+            bra   :byte
+
+* Shifts of A by 0 to 8 (X = 2 x the count), through JSR (JShlT,X) or
+* JSR (JShrT,X).
+JSl8        asl
+JSl7        asl
+JSl6        asl
+JSl5        asl
+JSl4        asl
+JSl3        asl
+JSl2        asl
+JSl1        asl
+JSl0        rts
+JSr8        lsr
+JSr7        lsr
+JSr6        lsr
+JSr5        lsr
+JSr4        lsr
+JSr3        lsr
+JSr2        lsr
+JSr1        lsr
+JSr0        rts
+JShlT       da    JSl0,JSl1,JSl2,JSl3,JSl4,JSl5,JSl6,JSl7,JSl8
+JShrT       da    JSr0,JSr1,JSr2,JSr3,JSr4,JSr5,JSr6,JSr7,JSr8
+
+* GetBitJ: the next bit (highest first) in the carry. Keeps X and Y.
+GetBitJ     lda   jn
+            bne   :have
+            phx
+            jsr   JFill
+            plx
+:have       dec   jn
+            asl   jb
             rts
 
 * GetBitsJ: X bits, highest first, in A.
-GetBitsJ    stz   JVal
-            cpx   #0
+GetBitsJ    cpx   #9
+            bcs   :long
+            txa
             beq   :done
+            sta   VSz
+            lda   jn
+            cmp   #8
+            bcs   :have
+            jsr   JFill
+:have       lda   VSz                   ; the top bits: jb's high byte
+            asl                         ; >> (8 - n)
+            sta   VSz2
+            eor   #$FFFF
+            sec
+            adc   #16
+            tax
+            lda   jb
+            xba
+            and   #$00FF
+            jsr   (JShrT,x)
+            sta   JVal
+            ldx   VSz2                  ; and gone from jb
+            lda   jb
+            jsr   (JShlT,x)
+            sta   jb
+            lda   jn
+            sec
+            sbc   VSz
+            sta   jn
+            lda   JVal
+:done       rts
+:long       stz   JVal
 :loop       jsr   GetBitJ
             rol   JVal
             dex
             bne   :loop
-:done       lda   JVal
+            lda   JVal
             rts
 
+* GetValJ: the signed value of the next X bits, as JPEG codes it.
+GetValJ     stx   VSz3
+            jsr   GetBitsJ
+            ldx   VSz3
+* Extend: the signed value of the A bits read for size X.
+Extend      sta   JVal
+            txa
+            asl
+            tax
+            lda   JVal
+            cmp   PowTab-2,x
+            bcs   :pos
+            sec
+            sbc   PowTab,x
+            inc
+:pos        rts
+
 * MakeLims: for each Huffman table and code length, DecodeJ's limit
-* (first code + count) and the symbol index less the first code.
+* (first code + count) and the symbol index less the first code; then
+* the lookups (MakeLook).
 MakeLims    ldx   #0                    ; (X: table x 34 + length x 2, the
 :t          stz   t2                    ; same place in all three)
             stz   t3
@@ -1338,12 +1835,183 @@ MakeLims    ldx   #0                    ; (X: table x 34 + length x 2, the
             bne   :l
             cpx   #272
             bcc   :t
+
+* MakeLook: each table's lookup, by the next 8 bits: the code's length x
+* 2 (high byte) and its symbol, or 0 where the code is longer.
+MakeLook    stz   MLt
+:t          lda   MLt
+            xba
+            asl
+            sta   MLk                   ; (its symbols: table x 512)
+            clc
+            adc   LkP
+            sta   hl
+            ldy   #510
+            lda   #0
+:clr        sta   [hl],y
+            dey
+            dey
+            bpl   :clr
+            lda   MLt                   ; its counts: table x 34
+            asl
+            sta   t1
+            asl
+            asl
+            asl
+            asl
+            clc
+            adc   t1
+            sta   MLc
+            stz   MLP                   ; the next code's first place
+            lda   #2
+            sta   MLL                   ; length x 2
+            lda   #128                  ; places for each code of the length
+            sta   MLN
+:len        lda   MLc
+            clc
+            adc   MLL
+            tax
+            lda   JHCnt,x
+            sta   MLCnt
+:code       lda   MLCnt
+            beq   :nextL
+            lda   MLP                   ; (an over-full table: the rest are
+            cmp   #256                  ; left to DecodeJ)
+            bcs   :nextT
+            asl
+            tay
+            ldx   MLk
+            lda   JHSym,x
+            and   #$00FF
+            sta   t1
+            lda   MLL
+            xba
+            ora   t1
+            ldx   MLN
+:fill       sta   [hl],y
+            iny
+            iny
+            dex
+            bne   :fill
+            lda   MLP
+            clc
+            adc   MLN
+            sta   MLP
+            inc   MLk
+            inc   MLk
+            dec   MLCnt
+            bra   :code
+:nextL      lsr   MLN
+            inc   MLL
+            inc   MLL
+            lda   MLL
+            cmp   #18
+            bcc   :len
+:nextT      inc   MLt
+            lda   MLt
+            cmp   #8
+            bcs   MakeFast
+            jmp   :t
+
+* MakeFast: for each AC table (4-7), by the next 8 bits: when its code and
+* the value's bits both fit, the value (high byte, signed), the zero run
+* (bits 4-7) and the bits used (0-3); else 0. 2048 bytes after the lookup.
+MakeFast    lda   #4
+            sta   MLt
+:t          lda   MLt
+            xba
+            asl
+            clc
+            adc   LkP
+            sta   hl
+            clc
+            adc   #2048
+            sta   ha
+            ldy   #0                    ; (the 8 bits x 2)
+:i          lda   [hl],y
+            beq   :put
+            sta   t1                    ; length x 2, symbol
+            and   #$000F
+            beq   :none                 ; (no value: the end, or 16 zeros)
+            sta   t2                    ; the value's size
+            lda   t1
+            xba
+            and   #$00FF
+            lsr
+            clc
+            adc   t2
+            cmp   #9
+            bcs   :none
+            sta   t3                    ; bits used
+            eor   #$FFFF                ; the value's bits: the 8 >> (8 -
+            sec                         ; used), its size's low ones
+            adc   #8
+            asl
+            tax
+            tya
+            lsr
+            jsr   (JShrT,x)
+            pha
+            lda   t2
+            asl
+            tax
+            pla
+            and   MaskT,x
+            cmp   HalfT,x               ; below half: negative
+            bcs   :pos
+            sec
+            sbc   MaskT,x
+:pos        and   #$00FF
+            xba
+            sta   u0
+            lda   t1                    ; the zero run, the bits used
+            and   #$00F0
+            ora   t3
+            ora   u0
+            bra   :put
+:none       lda   #0
+:put        sta   [ha],y
+            iny
+            iny
+            cpy   #512
+            bcc   :i
+            inc   MLt
+            lda   MLt
+            cmp   #8
+            bcc   :t
             rts
 
-* DecodeJ: one Huffman symbol (code at hc, hs). Carry set if none matches.
-* Bit by bit against each length's limit (MakeLims).
-DecodeJ     lda   hc
+* DecodeJ: one Huffman symbol (lookup at hl; code at hc, hs). Carry set
+* if none matches.
+DecodeJ     lda   jn
+            cmp   #8
+            bcs   :peek
+            jsr   JFill
+:peek       lda   jb                    ; the next 8 bits
+            xba
+            and   #$00FF
+            asl
+            tay
+            lda   [hl],y
+            beq   :long
+            tay                         ; length x 2, symbol
+            xba
+            and   #$00FF
+            tax
+            lsr
+            eor   #$FFFF
             sec
+            adc   jn
+            sta   jn
+            lda   jb
+            jsr   (JShlT,x)
+            sta   jb
+            tya
+            and   #$00FF
+            clc
+            rts
+:long       lda   hc                    ; longer: bit by bit against each
+            sec                         ; length's limit (MakeLims)
             sbc   #JHCnt
             clc
             adc   #JLim
@@ -1353,10 +2021,8 @@ DecodeJ     lda   hc
             sta   u3
             stz   HCode
             ldy   #2
-:loop       dec   JCnt                  ; (GetBitJ inline but for a new byte)
-            bmi   :refill
-            asl   JBuf
-:bit        rol   HCode
+:loop       jsr   GetBitJ
+            rol   HCode
             lda   HCode
             cmp   (u0),y
             bcc   :found
@@ -1366,9 +2032,6 @@ DecodeJ     lda   hc
             bcc   :loop
             sec
             rts
-:refill     inc   JCnt
-            jsr   GetBitJ
-            bra   :bit
 :found      clc
             adc   (u3),y
             asl
@@ -1377,65 +2040,121 @@ DecodeJ     lda   hc
             clc
             rts
 
-* Extend: the signed value of the A bits read for size X.
-Extend      sta   JVal
-            txa
-            asl
-            tax
-            lda   JVal
-            cmp   PowTab-2,x
-            bcs   :pos
-            sec
-            sbc   PowTab,x
-            inc
-:pos        rts
-
-* DecodeBlock: the coefficients of one block of component CI, dequantised.
-DecodeBlock ldx   #126
-:clear      stz   Coef,x
-            dex
-            dex
-            bpl   :clear
-            ldx   CI
+* DecodeBlock: the coefficients of one block of component CI, dequantised
+* (into Coef, which the IDCT leaves clear).
+DecodeBlock ldx   CI
             lda   CQ,x
             sta   u2
+            lda   DCLk,x
+            sta   hl
             lda   DCCnt,x
             sta   hc
             lda   DCSym,x
             sta   hs
             jsr   DecodeJ
-            bcc   :jx21
-            jmp   :bad
-:jx21
+            bcs   :bad0
             cmp   #12
-            bcc   :jx22
-            jmp   :bad
-:jx22
-            tax
-            beq   :noDiff
-            phx
-            jsr   GetBitsJ
-            plx
-            jsr   Extend
-            bra   :diff
-:noDiff     lda   #0
-:diff       ldx   CI
+            bcc   :dc
+:bad0       sec
+            rts
+:dc         tax
+            jsr   GetValJ
+            ldx   CI
             clc
             adc   Pred,x
             sta   Pred,x
             ldy   #0                    ; times quantisation entry 0
             jsr   DeQuant
+            clc                         ; (with the IDCT's 128 and
+            adc   #4112                 ; rounding: 4096 + 16)
             sta   Coef
             ldx   CI
+            lda   ACLk,x
+            sta   hl
+            clc
+            adc   #2048
+            sta   ha
             lda   ACCnt,x
             sta   hc
             lda   ACSym,x
             sta   hs
             lda   #1
             sta   K
-:ac         jsr   DecodeJ
-            bcs   :bad
+            stz   ACAny
+:ac         lda   jn                    ; the next 8 bits
+            cmp   #8
+            bcs   :peek
+            jsr   JFill
+:peek       lda   jb
+            xba
+            and   #$00FF
+            asl
+            tay
+            lda   [ha],y                ; the code and the value in them:
+            beq   :sym8                 ; all from the fast table
             sta   u1
+            and   #$000F
+            sta   u3
+            asl
+            tax
+            lda   jb
+            jsr   (JShlT,x)
+            sta   jb
+            lda   jn
+            sec
+            sbc   u3
+            sta   jn
+            lda   u1                    ; the zero run
+            lsr
+            lsr
+            lsr
+            lsr
+            and   #$000F
+            sec                         ; (and the place of the value)
+            adc   K
+            cmp   #65
+            bcs   :fend
+            dec
+            sta   K
+            asl
+            tax
+            ldy   ZigZag,x
+            lda   u1                    ; the value, signed
+            xba
+            and   #$00FF
+            cmp   #$0080
+            bcc   :fpos
+            ora   #$FF00
+:fpos       jsr   DeQuant
+            sta   Coef,y
+            inc   ACAny
+            inc   K
+            lda   K
+            cmp   #64
+            bcs   :fend
+            jmp   :ac
+:fend       clc
+            rts
+:sym8       lda   [hl],y                ; the symbol (DecodeJ, inline)
+            bne   :hit
+            jsr   DecodeJ               ; (longer than 8 bits)
+            bcc   :sym
+            rts
+:hit        tay
+            xba
+            and   #$00FF
+            tax
+            lsr
+            eor   #$FFFF
+            sec
+            adc   jn
+            sta   jn
+            lda   jb
+            jsr   (JShlT,x)
+            sta   jb
+            tya
+            and   #$00FF
+:sym        sta   u1
             and   #$000F
             bne   :value
             lda   u1                    ; run of 16 zeros, or the end of the block
@@ -1446,7 +2165,8 @@ DecodeBlock ldx   #126
             adc   #16
             sta   K
             cmp   #64
-            bcc   :ac
+            bcs   :end
+            jmp   :ac
 :end        clc
             rts
 :value      sta   u3                    ; size
@@ -1460,10 +2180,51 @@ DecodeBlock ldx   #126
             cmp   #64
             bcs   :end
             sta   K
-            ldx   u3
-            jsr   GetBitsJ
-            ldx   u3
-            jsr   Extend
+            lda   u3
+            cmp   #9
+            bcs   :long
+            cmp   jn                    ; its bits: jb's top ones
+            bcc   :bits
+            beq   :bits
+            jsr   JFill
+:bits       lda   u3
+            asl
+            tax
+            lda   jb
+            xba
+            and   #$00FF
+            jsr   (JShrS,x)
+            sta   u1
+            lda   jb
+            jsr   (JShlT,x)
+            sta   jb
+            lda   jn
+            sec
+            sbc   u3
+            sta   jn
+            lda   u1                    ; below half: negative, its size
+            cmp   HalfT,x               ; (2^s - 1) - the bits
+            bcs   :pos
+            eor   MaskT,x
+            sta   u1
+            lda   K
+            asl
+            tax
+            ldy   ZigZag,x
+            lda   u1
+            jsr   DQMag
+            eor   #$FFFF
+            inc
+            bra   :put
+:pos        lda   K
+            asl
+            tax
+            ldy   ZigZag,x
+            lda   u1
+            jsr   DQMag
+            bra   :put
+:long       tax                         ; (a long value)
+            jsr   GetValJ
             pha
             lda   K
             asl
@@ -1471,54 +2232,70 @@ DecodeBlock ldx   #126
             ldy   ZigZag,x
             pla
             jsr   DeQuant
-            ldx   K
-            pha
-            txa
-            asl
-            tax
-            ldy   ZigZag,x
-            pla
-            sta   Coef,y
+:put        sta   Coef,y
+            inc   ACAny
             inc   K
             lda   K
             cmp   #64
-            bcc   :ac
-            clc
+            bcs   :full
+            jmp   :ac
+:full       clc
             rts
 :bad        sec
             rts
 
-* DeQuant: A (signed) times quantisation entry Y of the table at u2 (low 16 bits).
-DeQuant     cmp   #0                    ; (the value is the multiplier: Mul16
-            bpl   :pos                  ; goes round once per bit of it, and
-            eor   #$FFFF                ; it is mostly small)
+* For a value of s bits (X = 2s): the shift that leaves them (8 - s),
+* half its range, and the bits that make a negative one's size.
+JShrS       da    JSr8,JSr7,JSr6,JSr5,JSr4,JSr3,JSr2,JSr1,JSr0
+HalfT       dw    0,1,2,4,8,16,32,64,128
+MaskT       dw    0,1,3,7,15,31,63,127,255
+
+* DeQuant: A (signed) times quantisation entry Y of the table at u2 (low
+* 16 bits). Keeps Y.
+DeQuant     cmp   #0
+            bpl   DQMag
+            eor   #$FFFF
             inc
-            tax
-            lda   (u2),y
-            jsr   Mul16
-            lda   ProdLo
+            jsr   DQMag
             eor   #$FFFF
             inc
             rts
-:pos        tax
+DQMag       cmp   #2                    ; (mostly 1, or small: shift and add
+            bcs   :mul                  ; once for each bit)
+            cmp   #0
+            beq   :zero
             lda   (u2),y
-            jsr   Mul16
-            lda   ProdLo
-            rts
+:zero       rts
+:mul        sta   MV
+            lda   (u2),y
+            sta   MQ
+            lda   #0
+:loop       lsr   MV
+            bcc   :next
+            clc
+            adc   MQ
+            ldx   MV
+            beq   :done
+:next       asl   MQ
+            bra   :loop
+:done       rts
 
 *-------------------------------------------------------------
-* Inverse DCT: Coef -> Blk
+* Inverse DCT: Coef -> the strip (BlockAt)
 *-------------------------------------------------------------
-IDCT        ldx   #0                    ; columns
-:col        lda   Coef+16,x
-            ora   Coef+32,x
-            ora   Coef+48,x
-            ora   Coef+64,x
+IDCT        ldx   #0                    ; columns (Coef cleared as they are read)
+:col        lda   Coef+64,x
             ora   Coef+80,x
             ora   Coef+96,x
             ora   Coef+112,x
-            bne   :full
+            beq   :c4
+            jmp   :full
+:c4         lda   Coef+16,x
+            ora   Coef+32,x
+            ora   Coef+48,x
+            bne   :half
             lda   Coef,x                ; only DC: the same all down
+            stz   Coef,x
             sta   WS,x
             sta   WS+16,x
             sta   WS+32,x
@@ -1528,23 +2305,22 @@ IDCT        ldx   #0                    ; columns
             sta   WS+96,x
             sta   WS+112,x
             jmp   :nextCol
-:full       lda   Coef,x
-            sta   In0
-            lda   Coef+16,x
-            sta   In1
-            lda   Coef+32,x
-            sta   In2
-            lda   Coef+48,x
-            sta   In3
-            lda   Coef+64,x
-            sta   In4
-            lda   Coef+80,x
-            sta   In5
-            lda   Coef+96,x
-            sta   In6
-            lda   Coef+112,x
-            sta   In7
-            jsr   Butterfly
+:half       HBFLY Coef;Coef+16;Coef+32;Coef+48
+            stz   Coef,x
+            stz   Coef+16,x
+            stz   Coef+32,x
+            stz   Coef+48,x
+            jmp   :cout
+:full       BFLY  Coef;Coef+16;Coef+32;Coef+48;Coef+64;Coef+80;Coef+96;Coef+112
+            stz   Coef,x
+            stz   Coef+16,x
+            stz   Coef+32,x
+            stz   Coef+48,x
+            stz   Coef+64,x
+            stz   Coef+80,x
+            stz   Coef+96,x
+            stz   Coef+112,x
+:cout
             lda   T0
             clc
             adc   T7
@@ -1583,112 +2359,148 @@ IDCT        ldx   #0                    ; columns
             bcs   :rows
             jmp   :col
 
-:rows       ldx   #0                    ; rows: X = row * 16, Y = row * 8
-            ldy   #0
-:row        lda   WS+2,x
-            ora   WS+4,x
-            ora   WS+6,x
-            ora   WS+8,x
+:rows       ldx   #0                    ; rows: X = row x 16, BI its place in
+            lda   t1                    ; the strip (BlockAt)
+            sta   BI
+:row        lda   WS+8,x
             ora   WS+10,x
             ora   WS+12,x
             ora   WS+14,x
-            bne   :rfull
-            lda   WS,x
-            jsr   Range
+            beq   :r4
+            jmp   :rfull
+:r4         lda   WS+2,x
+            ora   WS+4,x
+            ora   WS+6,x
+            bne   :rhalf
+            lda   WS,x                  ; only the first: one sample
+            jsr   RangeB
+            ldy   BI
             sep   #$20
             mx    %10
-            sta   Blk,y
-            sta   Blk+1,y
-            sta   Blk+2,y
-            sta   Blk+3,y
-            sta   Blk+4,y
-            sta   Blk+5,y
-            sta   Blk+6,y
-            sta   Blk+7,y
+            sta   [q2],y
+            iny
+            sta   [q2],y
+            iny
+            sta   [q2],y
+            iny
+            sta   [q2],y
+            iny
+            sta   [q2],y
+            iny
+            sta   [q2],y
+            iny
+            sta   [q2],y
+            iny
+            sta   [q2],y
             rep   #$20
             mx    %00
             jmp   :nextRow
-:rfull      lda   WS,x
-            sta   In0
-            lda   WS+2,x
-            sta   In1
-            lda   WS+4,x
-            sta   In2
-            lda   WS+6,x
-            sta   In3
-            lda   WS+8,x
-            sta   In4
-            lda   WS+10,x
-            sta   In5
-            lda   WS+12,x
-            sta   In6
-            lda   WS+14,x
-            sta   In7
-            jsr   Butterfly
+:rhalf      HBFLY WS;WS+2;WS+4;WS+6
+            jmp   :rout
+:rfull      BFLY  WS;WS+2;WS+4;WS+6;WS+8;WS+10;WS+12;WS+14
+:rout       stz   CHK                   ; (with the DC's 4112) bits 5-12 are
+                                        ; the sample when no output is out of
+                                        ; 0-8191 (no top 3 bits in CHK)
             lda   T0
             clc
             adc   T7
-            jsr   Range
+            tsb   CHK
+            asl
+            asl
+            asl
             sta   Out0
             lda   T0
             sec
             sbc   T7
-            jsr   Range
+            tsb   CHK
+            asl
+            asl
+            asl
             sta   Out7
             lda   T1
             clc
             adc   T6
-            jsr   Range
+            tsb   CHK
+            asl
+            asl
+            asl
             sta   Out1
             lda   T1
             sec
             sbc   T6
-            jsr   Range
+            tsb   CHK
+            asl
+            asl
+            asl
             sta   Out6
             lda   T2
             clc
             adc   T5
-            jsr   Range
+            tsb   CHK
+            asl
+            asl
+            asl
             sta   Out2
             lda   T2
             sec
             sbc   T5
-            jsr   Range
+            tsb   CHK
+            asl
+            asl
+            asl
             sta   Out5
             lda   T3
             clc
             adc   T4
-            jsr   Range
+            tsb   CHK
+            asl
+            asl
+            asl
             sta   Out4
             lda   T3
             sec
             sbc   T4
-            jsr   Range
+            tsb   CHK
+            asl
+            asl
+            asl
             sta   Out3
+            lda   CHK
+            and   #$E000
+            beq   :inrange
+            jsr   RowRange
+:inrange    ldy   BI
             sep   #$20
             mx    %10
-            lda   Out0
-            sta   Blk,y
-            lda   Out1
-            sta   Blk+1,y
-            lda   Out2
-            sta   Blk+2,y
-            lda   Out3
-            sta   Blk+3,y
-            lda   Out4
-            sta   Blk+4,y
-            lda   Out5
-            sta   Blk+5,y
-            lda   Out6
-            sta   Blk+6,y
-            lda   Out7
-            sta   Blk+7,y
+            lda   Out0+1
+            sta   [q2],y
+            iny
+            lda   Out1+1
+            sta   [q2],y
+            iny
+            lda   Out2+1
+            sta   [q2],y
+            iny
+            lda   Out3+1
+            sta   [q2],y
+            iny
+            lda   Out4+1
+            sta   [q2],y
+            iny
+            lda   Out5+1
+            sta   [q2],y
+            iny
+            lda   Out6+1
+            sta   [q2],y
+            iny
+            lda   Out7+1
+            sta   [q2],y
             rep   #$20
             mx    %00
-:nextRow    tya
+:nextRow    lda   BI
             clc
-            adc   #8
-            tay
+            adc   t2
+            sta   BI
             txa
             clc
             adc   #16
@@ -1698,130 +2510,93 @@ IDCT        ldx   #0                    ; columns
             jmp   :row
 :done       rts
 
-* Butterfly: one 8-point inverse DCT, In0-In7 -> T0-T7 (outputs paired).
-* Keeps X and Y.
-Butterfly   phx                         ; (X back at the end: MulT uses it)
-            lda   In0                   ; even part
+* RowRange: the IDCT's row outputs again, through RangeB (some are out
+* of 0-255), in Out0-Out7's high bytes.
+RowRange
+            lda   T0
             clc
-            adc   In4
-            sta   T10
-            lda   In0
-            sec
-            sbc   In4
-            sta   T11
-            lda   In2
-            clc
-            adc   In6
-            sta   T13
-            lda   In2
-            sec
-            sbc   In6
-            ldx   #1024
-            jsr   MulT
-            sec
-            sbc   T13
-            sta   T12
-            lda   T10
-            clc
-            adc   T13
-            sta   T0
-            lda   T10
-            sec
-            sbc   T13
-            sta   T3
-            lda   T11
-            clc
-            adc   T12
-            sta   T1
-            lda   T11
-            sec
-            sbc   T12
-            sta   T2
-            lda   In5                   ; odd part
-            clc
-            adc   In3
-            sta   Z13
-            lda   In5
-            sec
-            sbc   In3
-            sta   Z10
-            lda   In1
-            clc
-            adc   In7
-            sta   Z11
-            lda   In1
-            sec
-            sbc   In7
-            sta   Z12
-            lda   Z11
-            clc
-            adc   Z13
-            sta   T7
-            lda   Z11
-            sec
-            sbc   Z13
-            ldx   #1024
-            jsr   MulT
-            sta   T11
-            lda   Z10
-            clc
-            adc   Z12
-            ldx   #2048
-            jsr   MulT
-            sta   Z5
-            lda   Z12
-            ldx   #0
-            jsr   MulT
-            sec
-            sbc   Z5
-            sta   T10
-            lda   Z10
-            ldx   #3072
-            jsr   MulT
-            eor   #$FFFF
-            inc
-            clc
-            adc   Z5
-            sta   T12
-            lda   T12                   ; tmp6 = tmp12 - tmp7
+            adc   T7
+            jsr   RangeB
+            xba
+            sta   Out0
+            lda   T0
             sec
             sbc   T7
-            sta   T6
-            lda   T11                   ; tmp5 = tmp11 - tmp6
+            jsr   RangeB
+            xba
+            sta   Out7
+            lda   T1
+            clc
+            adc   T6
+            jsr   RangeB
+            xba
+            sta   Out1
+            lda   T1
             sec
             sbc   T6
-            sta   T5
-            lda   T10                   ; tmp4 = tmp10 + tmp5
+            jsr   RangeB
+            xba
+            sta   Out6
+            lda   T2
             clc
             adc   T5
-            sta   T4
-            plx
+            jsr   RangeB
+            xba
+            sta   Out2
+            lda   T2
+            sec
+            sbc   T5
+            jsr   RangeB
+            xba
+            sta   Out5
+            lda   T3
+            clc
+            adc   T4
+            jsr   RangeB
+            xba
+            sta   Out4
+            lda   T3
+            sec
+            sbc   T4
+            jsr   RangeB
+            xba
+            sta   Out3
             rts
 
-* M277...M669: (A * constant) / 256, signed, the low 16 bits. Keep X and
-* Y. With |A| = 256 hi + lo: hi x K + lo x K / 256, from MTab.
-M277        phx
-            ldx   #0
-            bra   MulK
-M362        phx
-            ldx   #1024
-            bra   MulK
-M473        phx
-            ldx   #2048
-            bra   MulK
-M669        phx
-            ldx   #3072
-* MulT: as MulK, X = the constant's table (0, 1024, 2048 or 3072), and
-* X not kept.
-MulT        stx   MKt
-            cmp   #0
-            bpl   MKmag
-            eor   #$FFFF
-            inc
-            jsr   MKmag
-            eor   #$FFFF
-            inc
+* DCOnly: a block with only its DC coefficient: one sample all over.
+DCOnly      lda   Coef
+            stz   Coef
+            jsr   RangeB
+            sta   MKs
+            xba
+            ora   MKs
+            sta   MKs                   ; (twice)
+            lda   t1
+            sta   BI
+            ldx   #8
+:row        ldy   BI
+            lda   MKs
+            sta   [q2],y
+            iny
+            iny
+            sta   [q2],y
+            iny
+            iny
+            sta   [q2],y
+            iny
+            iny
+            sta   [q2],y
+            lda   BI
+            clc
+            adc   t2
+            sta   BI
+            dex
+            bne   :row
             rts
+
+* MulK: (A * constant) / 256, signed (by its size, then the sign), the
+* low 16 bits, X = the constant's table (4096: 359, 5120: 454), pushed
+* first; keeps Y.
 MulK        stx   MKt
             cmp   #0
             bpl   :pos
@@ -1853,7 +2628,8 @@ MKmag       sta   MKv
             adc   MKs
             rts
 
-* MulTables: MTab for 277, 362, 473, 669, 359 and 454.
+* MulTables: MTab for 277, 362, 473, 669, 359 and 454; for the first
+* four (the IDCT's) hi is signed: hi x K less 256 K for hi 128-255.
 MulTables   ldx   #0
             ldy   #0
 :k          lda   MulKs,y
@@ -1890,39 +2666,55 @@ MulTables   ldx   #0
             iny
             cpy   #12
             bcc   :k
+            ldx   #0                    ; (constant x 2)
+:sg         lda   MulKs,x
+            and   #$00FF
+            xba
+            sta   t1                    ; 256 K, the low 16 bits
+            txa
+            xba
+            asl                         ; its table, hi 128 on
+            clc
+            adc   #768
+            tay
+            lda   #128
+            sta   t2
+:sge        lda   MTab,y
+            sec
+            sbc   t1
+            sta   MTab,y
+            iny
+            iny
+            dec   t2
+            bne   :sge
+            inx
+            inx
+            cpx   #8
+            bcc   :sg
             rts
 
 MulKs       dw    277,362,473,669,359,454
 
-* Range: a sample from an IDCT output: v / 32 + 128, kept within 0-255.
-Range       clc                         ; (v + 16 from -4096 to 4095: the
-            adc   #16                   ; answer is its bits 5-12, with the
-            bmi   :neg                  ; top one flipped; further out it is
-            cmp   #4096                 ; 0 or 255)
+* RangeB: a sample from an IDCT output with the DC's 4112 (v / 32 + 128,
+* rounded): its bits 5-12 when it is 0-8191, else 0 or 255.
+RangeB      cmp   #8192
             bcc   :mid
+            asl
+            bcs   :zero
             lda   #255
             rts
-:neg        cmp   #$F000
-            bcs   :mid
-            lda   #0
+:zero       lda   #0
             rts
 :mid        asl
             asl
             asl
             xba
             and   #$00FF
-            eor   #$0080
-            rts
-Clamp8      bmi   :zero
-            cmp   #256
-            bcc   :ok
-            lda   #255
-:ok         rts
-:zero       lda   #0
             rts
 
-* StoreBlock: Blk into component CI's strip at block (MX * H + HB, VB).
-StoreBlock  ldx   CI
+* BlockAt: q2 = component CI's strip, t1 = the place in it of block
+* (MX * H + HB, VB), t2 = the strip's width.
+BlockAt     ldx   CI
             lda   MX
             ldy   CH,x
             cpy   #2
@@ -1953,33 +2745,6 @@ StoreBlock  ldx   CI
             ldx   CI
             lda   BW,x
             sta   t2
-            ldx   #0
-            ldy   t1
-:row        lda   Blk,x
-            sta   [q2],y
-            lda   Blk+2,x
-            iny
-            iny
-            sta   [q2],y
-            lda   Blk+4,x
-            iny
-            iny
-            sta   [q2],y
-            lda   Blk+6,x
-            iny
-            iny
-            sta   [q2],y
-            lda   t1
-            clc
-            adc   t2
-            sta   t1
-            tay
-            txa
-            clc
-            adc   #8
-            tax
-            cpx   #64
-            bcc   :row
             rts
 
 *-------------------------------------------------------------
@@ -1990,24 +2755,47 @@ StoreBlock  ldx   CI
 ColourTables lda  JNComp
             cmp   #3
             bne   :done
+            ldx   #0                    ; JClamp: -384 to 639 kept within 0-255
+:cl         txa
+            sec
+            sbc   #384
+            bpl   :c1
+            lda   #0
+:c1         cmp   #256
+            bcc   :c2
+            lda   #255
+:c2         sep   #$20
+            mx    %10
+            sta   JClamp,x
+            rep   #$20
+            mx    %00
+            inx
+            cpx   #1024
+            bcc   :cl
             ldy   #0
 :entry      tya
             lsr
             sec
             sbc   #128                  ; x = value - 128
             sta   u1
-            jsr   M359
+            jsr   M359                  ; red and blue: where their lookups
+            clc                         ; start (JClamp + 384 + the part)
+            adc   #JClamp+384
             sta   CrR,y
             lda   u1
             jsr   M454
+            clc
+            adc   #JClamp+384
             sta   CbB,y
-            lda   u1                    ; green parts, 7 fraction bits
-            ldx   #91
-            jsr   SMul
-            sta   CrG,y
+            lda   u1                    ; green parts, 7 fraction bits, the
+            ldx   #91                   ; Cb one with 64 (rounding) and
+            jsr   SMul                  ; 17280 (135 x 128: the sum not
+            sta   CrG,y                 ; negative)
             lda   u1
             ldx   #44
             jsr   SMul
+            clc
+            adc   #17344
             sta   CbG,y
             iny
             iny
@@ -2015,56 +2803,32 @@ ColourTables lda  JNComp
             bcc   :entry
 :done       rts
 
-* PairPix: pixel X of OutRows' line from its luma and the pair's chroma
-* parts (PRAdd, PBAdd, PGSub), as OutRows works it out for one pixel.
-PairPix     txy
-            lda   [p1],y
+* ChromaParts: where the pixel lookups start for chroma JCb, JCr (x 2):
+* JClamp + 384 + the red part (PRAdd), + the blue part (PBAdd), less
+* the green part (PGSub). Keeps Y.
+ChromaParts ldx   JCr
+            lda   CrR,x
+            sta   PRAdd
+            lda   CrG,x
+            ldx   JCb
+            clc
+            adc   CbG,x
+            jsr   GreenAt
+            sta   PGSub
+            lda   CbB,x
+            sta   PBAdd
+            rts
+
+* GreenAt: where the green lookup starts for a green sum (Cb and Cr
+* parts, as ColourTables keeps them): JClamp + 384 - (the sum / 128 - 135).
+GreenAt     asl
+            xba
             and   #$00FF
-            sta   JY
-            clc
-            adc   PRAdd
-            bmi   :r0
-            cmp   #256
-            bcc   :r1
-            lda   #255
-            bra   :r1
-:r0         lda   #0
-:r1         sta   CR
-            lda   JY
-            clc
-            adc   PBAdd
-            bmi   :b0
-            cmp   #256
-            bcc   :b1
-            lda   #255
-            bra   :b1
-:b0         lda   #0
-:b1         sta   CB
-            lda   JY
+            bcc   :g
+            ora   #$0100
+:g          eor   #$FFFF
             sec
-            sbc   PGSub
-            bmi   :g0
-            cmp   #256
-            bcc   :g1
-            lda   #255
-            bra   :g1
-:g0         lda   #0
-:g1         ldy   DestOff               ; green at +1, red, blue
-            sep   #$20
-            mx    %10
-            iny
-            sta   [q0],y
-            dey
-            lda   CR
-            sta   [q0],y
-            iny
-            iny
-            lda   CB
-            sta   [q0],y
-            iny
-            rep   #$20
-            mx    %00
-            sty   DestOff
+            adc   #JClamp+384+135
             rts
 
 M359        phx
@@ -2179,53 +2943,81 @@ OutRows     stz   SR
             cpx   TrueW
             bcc   :grey
             jmp   :rowDone
-:three      lda   ShX+2                 ; chroma half as wide: its parts
-            beq   :pix                  ; once for each pair of pixels
-            lda   ShX+4
-            beq   :pix
-:pair       txa
-            lsr
-            tay
-            lda   [p2],y
+:three      lda   TrueW                 ; colour: Y the place in the row,
+            sta   PCnt                  ; the lookups' addresses written into
+            stz   PixX                  ; the code for each chroma sample
+            ldy   #0
+            lda   ShX+2                 ; chroma half as wide: once for each
+            beq   :topix                ; pair of pixels, p1, p2, p3 stepping
+            lda   ShX+4                 ; along
+            bne   :pair
+:topix      jmp   :pix
+:pair       lda   [p3]                  ; Cr: red, and its green part
             and   #$00FF
             asl
-            sta   JCb
-            lda   [p3],y
+            tax
+            lda   CrR,x
+            sta   :r1+1
+            sta   :r2+1
+            lda   CrG,x
+            sta   GT
+            lda   [p2]                  ; Cb: blue, and the green
             and   #$00FF
             asl
-            sta   JCr
-            tay
-            lda   CrR,y
-            sta   PRAdd
-            ldy   JCb
-            lda   CbB,y
-            sta   PBAdd
-            lda   CbG,y
-            ldy   JCr
+            tax
+            lda   CbB,x
+            sta   :b1+1
+            sta   :b2+1
+            lda   CbG,x
             clc
-            adc   CrG,y
-            clc
-            adc   #64
-            asl                         ; (/ 128, keeping the sign)
-            xba
-            and   #$00FF
-            bcc   :pg
-            ora   #$FF00
-:pg         sta   PGSub
-            jsr   PairPix
-            inx
-            cpx   TrueW
-            bcs   :pd
-            jsr   PairPix
-            inx
-            cpx   TrueW
-            bcc   :pair
+            adc   GT
+            jsr   GreenAt
+            sta   :g1+1
+            sta   :g2+1
+            inc   p2
+            inc   p3
+            lda   PCnt                  ; carry: two pixels left (INC, AND,
+            cmp   #2                    ; SEP, LDA, STA, INY and TAX keep it)
+            lda   [p1]                  ; two luma samples
+            inc   p1
+            inc   p1
+            sta   LP
+            and   #$00FF                ; (the high byte 0 for TAX below)
+            tax
+            sep   #$20
+            mx    %10
+:r1         lda   JClamp,x              ; red, green, blue
+            sta   [q0],y
+            iny
+:g1         lda   JClamp,x
+            sta   [q0],y
+            iny
+:b1         lda   JClamp,x
+            sta   [q0],y
+            iny
+            bcc   :pd8
+            lda   LP+1
+            tax
+:r2         lda   JClamp,x
+            sta   [q0],y
+            iny
+:g2         lda   JClamp,x
+            sta   [q0],y
+            iny
+:b2         lda   JClamp,x
+            sta   [q0],y
+            iny
+            rep   #$20
+            mx    %00
+            lda   PCnt
+            sbc   #2                    ; (carry still set)
+            sta   PCnt
+            beq   :pd
+            jmp   :pair
+:pd8        rep   #$20
 :pd         jmp   :rowDone
-:pix        txy
-            lda   [p1],y
-            and   #$00FF
-            sta   JY
-:colour     txa
+:pix        sty   DestOff               ; any other: each pixel's own
+            lda   PixX
             ldy   ShX+2
             beq   :cb
             lsr
@@ -2234,7 +3026,7 @@ OutRows     stz   SR
             and   #$00FF
             asl
             sta   JCb
-            txa
+            lda   PixX
             ldy   ShX+4
             beq   :cr
             lsr
@@ -2243,67 +3035,34 @@ OutRows     stz   SR
             and   #$00FF
             asl
             sta   JCr
-            tay                         ; (Clamp8 inline)
-            lda   CrR,y
-            clc
-            adc   JY
-            bmi   :r0
-            cmp   #256
-            bcc   :r1
-            lda   #255
-            bra   :r1
-:r0         lda   #0
-:r1         sta   CR
-            ldy   JCb
-            lda   CbB,y
-            clc
-            adc   JY
-            bmi   :b0
-            cmp   #256
-            bcc   :b1
-            lda   #255
-            bra   :b1
-:b0         lda   #0
-:b1         sta   CB
-            lda   CbG,y
-            ldy   JCr
-            clc
-            adc   CrG,y
-            clc
-            adc   #64
-            asl                         ; / 128, keeping the sign: bits 7-14,
-            xba                         ; and bit 15 above them
+            jsr   ChromaParts
+            lda   PRAdd
+            sta   :r3+1
+            lda   PGSub
+            sta   :g3+1
+            lda   PBAdd
+            sta   :b3+1
+            ldy   PixX
+            lda   [p1],y
             and   #$00FF
-            bcc   :gp
-            ora   #$FF00
-:gp         eor   #$FFFF
-            sec
-            adc   JY
-            bmi   :g0
-            cmp   #256
-            bcc   :g1
-            lda   #255
-            bra   :g1
-:g0         lda   #0
-:g1         ldy   DestOff               ; (PutRGB inline: green at +1,
-            sep   #$20                  ; red, blue)
+            tax
+            ldy   DestOff
+            sep   #$20
             mx    %10
-            iny
-            sta   [q0],y
-            dey
-            lda   CR
+:r3         lda   JClamp,x
             sta   [q0],y
             iny
+:g3         lda   JClamp,x
+            sta   [q0],y
             iny
-            lda   CB
+:b3         lda   JClamp,x
             sta   [q0],y
             iny
             rep   #$20
             mx    %00
-            sty   DestOff
-            inx
-            cpx   TrueW
-            bcs   :rowDone
+            inc   PixX
+            dec   PCnt
+            beq   :rowDone
             jmp   :pix
 :rowDone    inc   SR
             lda   SR
@@ -2350,9 +3109,21 @@ HB          dw    0
 K           dw    0
 SR          dw    0
 JErr        dw    0
-JCnt        dw    0
-JBuf        dw    0
 JVal        dw    0
+VSz         dw    0                     ; (GetBitsJ: bits, and x 2; GetValJ)
+VSz2        dw    0
+VSz3        dw    0
+MV          dw    0                     ; (DeQuant: the value, the entry)
+MQ          dw    0
+BI          dw    0                     ; (IDCT: the row's place in the strip)
+LkHnd       adrl  0                     ; the Huffman lookups: handle, address
+LkP         dw    0                     ;   (low word; hl+2 the bank)
+MLt         dw    0                     ; (MakeLook: table, symbol, counts,
+MLk         dw    0                     ;   place, length x 2, places for
+MLc         dw    0                     ;   each code)
+MLP         dw    0
+MLL         dw    0
+MLN         dw    0
 MarkerHit   dw    0
 JMark       dw    0                     ; (the marker that was hit)
 JProg       dw    0                     ; progressive: the scans so far,
@@ -2376,14 +3147,14 @@ JpI         dw    0
 JpBX        dw    0
 JpBY        dw    0
 MKc         dw    0
-MKs         dw    0                     ; (MulK: lo x K / 256; MulTables: lo x
-MKv         dw    0                     ; K, 24 bits, with MKv after MKs)
 MKt         dw    0
 MLCnt       dw    0                     ; (MakeLims: lengths left)
 PRAdd       dw    0                     ; (OutRows: a chroma pair's parts)
 PBAdd       dw    0
 PGSub       dw    0                     ; (MulK: the constant's table)
 JY          dw    0
+PixX        dw    0                     ; (OutRows: the pixel)
+ACAny       dw    0                     ; (DecodeBlock: AC coefficients)
 JCb         dw    0
 JCr         dw    0
 CompId      dw    0,0,0
@@ -2398,39 +3169,8 @@ DCCnt       dw    0,0,0
 DCSym       dw    0,0,0
 ACCnt       dw    0,0,0
 ACSym       dw    0,0,0
+DCLk        dw    0,0,0
+ACLk        dw    0,0,0
 CHnd        adrl  0,0,0
 CP          adrl  0,0,0
 LineP       adrl  0,0,0
-In0         dw    0
-In1         dw    0
-In2         dw    0
-In3         dw    0
-In4         dw    0
-In5         dw    0
-In6         dw    0
-In7         dw    0
-T0          dw    0
-T1          dw    0
-T2          dw    0
-T3          dw    0
-T4          dw    0
-T5          dw    0
-T6          dw    0
-T7          dw    0
-T10         dw    0
-T11         dw    0
-T12         dw    0
-T13         dw    0
-Z5          dw    0
-Z10         dw    0
-Z11         dw    0
-Z12         dw    0
-Z13         dw    0
-Out0        dw    0
-Out1        dw    0
-Out2        dw    0
-Out3        dw    0
-Out4        dw    0
-Out5        dw    0
-Out6        dw    0
-Out7        dw    0

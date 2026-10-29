@@ -641,6 +641,48 @@ Every decoded picture still matches GS Remap's (the true suite); the whole Open:
 What is left of JBIG.JPG's decoding: the IDCT about 6 s, the colour rows 5 s, the Huffman
 decoding 3 s.
 
+### Opening JPEG files, second round
+
+Measured with `test/jpegtime.sh` on photographs (quality 80, 4:2:0) and the true suite's
+JPEGs; every decoded picture is still within libjpeg's fast integer decoder's rounding
+(the largest difference 4, as before). The whole Open, the remap of a fitted picture
+included:
+
+| File | Before | Now |
+|---|---:|---:|
+| Photograph, 640 x 480 | 127.3 | 82.9 |
+| Photograph, 320 x 200 | 36.6 | 25.7 |
+| Photograph, 640 x 480, progressive | error $0201 | 114.0 |
+| Photograph, 320 x 200, progressive | error $0201 | 32.5 |
+| JBIG.JPG, quality 90 | 25.6 | 18.1 |
+
+Found with `test/profile.py`: `test/dump.lua` (PROFILE=file) notes where the processor is
+about 60 times a second, and the script maps that through the assembler listings.
+
+- **Huffman codes** up to 8 bits long from a 256-entry lookup per table (the next 8 bits:
+  length and symbol), longer ones bit by bit as before; 98 % of a photograph's codes fit.
+- **AC coefficients whose code and value both fit in 8 bits** (three quarters of them)
+  from a second lookup per AC table: the zero run, the bits used and the signed value.
+- **The bits:** a 16-bit buffer, filled a byte at a time straight from the file, shifted
+  through chains of ASL or LSR entered by JSR (abs,X).
+- **Dequantising:** a value of 1 is the table entry itself; others shift and add in 16 bits.
+- **The IDCT:** its multiplications inline (two table lookups, the high byte signed, so
+  floor(v x K / 256) as libjpeg's fast IDCT), its values on the direct page; rows and
+  columns whose last four inputs are 0 take a shorter butterfly; a block with only its DC
+  coefficient is one sample; the output's 128 and rounding added to the DC once (4112)
+  instead of to every sample, the clamp checked once a row; the samples go straight into
+  the component's strip.
+- **The colour rows:** each pixel's red, green and blue from a clamp table (-384 to 639);
+  for each pair of pixels (chroma half as wide) the three lookups' addresses are written
+  into the code, so a pixel is a load and a store for each channel.
+- The true colour picture isn't filled first (every row is written, or filled when the
+  data is damaged).
+- **Progressive pictures** keep their coefficients in a block that may cross banks (more
+  than 64K: a progressive picture larger than about 256 x 128 couldn't be opened).
+
+What is left of the 640 x 480 photograph's Open: the IDCT about 23 s, the fitted remap's
+box averages 15 s, the colour rows 14 s, the Huffman decoding and dequantising 10 s.
+
 ### Saving and the monochrome conversions
 
 Measured with `test/timing.sh` (the `TIMING 1` test command logs each command's ticks), on

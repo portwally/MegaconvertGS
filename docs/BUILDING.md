@@ -174,4 +174,9 @@ byte) or against a model written from SuperConvert's documented behaviour:
 
 `test/timing.sh` times saves, filters and the monochrome conversions (the `TIMING 1` test
 command logs each command's ticks); `test/speed/` holds the models and exactness checks
-for the speed plan.
+for the speed plan. `test/jpegtime.sh` times opening JPEGs (photographs made from
+`JPEG_PHOTO`, any picture ImageMagick reads, 640 x 480 and 320 x 200, baseline and
+progressive, one cut short, and the true suite's JPEGs) and checks each against libjpeg.
+`PROFILE=file` on any `test/run.sh` run has `test/dump.lua` note where the processor is
+about 60 times a second; `python3 test/profile.py file [lines]` maps that through the
+assembler listings to routines (and source lines).

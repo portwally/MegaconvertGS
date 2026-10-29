@@ -61,8 +61,8 @@ if [ -n "$COMMANDS" ]; then
             disk ADDFILE "$DISK" "${VOLUME}MCTRUE" "$OUT/stage/$(basename "$f")#060000"
         done
     fi
-    for group in apple other filter woa newfmt; do
-        # More test files (folders MCAPPLE, MCOTHER, MCFILTER, MCWOA, MCNEWFMT), with the file types they need.
+    for group in apple other filter woa newfmt jspeed; do
+        # More test files (folders MCAPPLE, MCOTHER, MCFILTER, MCWOA, MCNEWFMT, MCJSPEED), with the file types they need.
         [ -f "$ROOT/build/fixtures/$group.types" ] || continue
         folder="MC$(echo $group | tr a-z A-Z)"
         disk CREATEFOLDER "$DISK" "${VOLUME}$folder"

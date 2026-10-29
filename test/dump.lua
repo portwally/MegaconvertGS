@@ -83,8 +83,36 @@ local function done()
         space:read_u8(0xE00402) == 0xCE and space:read_u8(0xE00403) == 0xC5
 end
 
+-- PROFILE=file: where the processor is at each call (about 60 a second), counted by
+-- bank and address, written with copies of the busy banks when the tests are done.
+local profile = os.getenv("PROFILE")
+local counts = {}
+local function write_profile()
+    local f = io.open(profile, "w")
+    local banks, total = {}, 0
+    for k, n in pairs(counts) do
+        f:write(string.format("%06X %d\n", k, n))
+        banks[k >> 16] = (banks[k >> 16] or 0) + n
+        total = total + n
+    end
+    f:close()
+    -- A copy of each bank that had a good share (not the ROM, the system banks).
+    for bank, n in pairs(banks) do
+        if n * 20 >= total and bank > 1 and bank < 0xE0 then
+            local m = io.open(string.format("%s.%02X", profile, bank), "wb")
+            for a = bank << 16, (bank << 16) + 0xFFFF do m:write(string.char(space:read_u8(a))) end
+            m:close()
+        end
+    end
+end
+
 emu.register_periodic(function()
     local t = manager.machine.time.seconds
+    if profile then
+        local st = manager.machine.devices[":maincpu"].state
+        local k = (st["PB"].value << 16) | (st["PC"].value & 0xFFFF)
+        counts[k] = (counts[k] or 0) + 1
+    end
     while next_step <= #steps and t >= steps[next_step].t do
         steps[next_step].f()
         next_step = next_step + 1
@@ -97,6 +125,7 @@ emu.register_periodic(function()
         next_check = t + 1
         if done() then
             dump(math.floor(t))
+            if profile then write_profile() end
             manager.machine:exit()
         end
     end
