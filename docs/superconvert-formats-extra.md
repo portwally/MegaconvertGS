@@ -1079,6 +1079,33 @@ Improvements over the original worth considering: discard the current image only
 successful import; enable "Re-convert last file" for both imports; make the true color image before
 a true color export.
 
+### 4.11 Checked against Babelfish
+
+Babelfish 1998 (freeware, with its programming manual, at speccie.uk) confirms the request codes
+above and names the fields SC uses: the transfer record (XferRec) is ParmCount 12, Status,
+MiscFlags (+$04: bit 0 progress window, 1 error dialogs, 2 standard matching, 3 exporting; SC's
+"steps" 7, 3, $0E, $0B are these flags), DataKinds (+$06, 8 flag bytes: 2 PixelMap, 4 True Color, 8
+QuickDraw II picture), TransNum (+$0E), UserID, the progress fields (+$12 ProgressAction, +$14
+FullTherm, +$16 CurrentTherm, +$18 MsgPtr), then DataRecordPtr, FilePathPtr, FileNamePtr. The
+PixelMap record has two more longs (horizontal and vertical resolution, 30 bytes in all); the True
+Color one too (20 bytes; SC's 16-byte block leaves them out). Export's custom record is ParmCount 3,
+prompt, button name (0: "Export"), default name as a GS/OS string.
+
+What MegaconvertGS found running the translators:
+
+- True Color Export: the PBM/PGM/PPM translator (the only one) writes the header and the rows of the
+  first Write, then answers every later Write with status $8004. SC's 3-row blocks therefore fail
+  after the first one; MegaconvertGS sends the whole picture in one Write.
+- MatchFile's list is sorted by the raw ranking word, so a translator answering "maybe, I can look
+  closer" ($8001-$8003, bit 15) comes before one that is sure ($0004): GEM/IMG did so for every
+  file. Without the dialog MegaconvertGS takes the highest ranking with bit 15 aside. PBM/PGM/PPM
+  ranks any file of 10 bytes or more 2, as GEM/IMG does: only a person can choose between them.
+- MacPaint's PixelMap is 320 mode, 576 x 720, 288 bytes a row, its LocInfo saying mode 0 and its
+  SCBs too, with the standard colour table 0. Apple Preferred sends all 16 tables, zeros past the
+  file's own.
+- GEM/IMG answers a True Color request with a QuickDraw II picture (kind 8), which neither SC nor
+  MegaconvertGS reads.
+
 ## 5. Uncertain points
 
 - Works of Art: only the header bytes 5-6, $0B-$0C and $0D, the directory words +0, +2, +8, the

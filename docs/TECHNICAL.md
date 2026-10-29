@@ -12,8 +12,8 @@ the test suites check that ([BUILDING.md](BUILDING.md)).
 The program is one OMF load file of several segments, each under 64K: the main program
 and one segment each for the Apple II and IIgs loaders, the other computers' loaders, the
 save formats, Remap, the main windows (Desk), the True color filters, the views, the
-monochrome conversions, the Extras, the help window, printing and TIFF Save Options. A
-loader segment is called with `JSL` and finds the file, its length and the picture's
+monochrome conversions, the Extras, the help window, printing, TIFF Save Options and
+Babelfish. A loader segment is called with `JSL` and finds the file, its length and the picture's
 buffers in direct page (`src/Equates.s`); `src/SegLib.s` holds the helpers each loader
 segment includes.
 
@@ -66,6 +66,7 @@ segment includes.
   conversions to and from them and their dialogs (a segment of its own;
   `test/make_monodata.py` takes the dialogs' menus and icons from SuperConvert)
 - `src/TiffOpt.s`: TIFF Save Options (a segment of its own)
+- `src/Babel.s`: the Babelfish imports and exports (a segment of its own)
 - `src/Test.s`: test commands read from `MC.TEST`
 - `src/Equates.s`: toolbox and GS/OS call numbers, direct page, format numbers
 - `src/macros/Macs.s`: call and push macros
@@ -230,10 +231,27 @@ segment includes.
   C64 picture disks.
 - **A title picture at start-up** (`MCGS.Title`, a $C1 screen beside the program: until
   a click, a key or 3 seconds; none if the file isn't there).
+- **Babelfish** (Babel.s; superconvert-formats-extra.md 4 and Seven Hills' programming
+  manual, the PDF beside the freeware archive at speccie.uk): SuperConvert's four
+  External entries. Load & convert opens Babelfish's Open dialog (BFGetFile) and the
+  chosen translator imports (BFImportThis, then BFRead until done): a PixelMap that fits
+  the screen (160 bytes x 200 lines) becomes the screen image with its SCBs and every
+  colour table sent, its mode taken from line 0's SCB when SCBs come (MacPaint's LocInfo
+  says 320 mode); a larger one, and every True Color image, a true colour picture.
+  Save conversion opens Babelfish's Export dialog (BFPutFile, SuperConvert's prompt, the
+  picture's name). The true colour picture goes in one Write (the PBM/PGM/PPM translator,
+  the only True Color exporter, writes one block and refuses the next; GS/OS writes a
+  block crossing banks). Without the dialogs (tests, Re-convert last file) a file is
+  imported by the translator ranking it highest, bit 15 of the ranking ("could look
+  closer") aside, which Babelfish's own sort does not do; by name (`BFNAME`) in tests;
+  and Re-convert uses the translator of the last import. Babelfish starts on first use,
+  under SuperConvert's "Loading Babelfish..." note, and shuts down at Quit; without it
+  the import or export says "Unable to startup Babelfish." Unlike SuperConvert, the
+  current image stays when the dialog is cancelled, and True Color Export makes the true
+  colour picture first if there is only a screen image.
 
 ## Not done yet
 
-- The Babelfish imports and exports, which the lists show as SuperConvert did.
 - SuperConvert's New Print Shop graphics entry is left out of Load formats: SuperConvert
   never loaded it either, and no description of its Apple II files was found.
 - Print (normal), Print (enhanced) and Print banner: copying the picture to the printer

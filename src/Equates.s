@@ -187,6 +187,8 @@ fmtTIFF             =     50
                                          ; (51: unused, once New Print Shop)
 fmtCount            =     51                 ; (Load formats lists some past these)
 fmtWOA              =     52                 ; Works of Art (Apple.s WOA.s)
+fmtBabelTC          =     53                 ; Babelfish True Color, PixelMap imports (Babel.s)
+fmtBabelPM          =     54
 fmtTGA              =     55                 ; Truevision Targa (Other.s TGA.s)
 fmtPICT             =     56                 ; QuickDraw PICT (Other.s PICT.s)
 fmtZX               =     57                 ; ZX Spectrum screen (Other.s ZX.s)
@@ -233,6 +235,7 @@ errIconRes          =     $FFF8              ; icon resources: at most a quarter
 errNotImpl          =     $FFF7              ; a format listed but not implemented yet
 errCopy             =     $FFF6              ; Copy or Cut: no picture made
 errCancel           =     $FFF5              ; cancelled in a window: no message
+errNoBabel          =     $FFF4              ; Babelfish didn't start (not installed)
 errFont             =     $FF03              ; Font key chart: a damaged font
 
 * Direct page (the application's own)

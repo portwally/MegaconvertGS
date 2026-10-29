@@ -51,6 +51,10 @@
 *                        chosen format's filter takes, with its folders')
 *   QUEUED               log the paths waiting in the queue
 *   NAME n               the name the save dialog offers (the picture's name)
+*   BFNAME name          the Babelfish translator the next exports (SAVE AS bftrue,
+*                        bfpix) use, by its name (empty: the first for the kind);
+*                        LOAD AS bftrue, bfpix: the translator ranking the file best;
+*                        BFLAST logs the last translator's name and the kind it sent
 *   SYSINFO path         the System info report made and saved as a text file at path
 *                        (without its window's buttons)
 *   EXAMINE k s... path  File > Examine file... for the file at path, without the file
@@ -1094,7 +1098,78 @@ DoCommand   lda   #CmdBuf
             lda   #TxtOK
             jsr   LogC
             jmp   LogCR
-:notName    lda   #CmdSaveWarnTxt
+:notName    lda   #CmdBFNameTxt
+            jsr   Match
+            bcs   :notBFName
+            tay                         ; BFNAME name: the translator the
+            lda   CmdBuf,y              ; Babelfish imports and exports use
+            and   #$00FF                ; (none: the usual choice)
+            cmp   #' '
+            bne   :bfn
+            iny
+:bfn        tya
+            clc
+            adc   #CmdBuf
+            sta   fp
+            lda   #^CmdBuf
+            sta   fp+2
+            jsl   BabelName
+            lda   #TxtOK
+            jsr   LogC
+            jmp   LogCR
+:notBFName  lda   #CmdBFLastTxt
+            jsr   Match
+            bcs   :notBFLast
+            jsl   BabelLast             ; BFLAST: the last translator, and
+            sta   t3                    ; the kind it sent
+            lda   #TxtOK
+            jsr   LogC
+            lda   [fp]
+            and   #$00FF
+            tax
+            ldy   #1
+:bl         cpx   #0
+            beq   :blEnd
+            lda   [fp],y
+            and   #$007F                ; (™: $AA, logged as '*')
+            phx
+            ldx   LogLen
+            cpx   #2000
+            bcs   :blFull
+            sep   #$20
+            mx    %10
+            sta   LogBuf,x
+            rep   #$20
+            mx    %00
+            inc   LogLen
+:blFull     plx
+            iny
+            dex
+            bra   :bl
+:blEnd      lda   #TxtSpace
+            jsr   LogC
+            lda   t3
+            jsr   LogHex
+            lda   #TxtSpace             ; the last request, the last Match
+            jsr   LogC                  ; list (number, ranking ...)
+            lda   dact
+            jsr   LogHex
+            ldy   #0
+:bll        cpy   darg
+            bcs   :bllEnd
+            phy
+            lda   #TxtSpace
+            jsr   LogC
+            ply
+            lda   [dctl],y
+            phy
+            jsr   LogHex
+            ply
+            iny
+            iny
+            bra   :bll
+:bllEnd     jmp   LogCR
+:notBFLast  lda   #CmdSaveWarnTxt
             jsr   Match
             bcs   :notSWarn
             lda   #TxtOK                ; SAVEWARN
@@ -1662,6 +1737,8 @@ CmdTick     dw    0
 CmdSaveDlgTxt asc 'SAVEDLG ',00
 CmdSaveWarnTxt asc 'SAVEWARN',00
 CmdNameTxt  asc   'NAME ',00
+CmdBFNameTxt asc  'BFNAME',00
+CmdBFLastTxt asc  'BFLAST',00
 CmdSysInfoTxt asc 'SYSINFO ',00
 CmdExamineTxt asc 'EXAMINE ',00
 CmdHexOptTxt asc 'HEXOPT ',00

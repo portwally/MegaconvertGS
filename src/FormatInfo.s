@@ -4,11 +4,12 @@
 * icon, the text, one OK button), and two tables of their
 * addresses. Data only.
 *
-* FmtInfo: by load format number (fmtC1 = 1 ... fmtTIFF = 50, then
-* the formats listed but not implemented yet, 51-54);
+* FmtInfo: by load format number (fmtC1 = 1 ... fmtTIFF = 50, 51
+* unused, 52 Works of Art, 53-54 the Babelfish imports, then
+* MegaconvertGS's own);
 * entry 0 is the SuperHiRes entry, which reads any $C0 or $C1
 * picture. SaveInfo: by save number (1 $C1 screen ... 12 TIFF,
-* then 13-15, not implemented yet);
+* 13 the desktop INIT, 14-15 the Babelfish exports, then more);
 * entry 0 is unused.
 *
 * Each text fits a size 9 alert (600 x 80 in 640 mode): at most
@@ -383,12 +384,14 @@ FiWOA       asc   '93/Works of Art: black and white clip art from Springboard Pu
             asc   'image./^#0',00
 
 FiBabelTC   asc   '93/Babelfish True Color Import: a picture read through Babelfish, Seven Hills '
-            asc   'Software',27,'s file translator system, as a true color image.',0D
-            asc   'MegaconvertGS doesn',27,'t work with Babelfish yet./^#0',00
+            asc   'Software',27,'s file translator system, as a true color image. Babelfish',27,'s '
+            asc   'own dialog chooses the file and the translator (PBM/PGM/PPM, ComputerEyes, '
+            asc   'Visionary ...). Babelfish must be installed./^#0',00
 
 FiBabelPM   asc   '93/Babelfish PixelMap Import: a picture read through Babelfish, Seven Hills '
-            asc   'Software',27,'s file translator system, as a screen image.',0D,'MegaconvertGS '
-            asc   'doesn',27,'t work with Babelfish yet./^#0',00
+            asc   'Software',27,'s file translator system, as a screen image (larger than the '
+            asc   'screen: a true color image). Babelfish',27,'s own dialog chooses the file and '
+            asc   'the translator. Babelfish must be installed./^#0',00
 
 * Save formats
 
@@ -460,7 +463,7 @@ FiSvDesk    asc   '93/Desktop background image INIT: the picture saved as a star
 
 FiSvBabelTC asc   '93/Babelfish True Color Export: the true color picture written through '
             asc   'Babelfish, Seven Hills Software',27,'s file translator system, in a format its '
-            asc   'translators offer.',0D,'MegaconvertGS doesn',27,'t work with Babelfish yet./^#0'
+            asc   'translators offer (PBM/PGM/PPM). Babelfish must be installed./^#0'
             asc   00
 
 FiSvBMP     asc   '93/BMP: a Windows bitmap for today',27,'s computers, ProDOS type $06 (BIN), '
@@ -532,5 +535,6 @@ FiSvDHRBWP  asc   '93/Double HiRes black & white, packed: the double high resolu
 
 FiSvBabelPM asc   '93/Babelfish PixelMap Export: the screen picture written through Babelfish, '
             asc   'Seven Hills Software',27,'s file translator system, in a format its '
-            asc   'translators offer.',0D,'MegaconvertGS doesn',27,'t work with Babelfish yet./^#0'
+            asc   'translators offer (Apple Preferred, Super Hi-Res, MacPaint, Print Shop ...). '
+            asc   'Babelfish must be installed./^#0'
             asc   00

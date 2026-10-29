@@ -80,9 +80,16 @@ New in MegaconvertGS (not in SuperConvert) are marked with ★.
 | Any computer | JPEG (baseline and ★ progressive), GIF (87a, 89a, interlaced, transparent), PNG (every kind), CompuServe RLE, IPI, QRT, ★ TIFF, ★ Truevision Targa (TGA) |
 
 A picture larger than the screen is fitted to it; black & white pictures taller than a
-screen become true colour pictures. Not there yet: the Babelfish imports. SuperConvert's
-New Print Shop graphics entry is left out: SuperConvert never loaded it, and its Apple II
-files are not described anywhere.
+screen become true colour pictures. SuperConvert's New Print Shop graphics entry is left
+out: SuperConvert never loaded it, and its Apple II files are not described anywhere.
+
+**Babelfish.** With [Babelfish](https://speccie.uk/software/babelfish) installed (Seven
+Hills Software's freeware file translators), the External (Babelfish™) entries import
+through Babelfish's own Open dialog: True Color Import makes a true colour picture, and
+PixelMap Import a screen image (or a true colour picture, when the map is larger than the
+screen). Its translators read Apple Preferred, Super Hi-Res screens, MacPaint, Print Shop
+and Print Shop GS, GEM/IMG, PBM/PGM/PPM, ComputerEyes, Visionary, ThunderScan, Works of
+Art, Single and Double Hi-Res, and anything else written for it later.
 
 ## Save formats
 
@@ -98,8 +105,10 @@ in dot pairs and picks each byte's colour pair. ★ Apple II save options choose
 dithering (error diffusion, a 4 x 4 pattern, or none) and whether the picture fills the
 screen or keeps its proportions, centred on black. A picture already in Apple II colours
 (Remap's Other palettes have them) keeps them exactly. The packed ones are Apple's own:
-type $08 (FOT), aux type $4000 or $4001, packed with PackBytes. Not there yet: the
-Babelfish exports.
+type $08 (FOT), aux type $4000 or $4001, packed with PackBytes. With Babelfish installed,
+its exports write the screen image (PixelMap Export: Apple Preferred, Super Hi-Res,
+MacPaint or Print Shop) or the true colour picture (True Color Export: a raw PPM)
+through Babelfish's Export dialog.
 
 ## Speed
 

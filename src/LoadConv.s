@@ -10,7 +10,13 @@
 * loaded, the others wait for Load next. A folder chosen alone (without
 * "Load all pictures within selected folders"): the dialog again, in it.
 LoadConv    jsl   DeskLoadFmt           ; a format listed, but not here yet?
-            jsr   FmtHere
+            cmp   #fmtBabelTC           ; (the Babelfish imports: its own
+            beq   :babel                ; dialog, one file)
+            cmp   #fmtBabelPM
+            bne   :ours
+:babel      sta   ForceFmt
+            jmp   BabelOpen
+:ours       jsr   FmtHere
             bcc   :ok
             lda   #errNotImpl
             jmp   Problem

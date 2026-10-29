@@ -9,6 +9,7 @@
 #               saved as OUT, also at the top of the disk, is copied back to build/test/results
 #   KEYS        keys to press, see dump.lua
 #   TITLE       1: the title picture (MCGS.Title) beside the program
+#   BABELFISH   the Babelfish archive (babelfish.bxy): installed on the disk
 #   COMMANDS    test command file to run (copied to the disk as MC.TEST); its pictures
 #               come from build/fixtures (folder MCTEST) and build/fixtures/true (folder
 #               MCTRUE), and results go to folder MCOUT
@@ -44,6 +45,33 @@ if [ -n "$TITLE" ]; then
     disk ADDFILE "$DISK" "${VOLUME}System" "$OUT/stage/MCGS.Title#C10000"
 fi
 
+if [ -n "$BABELFISH" ]; then
+    # Babelfish (Seven Hills' freeware file translators, babelfish.bxy from
+    # speccie.uk; BABELFISH is the archive's path) installed as its Read Me says:
+    # the INITs, the Convert File NDA and the translators' folder.
+    rm -rf "$OUT/bf"; mkdir -p "$OUT/bf"
+    (cd "$OUT/bf" && nulib2 -xe "$BABELFISH" > /dev/null)
+    BF="$OUT/bf/Babelfish/System"
+    bfadd() {   # folder on the disk, file without its #type
+        local src="$1" dir="$2" f n t
+        for f in "$src"#??????; do
+            n="$(basename "$f")"; t="$(echo "${n##*#}" | tr a-f A-F)"
+            mkdir -p "$OUT/stage/bf"; rm -f "$OUT/stage/bf/"*
+            cp "$f" "$OUT/stage/bf/${n%#*}#$t"
+            [ -f "${f}r" ] && cp "${f}r" "$OUT/stage/bf/${n%#*}#${t}_ResourceFork.bin"
+            disk ADDFILE "$DISK" "$dir" "$OUT/stage/bf/${n%#*}#$t"
+        done
+    }
+    bfadd "$BF/System.Setup/Babelfish" "${VOLUME}System/System.Setup"
+    bfadd "$BF/System.Setup/SFUtility" "${VOLUME}System/System.Setup"
+    bfadd "$BF/Desk.Accs/Convert.NDA" "${VOLUME}System/Desk.Accs"
+    disk CREATEFOLDER "$DISK" "${VOLUME}System/SHS.Babelfish"
+    for f in "$BF"/SHS.Babelfish/*#??????; do
+        case "$f" in *Finder.Data*) continue;; esac
+        bfadd "${f%#*}" "${VOLUME}System/SHS.Babelfish"
+    done
+fi
+
 if [ -n "$COMMANDS" ]; then
     disk CREATEFOLDER "$DISK" "${VOLUME}MCTEST"
     disk CREATEFOLDER "$DISK" "${VOLUME}MCOUT"
@@ -61,8 +89,8 @@ if [ -n "$COMMANDS" ]; then
             disk ADDFILE "$DISK" "${VOLUME}MCTRUE" "$OUT/stage/$(basename "$f")#060000"
         done
     fi
-    for group in apple other filter woa newfmt jspeed; do
-        # More test files (folders MCAPPLE, MCOTHER, MCFILTER, MCWOA, MCNEWFMT, MCJSPEED), with the file types they need.
+    for group in apple other filter woa newfmt jspeed babel; do
+        # More test files (folders MCAPPLE, MCOTHER, MCFILTER, MCWOA, MCNEWFMT, MCJSPEED, MCBABEL), with the file types they need.
         [ -f "$ROOT/build/fixtures/$group.types" ] || continue
         folder="MC$(echo $group | tr a-z A-Z)"
         disk CREATEFOLDER "$DISK" "${VOLUME}$folder"

@@ -70,6 +70,12 @@ HelpLog     ext
 HelpHome    ext
 PrintAlign  ext
 PrintQuit   ext
+BabelAsk    ext
+BabelLoad   ext
+BabelSave   ext
+BabelName   ext
+BabelQuit   ext
+BabelLast   ext
 PrintPic    ext
 WoaName     ext
 WoaTest     ext
@@ -521,6 +527,7 @@ DoControl   lda   EventRec+TaskData2    ; the control's handle
 * Shut down and return to the program selector
 *-------------------------------------------------------------
 Quit        jsl   PrintQuit             ; (the Print Manager, if started)
+            jsl   BabelQuit             ; (Babelfish, if started)
             pea   0                     ; start/stop reference is a pointer
             PushLongAt SSRef
             Tool  _ShutDownTools
@@ -895,7 +902,12 @@ Problem     cmp   #errCancel            ; (cancelled in a window: nothing to say
 * Open and Save
 *-------------------------------------------------------------
 DoOpen      lda   ForceFmt              ; a format listed, but not here yet?
-            jsr   FmtHere
+            cmp   #fmtBabelTC           ; (the Babelfish imports: its dialog)
+            beq   :babel
+            cmp   #fmtBabelPM
+            bne   :ours
+:babel      jmp   BabelOpen
+:ours       jsr   FmtHere
             bcc   :ask
             lda   #errNotImpl
             jmp   Problem
@@ -1014,6 +1026,10 @@ FmtHere     cmp   #fmtCount
             bcc   :yes
             cmp   #fmtWOA
             beq   :yes
+            cmp   #fmtBabelTC
+            beq   :yes
+            cmp   #fmtBabelPM
+            beq   :yes
             cmp   #fmtTGA
             bcc   :no
             cmp   #fmtLast+1
@@ -1036,10 +1052,15 @@ DoSave      sta   SaveFmt
 :have       lda   SaveFmt               ; a format listed, but not here yet?
             cmp   #saveCount
             bcs   :notHere
-            cmp   #14                   ; (the Babelfish exports)
-            bcc   :dlgs
+            cmp   #14                   ; (the Babelfish exports: its dialog
+            bcc   :dlgs                 ; only, no sizes or warnings)
             cmp   #16
             bcs   :dlgs
+            ldx   #0
+            jsr   BabelExport
+            bcc   :bfSaved
+            jmp   Problem
+:bfSaved    jmp   AfterSave
 :notHere    lda   #errNotImpl
             jmp   Problem
 :dlgs       lda   TestMode              ; the size, where it goes, warnings
@@ -1230,12 +1251,131 @@ Reconvert   lda   LastPath
             sta   PathPtr+2
             lda   LastFmt
             sta   ForceFmt
+            lda   #2                    ; (Babelfish: the translator as before)
+            sta   BFAgain
             jsr   LoadPath
+            stz   BFAgain
             stz   ForceFmt
             bcc   :loaded
             jmp   Problem
 :loaded     jmp   AfterLoad
 :none       rts
+
+* BabelOpen: Load for the Babelfish imports: Babelfish's Open dialog
+* chooses the file and its translator, then it loads as any file does (the
+* images there were stay until a file is chosen).
+BabelOpen   lda   UserID
+            sta   uid
+            jsr   BabelKind
+            jsl   BabelAsk              ; pathp: the file chosen
+            bcc   :chosen
+            stz   ForceFmt
+            jmp   Problem
+:chosen     lda   [pathp]               ; its path kept here (the dialog's
+            cmp   #250                  ; handles go when it has loaded)
+            bcc   :len
+            lda   #250
+:len        sta   BFPath
+            tay
+            iny
+            sep   #$20
+            mx    %10
+:c          lda   [pathp],y
+            sta   BFPath,y
+            dey
+            cpy   #2
+            bcs   :c
+            rep   #$20
+            mx    %00
+            lda   #BFPath
+            sta   PathPtr
+            lda   #^BFPath
+            sta   PathPtr+2
+            jsr   LoadPath
+            bcc   :loaded
+            jmp   Problem
+:loaded     jsr   KeepPath
+            jmp   AfterLoad
+
+* BabelImport: LoadPath for the Babelfish imports: the file at PathPtr
+* read through Babelfish (by the translator chosen in its dialog, or else
+* the one ranking it best), quietly in tests.
+*   out: carry clear and A = the format; or carry set and A = error
+BabelImport jsr   ClearScreen
+            jsr   FreeTrue
+            stz   pw
+            stz   ph
+            stz   p640
+            stz   FileType              ; (no file type known)
+            stz   FileAux
+            lda   PathPtr
+            sta   pathp
+            lda   PathPtr+2
+            sta   pathp+2
+            lda   UserID
+            sta   uid
+            lda   ScreenP
+            sta   scrp
+            lda   ScreenP+2
+            sta   scrp+2
+            lda   TestMode              ; (tests: quietly; Re-convert: the
+            ora   BFAgain               ; same translator)
+            tax
+            jsr   BabelKind
+            jsl   BabelLoad
+            bcs   :out
+            lda   LoadFmt
+            clc
+:out        rts
+
+* BabelKind: Babelfish's kind of data for the format being loaded (A):
+* True Color (4) or PixelMap (2).
+BabelKind   lda   ForceFmt
+            cmp   #fmtBabelTC
+            beq   :tc
+            lda   #2
+            rts
+:tc         lda   #4
+            rts
+
+* BabelExport: save format A (14 True Color, 15 PixelMap) through
+* Babelfish: X = 0: its Export dialog (offering the picture's name), 1
+* (tests): to PathPtr, by the translator BFNAME named. True Color needs the
+* true colour image: made from the screen image if there is none.
+*   out: carry clear, or carry set and A = error (errCancel: cancelled)
+BabelExport stx   BFQuiet
+            ldx   #2
+            cmp   #15
+            beq   :kind
+            jsr   MakeTrue
+            bcc   :true
+            rts
+:true       ldx   #4
+:kind       stx   BFKindNo
+            jsr   SetRemapDP            ; tp, tstride, rw, rh, scrp, uid
+            lda   PicW
+            sta   pw
+            lda   PicH
+            sta   ph
+            lda   Pic640
+            sta   p640
+            lda   PathPtr
+            sta   pathp
+            lda   PathPtr+2
+            sta   pathp+2
+            lda   #NameGS
+            sta   fp
+            lda   #^NameGS
+            sta   fp+2
+            lda   BFKindNo
+            ldx   BFQuiet
+            jsl   BabelSave
+            rts
+
+BFQuiet     dw    0
+BFAgain     dw    0
+BFKindNo    dw    0
+BFPath      ds    256                   ; (the path Babelfish's dialog chose)
 
 * KeepPath: the path at PathPtr (a GS/OS string) and the format it was
 * loaded as, for Re-convert last file.
@@ -1259,11 +1399,19 @@ KeepPath    lda   PathPtr
             rep   #$20
             mx    %00
             lda   ForceFmt
-            sta   LastFmt
+            bne   :fmt
+            lda   LoadFmt               ; (the Babelfish imports: kept, so
+            cmp   #fmtBabelTC           ; that Re-convert goes through it)
+            beq   :fmt
+            cmp   #fmtBabelPM
+            beq   :fmt
+            lda   #0
+:fmt        sta   LastFmt
 :long       rts
 
 LastPath    ds    256                   ; (0: none yet)
 LastFmt     dw    0
+LoadFmt     dw    0                     ; (the format LoadPath was asked for)
 
 * ScreenInfo: the screen image's size and mode.
 ScreenInfo  lda   HaveScreen
@@ -1911,10 +2059,18 @@ SetRemapDP  lda   TrueP
 
 * LoadPath: loads the picture file at PathPtr.
 *   out: carry clear, or carry set and A = error ($FFFF: not a picture)
-LoadPath    jsr   ReadFile
+LoadPath    lda   ForceFmt              ; (through Babelfish)
+            sta   LoadFmt
+            cmp   #fmtBabelTC
+            beq   :babel
+            cmp   #fmtBabelPM
+            bne   :file
+:babel      jsr   BabelImport
+            bra   :decoded
+:file       jsr   ReadFile
             bcs   :err
             jsr   DecodeFile
-            php
+:decoded    php
             sta   t2
             stz   ForceFmt              ; a chosen format is for one file
             jsr   FreeFile
@@ -1975,7 +2131,13 @@ LoadPath    jsr   ReadFile
 
 * SaveAs: saves the picture to PathPtr in save format A (1 $C1, 2 Apple
 * Preferred, 3 PackBytes here; the others in the Save segment).
-SaveAs      cmp   #4
+SaveAs      cmp   #14                   ; (the Babelfish exports: to the
+            bcc   :notBF                ; path, the translator BFNAME named)
+            cmp   #16
+            bcs   :notBF
+            ldx   #1
+            jmp   BabelExport
+:notBF      cmp   #4
             bcs   :seg
             jmp   SavePath
 :seg        sta   SvCode
@@ -2474,15 +2636,15 @@ ExtrasMenu  asc   '>>  Extras  \N8',00
             asc   '--System info report...\N345',00
             asc   '.',00
 
-AboutText   asc   '93/MegaconvertGS 1.3',0D,'An image converter for the Apple IIgs.',0D,'Walter Tengler, 2026',0D,0D
+AboutText   asc   '93/MegaconvertGS 1.4',0D,'An image converter for the Apple IIgs.',0D,'Walter Tengler, 2026',0D,0D
             asc   'A successor to SuperConvert by Jason Harper and Ian Brumby, '
             asc   'published with the kind permission of Ian Brumby./^#0',00
 TxtProblem  asc   '52/The file could not be read or saved (error ',00
 TxtProblemEnd asc ')./^#0',00
 ErrCodes    dw    errNotPicture,errUnsupported,errTooBig,errCorrupt,$0201
-            dw    errPW640,errIcon640,errIconBig,errIconRes,errNotImpl,errCopy,errFont,0
+            dw    errPW640,errIcon640,errIconBig,errIconRes,errNotImpl,errCopy,errFont,errNoBabel,0
 ErrTexts    da    MsgNotPic,MsgUnsup,MsgBig,MsgCorrupt,MsgMemory
-            da    MsgPW640,MsgIcon640,MsgIconBig,MsgIconRes,MsgNotImpl,MsgCopy,MsgFont
+            da    MsgPW640,MsgIcon640,MsgIconBig,MsgIconRes,MsgNotImpl,MsgCopy,MsgFont,MsgNoBabel
 MsgNotPic   asc   '52/This file is not a picture MegaconvertGS can read./^#0',00
 MsgUnsup    asc   '52/This kind of picture can',27,'t be read yet./^#0',00
 MsgBig      asc   '52/The picture is too large (at most 4096 x 4096 pixels, JPEG 2048 wide)./^#0',00
@@ -2494,6 +2656,7 @@ MsgIconRes  asc   '52/An icon resource can be at most a quarter of the screen./^
 MsgMemory   asc   '52/There isn',27,'t enough memory for this picture./^#0',00
 MsgNotImpl  asc   '52/This format has not been implemented yet./^#0',00
 MsgCopy     asc   '52/I am having a hard time cutting or copying to the Clipboard./^#0',00
+MsgNoBabel  asc   '22/Unable to startup Babelfish./^#1',00
 MsgFont     asc   '52/I am having a hard time trying to display a font. Font appears to be damaged./^#0',00
 OpenPrompt  str   'Select file to load and convert:'
 SavePrompt  str   'Name to save as:'
@@ -2506,10 +2669,12 @@ FmtIds      da    0,IdC1,IdAPF,IdPacked,IdPW,IdBMP,IdGIF,IdPNG,IdJPEG
             da    IdO27,IdO28,IdO29,IdO30,IdO31,IdO32,IdO33,IdO34
             da    IdO35,IdO36,IdO37,IdO38,IdO39,IdO40,IdO41,IdO42
             da    IdO43,IdO44,IdO45,IdO46,IdO47,IdO48,IdO49,IdO50
-            da    IdNone,IdWOA,IdNone,IdNone,IdTGA,IdPICT   ; (51: none)
+            da    IdNone,IdWOA,IdBFTrue,IdBFPix,IdTGA,IdPICT   ; (51: none)
             da    IdZX,IdMS2,IdMS5,IdMS7,IdMS8,IdArtSt,IdAAS,IdCPC0,IdCPC1,IdCPC2
             da    IdFLI,IdAmica,IdMIC,IdGR8,IdGR9,IdLoRes,IdDLoRes
-IdNone      asc   '-',00                ; (53, 54: the Babelfish imports)
+IdNone      asc   '-',00
+IdBFTrue    asc   'bftrue',00           ; (53, 54: the Babelfish imports;
+IdBFPix     asc   'bfpix',00            ;   14, 15: its exports)
 IdTGA       asc   'tga',00
 IdPICT      asc   'pict',00
 IdZX        asc   'zx',00
@@ -2583,14 +2748,13 @@ IdO50   asc   'tiff',00
 
 * Save formats, by number: short names for the test commands.
 SaveIds     da    0,IdC1,IdAPF,IdPacked,IdPW,SiIcon,SiIconAdd,SiRIcon,SiRIconAdd,SiHex,IdGIF,IdPNG,IdO50
-            da    SiDesk,SiNone,SiNone,IdBMP,IdHGR,IdHGRBW,IdDHR,IdDHRBW,IdLoRes,IdDLoRes
+            da    SiDesk,IdBFTrue,IdBFPix,IdBMP,IdHGR,IdHGRBW,IdDHR,IdDHRBW,IdLoRes,IdDLoRes
             da    SiHGRP,SiHGRBWP,SiDHRP,SiDHRBWP
 SiHGRP      asc   'hgrp',00
 SiHGRBWP    asc   'hgrbwp',00
 SiDHRP      asc   'dhrp',00
 SiDHRBWP    asc   'dhrbwp',00
 SiDesk      asc   'desk',00
-SiNone      asc   '-',00                ; (14, 15: the Babelfish exports)
 SiIcon      asc   'icon',00
 SiIconAdd   asc   'iconadd',00
 SiRIcon     asc   'ricon',00

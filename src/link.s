@@ -67,3 +67,8 @@
             KND   #$1000
             ALI   None
             LNA   MegaconvertGS
+            ASM   Babel.s
+            SNA   Babel
+            KND   #$1000
+            ALI   None
+            LNA   MegaconvertGS

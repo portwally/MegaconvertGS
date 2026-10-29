@@ -12,8 +12,8 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA = json.load(open(os.path.join(ROOT, "docs", "superconvert-ui-data.json")))
 
 S, C, SC, M = 1, 2, 3, 4      # icons: screen, true color, both, monochrome
-# Not implemented yet: the Babelfish imports 53 and 54; saves: the Babelfish exports 14
-# and 15. New Print Shop graphics (51) is left out of the list altogether (DROPPED): no
+# The Babelfish imports are 53 and 54, its exports saves 14 and 15 (src/Babel.s).
+# New Print Shop graphics (51) is left out of the list altogether (DROPPED): no
 # description of its Apple II files exists, and SuperConvert never loaded it either.
 TYPES = [
     ("Apple II family", [("fmtHGRBW", S), ("fmtHGR", S), ("fmtDHRBW", S), ("fmtDHR", S),

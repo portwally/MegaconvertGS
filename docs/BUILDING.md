@@ -171,6 +171,14 @@ byte) or against a model written from SuperConvert's documented behaviour:
 - `deskinit` saves desktop background INITs and checks each as an OMF load file holding
   MegaconvertGS's own INIT and the packed desktop message.
 - `help` works the help window; `tiffopt` the TIFF Save Options.
+- `babel` installs Babelfish on the test disk (Seven Hills' freeware archive,
+  `babelfish.bxy` from speccie.uk, in `build/babelfish/` or `~/Downloads/`, or named by
+  `BABELFISH`; without it the suite is skipped; `nulib2` unpacks it) and imports and
+  exports through its translators: imports compared with the same files loaded directly,
+  exports loaded back, Re-convert, Babelfish's own Open and Export dialogs worked with
+  keys, and a run without Babelfish for its start-up error. `BABELFISH=path` puts it on
+  the disk for any `test/run.sh` run; the `BFNAME` and `BFLAST` test commands choose a
+  translator by name and log the last one used.
 
 `test/timing.sh` times saves, filters and the monochrome conversions (the `TIMING 1` test
 command logs each command's ticks); `test/speed/` holds the models and exactness checks
