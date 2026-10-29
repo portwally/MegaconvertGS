@@ -81,7 +81,7 @@ for name, label, endian, scr, w, bits_ok, unit, desc in (
         elif (tags[256][0], tags[257][0], tags[262][0], tags[259][0]) != (w, 200, 3, 1): prob = "size or kind"
         elif bits_ok and tags[258][0] not in bits_ok: prob = f"{tags[258][0]} bits"
         elif tags[296][0] != unit or tags.get(270) != desc: prob = f"unit {tags[296]}, {tags.get(270)!r}"
-        elif tags[305] != "MegaconvertGS 1.3" or tags[316] != "Apple IIgs" or len(tags[306]) != 19: prob = "Software, DateTime, HostComputer"
+        elif tags[305] != "MegaconvertGS 1.4" or tags[316] != "Apple IIgs" or len(tags[306]) != 19: prob = "Software, DateTime, HostComputer"
         elif pixels(d, tags) != screen_colours(scr, w): prob = "pixels differ"
         report(label, prob)
         if name == "TIFPM":
