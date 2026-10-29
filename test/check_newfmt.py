@@ -7,9 +7,9 @@ fix = os.path.join(root, "build", "fixtures", "newfmt")
 res = os.path.join(root, "build", "test", "results")
 CODES = {"tga": 55, "pict": 56, "pnm": 46, "zx": 57, "msx2": 58, "msx5": 59, "msx7": 60, "msx8": 61,
          "artst": 62, "aas": 63, "cpc0": 64, "cpc1": 65, "cpc2": 66, "fli": 67, "amica": 68,
-         "mic": 69, "gr8": 70, "gr9": 71, "c64ps": 36}
+         "mic": 69, "gr8": 70, "gr9": 71, "c64ps": 36, "lores": 72, "dlores": 73}
 AUTO = {"cpc0": "cpc1", "cpc2": "cpc1"}   # what Open makes of each by itself, where it differs
-SCREEN = {"zx", "msx2", "artst", "aas", "cpc0", "cpc1", "cpc2", "fli", "amica", "mic", "gr8", "gr9", "c64ps"}   # screen images: in the saved screen's colours
+SCREEN = {"zx", "msx2", "artst", "aas", "cpc0", "cpc1", "cpc2", "fli", "amica", "mic", "gr8", "gr9", "c64ps", "lores", "dlores"}   # screen images: in the saved screen's colours
 
 def screen_rgb(c1, w, h):
     """The top left w x h of a $C1 screen as RGB (w 640: 640 mode lines)."""

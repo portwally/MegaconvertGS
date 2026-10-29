@@ -188,6 +188,16 @@ segment includes.
   black & white), 41 s (Double HiRes colour) and 30 s (Double HiRes black & white). The
   segment was at the 64K limit: the new code keeps its line buffers in GIF's LZW tables,
   and PNG's two line buffers moved there too.
+- **Apple II LoRes and Double LoRes** (save numbers 21, 22; load formats 72, 73 in the
+  Other segment, `src/LoRes.s`): the text page, 1024 bytes (Double LoRes: the auxiliary
+  page, then the main one, 2048 bytes), a byte two blocks, the top one in its low 4 bits,
+  in LoRes's colour numbers (the Double HiRes ones with bits 1 and 3 swapped); Double
+  LoRes's columns alternate between auxiliary and main memory, the auxiliary ones' bits
+  turned right by one (the video turns them left). They load as 280 x 192 in 320 mode,
+  a block 7 x 4 (Double LoRes: column k from 7k / 2), so a saved picture's places are
+  exactly its blocks and it saves back as it was; Open takes 1024 and 2048-byte files
+  this way. The saves dither as the other Apple II ones, 40 or 80 places across and 48
+  rows down, $06 files with aux type $0400.
 - **Four more Commodore 64 formats:** Art Studio (hires, 9009 bytes) and Advanced Art
   Studio (multicolour, 10018 bytes), the same parts as Doodle and Koala in another order;
   FLI Graph (17409 bytes: new screen colours on every line; the first three columns, which

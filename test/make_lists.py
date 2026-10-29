@@ -41,7 +41,8 @@ EXTRA_FORMATS = {"Commodore 64/128": [("fmtArtSt", S, "Art Studio, Interpaint hi
                                       ("fmtFLI", S, "FLI Graph (.FLI)"), ("fmtAmica", S, "Amica Paint (.AMI)")],
                  "Computer-independent": [("fmtTIFF", C, "TIFF (Tagged Image File Format)"),
                                           ("fmtTGA", C, "Truevision Targa (.TGA)")],
-                 "Macintosh": [("fmtPICT", C, "QuickDraw picture (PICT)")]}
+                 "Macintosh": [("fmtPICT", C, "QuickDraw picture (PICT)")],
+                 "Apple II family": [("fmtLoRes", S, "LoRes (40 x 48)"), ("fmtDLoRes", S, "Double LoRes (80 x 48)")]}
 EXTRA_FILTERS = {"fmtTIFF": bytes.fromhex("000000000000060400000000080000000000ff000000ffff"),
                  "fmtTGA": bytes.fromhex("000000000000060400000000120000000000ff000000ffff"),
                  "fmtPICT": bytes.fromhex("0000000000000604000000000a0000000000ff000000ffff")}
@@ -71,10 +72,12 @@ for fmt in ("fmtMIC", "fmtGR8", "fmtGR9"):
     EXTRA_FILTERS[fmt] = bytes.fromhex("000000000000060400000000" + "28000000" + "65250000" + "0000ffff")
 EXTRA_FILTERS["fmtFLI"] = bytes.fromhex("000000000000060400000000" + "01440000" + "01440000" + "0000ffff")
 EXTRA_FILTERS["fmtAmica"] = bytes.fromhex("000000000000060400000000" + "04000000" + "13270000" + "0000ffff")
+EXTRA_FILTERS["fmtLoRes"] = bytes.fromhex("000000000000060400000000" + "f8030000" + "00040000" + "0000ffff")
+EXTRA_FILTERS["fmtDLoRes"] = bytes.fromhex("000000000000060400000000" + "f8070000" + "00080000" + "0000ffff")
 EXTRA_FILTERS["fmtZX"] = bytes.fromhex("000000000000060400000000" + "00180000" + "001b0000" + "0000ffff")
 EXTRA_SAVES = [(7, "Icon resource (new file)"), (16, "BMP (Windows bitmap)"), (17, "Apple II HiRes color"),
                (18, "Apple II HiRes black & white"), (19, "Apple II Double HiRes color"),
-               (20, "Apple II Double HiRes b & w")]
+               (20, "Apple II Double HiRes b & w"), (21, "Apple II LoRes"), (22, "Apple II Double LoRes")]
 
 types = DATA["computerTypes"]
 assert [t["name"] for t in types] == [n for n, _ in TYPES], "computer types differ"

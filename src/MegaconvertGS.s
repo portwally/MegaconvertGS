@@ -2507,7 +2507,7 @@ FmtIds      da    0,IdC1,IdAPF,IdPacked,IdPW,IdBMP,IdGIF,IdPNG,IdJPEG
             da    IdO43,IdO44,IdO45,IdO46,IdO47,IdO48,IdO49,IdO50
             da    IdNone,IdWOA,IdNone,IdNone,IdTGA,IdPICT   ; (51: none)
             da    IdZX,IdMS2,IdMS5,IdMS7,IdMS8,IdArtSt,IdAAS,IdCPC0,IdCPC1,IdCPC2
-            da    IdFLI,IdAmica,IdMIC,IdGR8,IdGR9
+            da    IdFLI,IdAmica,IdMIC,IdGR8,IdGR9,IdLoRes,IdDLoRes
 IdNone      asc   '-',00                ; (53, 54: the Babelfish imports)
 IdTGA       asc   'tga',00
 IdPICT      asc   'pict',00
@@ -2526,6 +2526,8 @@ IdAmica     asc   'amica',00
 IdMIC       asc   'mic',00
 IdGR8       asc   'gr8',00
 IdGR9       asc   'gr9',00
+IdLoRes     asc   'lores',00
+IdDLoRes    asc   'dlores',00
 IdWOA       asc   'woa',00
 IdC1        asc   'c1',00
 IdAPF       asc   'apf',00
@@ -2580,7 +2582,7 @@ IdO50   asc   'tiff',00
 
 * Save formats, by number: short names for the test commands.
 SaveIds     da    0,IdC1,IdAPF,IdPacked,IdPW,SiIcon,SiIconAdd,SiRIcon,SiRIconAdd,SiHex,IdGIF,IdPNG,IdO50
-            da    SiDesk,SiNone,SiNone,IdBMP,IdHGR,IdHGRBW,IdDHR,IdDHRBW
+            da    SiDesk,SiNone,SiNone,IdBMP,IdHGR,IdHGRBW,IdDHR,IdDHRBW,IdLoRes,IdDLoRes
 SiDesk      asc   'desk',00
 SiNone      asc   '-',00                ; (14, 15: the Babelfish exports)
 SiIcon      asc   'icon',00

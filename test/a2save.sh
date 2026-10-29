@@ -5,6 +5,7 @@
 cd "$(dirname "$0")/.."
 [ -f build/fixtures/S320.c1 ] || ./test/fixtures.sh > /dev/null
 python3 -I test/make_apple.py build/fixtures/apple build/fixtures > /dev/null
+python3 -I test/make_newfmt.py build/fixtures > /dev/null
 python3 -I test/check_a2save.py commands > build/a2save.test
 COMMANDS=build/a2save.test RUN_SECONDS="${RUN_SECONDS:-1800}" DUMP_EVERY=100 ./test/run.sh > /dev/null
 python3 -I test/check_a2save.py

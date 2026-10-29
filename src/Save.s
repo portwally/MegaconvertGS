@@ -32,7 +32,8 @@ svPNG       =     11
 svTIFF      =     12
 svDesk      =     13
 svBMP       =     16                    ; (14, 15: the Babelfish exports, not here)
-svDHRBW     =     20                    ; (17-20: Apple II HiRes and Double HiRes)
+svLoRes     =     21                    ; (17-20: Apple II HiRes and Double HiRes;
+svDLoRes    =     22                    ; 21, 22: LoRes and Double LoRes)
 
 * SaveFormat: A = format. Out: carry clear, or carry set and A = error.
 SaveFormat  ent
@@ -45,7 +46,7 @@ SaveFormat  ent
             stz   ohnd+2
             sec
             sbc   #svPW
-            cmp   #svDHRBW-svPW+1
+            cmp   #svDLoRes-svPW+1
             bcs   :bad
             asl
             tax
@@ -59,7 +60,7 @@ SaveFormat  ent
             rtl
 :kinds      da    SavePW,SaveIcon,SaveIconAdd,SaveRIcon,SaveRIconAdd,SaveHex
             da    SaveGIF,SavePNG,SaveTIFF,SaveDesk,SaveNone,SaveNone,SaveBMP
-            da    SaveHGR,SaveHGRBW,SaveDHR,SaveDHRBW
+            da    SaveHGR,SaveHGRBW,SaveDHR,SaveDHRBW,SaveLoRes,SaveDLoRes
 SaveNone    lda   #errNotImpl
             sec
             rts
@@ -550,6 +551,10 @@ SaveHGRBW   lda   #1
 SaveDHR     lda   #2
             bra   SaveA2
 SaveDHRBW   lda   #3
+            bra   SaveA2
+SaveLoRes   lda   #4
+            bra   SaveA2
+SaveDLoRes  lda   #6
 SaveA2      sta   A2Kind
             asl
             tax
@@ -560,6 +565,10 @@ SaveA2      sta   A2Kind
             lda   A2Sizes,x
             sta   n0
             stz   n0+2
+            lda   A2Hs,x                ; lines (or LoRes rows)
+            sta   A2H
+            lda   A2Auxs,x
+            sta   A2Aux
             jsr   OutNew
             bcc   :buf
             rts
@@ -599,17 +608,17 @@ SaveA2      sta   A2Kind
             lsr
             cmp   A2W
             bcc   :cx
-            stz   A2SY                  ; the lines: from y ph / 192 up to
-            stz   A2AccY                ; (y + 1) ph / 192 (one at least)
+            stz   A2SY                  ; the lines: from y ph / H up to
+            stz   A2AccY                ; (y + 1) ph / H (one at least)
             stz   A2Y
 :row        lda   A2SY
             sta   PY
             lda   A2AccY
             clc
             adc   ph
-:rn         cmp   #192
+:rn         cmp   A2H
             bcc   :rs
-            sbc   #192
+            sbc   A2H
             inc   A2SY
             bra   :rn
 :rs         sta   A2AccY
@@ -639,18 +648,23 @@ SaveA2      sta   A2Kind
             bne   :add
             jsr   Average
             jsr   A2Line
-            lda   A2Y
+            lda   A2Kind
+            cmp   #4
+            bcc   :hires
+            jsr   PackLo
+            bra   :next
+:hires      lda   A2Y
             jsr   HRowOff
             sta   A2Off
             jsr   PackDots
-            inc   A2Y
+:next       inc   A2Y
             lda   A2Y
-            cmp   #192
+            cmp   A2H
             bcs   :done
             jmp   :row
 :done       lda   #$0006
             sta   otype
-            lda   #$2000
+            lda   A2Aux
             sta   oaux
             stz   oaux+2
             clc
@@ -1257,6 +1271,80 @@ PackDots    ldx   #0
             bcc   :g
             rts
 
+* PackLo: a LoRes row (Dots: colour numbers) into the text page: row y
+* is half of text line y / 2 (the low 4 bits when y is even); LoRes
+* numbers the colours its own way (bits 1 and 3 swapped). Double LoRes:
+* columns by turns in auxiliary memory (its colour bits turned right by
+* one, as the video shows them turned left) and main memory (1024 bytes
+* on).
+PackLo      lda   A2Y                   ; the text line's offset:
+            lsr                         ; (t & 7) * 128 + (t >> 3) * 40
+            sta   t0
+            and   #$0007
+            xba
+            lsr
+            sta   t1
+            lda   t0
+            lsr
+            lsr
+            lsr
+            sta   t0
+            asl
+            asl
+            clc
+            adc   t0
+            asl
+            asl
+            asl
+            clc
+            adc   t1
+            sta   A2Off
+            ldx   #0
+:p          lda   Dots,x
+            and   #$000F
+            tay
+            lda   A2ToLo,y
+            and   #$000F
+            sta   A2V
+            txa
+            ldy   A2Kind
+            cpy   #6
+            bne   :col
+            lsr                         ; Double LoRes: its column
+            bcs   :main
+            pha
+            lda   A2V                   ; auxiliary: bits turned right
+            lsr
+            bcc   :rot
+            ora   #$0008
+:rot        sta   A2V
+            pla
+            bra   :col
+:main       adc   #1024-1               ; (carry set: + 1024)
+:col        clc
+            adc   A2Off
+            tay
+            lda   A2Y
+            lsr
+            bcc   :low
+            lda   A2V                   ; odd rows: the high 4 bits
+            asl
+            asl
+            asl
+            asl
+            sta   A2V
+:low        sep   #$20
+            mx    %10
+            lda   [outp],y
+            ora   A2V
+            sta   [outp],y
+            rep   #$20
+            mx    %00
+            inx
+            cpx   A2W
+            bcc   :p
+            rts
+
 * HRowOff: A = screen line -> A = its offset in a HiRes page.
 HRowOff     sta   t0
             and   #$0007                ; (y & 7) * $400
@@ -1375,9 +1463,14 @@ A2E1        dw    0
 A2E3        dw    0
 A2E5        dw    0
 A2E7        dw    0
-A2Ws        dw    140,280,140,560
-A2Dots      dw    280,280,560,560
-A2Sizes     dw    8192,8192,16384,16384
+A2Ws        dw    140,280,140,560,40,0,80
+A2Dots      dw    280,280,560,560,0,0,0
+A2Sizes     dw    8192,8192,16384,16384,1024,0,2048
+A2Hs        dw    192,192,192,192,48,0,48
+A2Auxs      dw    $2000,$2000,$2000,$2000,$0400,0,$0400
+A2ToLo      db    0,1,8,9,4,5,12,13,2,3,10,11,6,7,14,15
+A2H         dw    0
+A2Aux       dw    0
 A2Kind      dw    0
 A2W         dw    0
 A2DotN      dw    0

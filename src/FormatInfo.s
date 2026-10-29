@@ -23,7 +23,7 @@ FmtInfo     da    FiSHR,FiC1,FiAPF,FiPacked,FiPW,FiBMP,FiGIF,FiPNG,FiJPEG,FiHGR,
             da    FiMacMono,FiMacSM,FiGEM,FiPCX,FiFli,FiSun,FiSGI,FiPNM,FiRLE,FiIPI,FiQRT
             da    FiTIFF,0,FiWOA,FiBabelTC,FiBabelPM,FiTGA,FiPICT
             da    FiZX,FiMS2,FiMS5,FiMS7,FiMS8,FiArtSt,FiAAS,FiCPC0,FiCPC1,FiCPC2
-            da    FiFLI,FiAmica,FiMIC,FiGR8,FiGR9
+            da    FiFLI,FiAmica,FiMIC,FiGR8,FiGR9,FiLoRes,FiDLoRes
 
 FiFLI       asc   '93/FLI Graph (.FLI): Commodore 64 multicolor pictures with new screen colors '
             asc   'on every line, 17409 bytes.',0D,'It becomes a screen image in the C64',27,'s 16 '
@@ -41,6 +41,15 @@ FiGR8       asc   '93/Atari Graphics 8 screen (.GR8): 320 x 192 in 2 colors, 768
 
 FiGR9       asc   '93/Atari Graphics 9 screen (.GR9): 80 x 192 in 16 grays, 7680 bytes.',0D,'It '
             asc   'becomes a screen image in 16 grays, its dots four times as wide./^#0',00
+
+FiLoRes     asc   '93/LoRes: the Apple II low resolution screen, 1024 bytes (the text page, '
+            asc   'usually a BIN file): 40 x 48 blocks in 16 colors.',0D,'Loaded as 280 x 192 in '
+            asc   '320 mode, each block 7 x 4 pixels. Open takes a 1024-byte file this way./^#0',00
+
+FiDLoRes    asc   '93/Double LoRes: the 80-column low resolution screen of the Apple IIe, IIc and '
+            asc   'IIgs, 2048 bytes, the auxiliary memory half first: 80 x 48 blocks in 16 colors.'
+            asc   0D,'Loaded as 280 x 192 in 320 mode, each block 3 or 4 pixels across and 4 '
+            asc   'down. Open takes a 2048-byte file this way./^#0',00
 
 FiArtSt     asc   '93/Art Studio (OCP): hires pictures from the Commodore 64',27,'s Art Studio, '
             asc   '9009 bytes: 320 x 200 dots, a color pair for each 8 x 8 cell; and the same '
@@ -100,7 +109,7 @@ FiPICT      asc   '93/QuickDraw picture (PICT): the Macintosh',27,'s picture for
 
 SaveInfo    da    0,FiSvC1,FiSvAPF,FiSvPack,FiSvPW,FiSvIcon,FiSvIconAdd,FiSvRIcon
             da    FiSvRIcAdd,FiSvHex,FiSvGIF,FiSvPNG,FiSvTIFF,FiSvDesk,FiSvBabelTC
-            da    FiSvBabelPM,FiSvBMP,FiSvHGR,FiSvHGRBW,FiSvDHR,FiSvDHRBW
+            da    FiSvBabelPM,FiSvBMP,FiSvHGR,FiSvHGRBW,FiSvDHR,FiSvDHRBW,FiSvLoRes,FiSvDLoRes
 
 * Load formats
 
@@ -476,6 +485,17 @@ FiSvDHRBW   asc   '93/Double HiRes black & white: the Apple II double high resol
             asc   'ProDOS type $06 (BIN), aux type $2000, 16384 bytes, the auxiliary half first: '
             asc   '560 x 192 dots.',0D,'The picture is fitted to the Apple II screen and dithered '
             asc   'with error diffusion./^#0',00
+
+FiSvLoRes   asc   '93/LoRes: the Apple II low resolution screen, ProDOS type $06 (BIN), aux type '
+            asc   '$0400, 1024 bytes (the text page): 40 x 48 blocks in 16 colors.',0D,'The picture '
+            asc   'is fitted to the Apple II screen and dithered with error diffusion; a picture '
+            asc   'in the Apple II colors keeps them./^#0',00
+
+FiSvDLoRes  asc   '93/Double LoRes: the low resolution screen of the Apple IIe, IIc and IIgs with '
+            asc   '80 columns, ProDOS type $06 (BIN), aux type $0400, 2048 bytes, the auxiliary '
+            asc   'memory half first: 80 x 48 blocks in 16 colors.',0D,'The picture is fitted to '
+            asc   'the Apple II screen and dithered with error diffusion; a picture in the Apple II '
+            asc   'colors keeps them./^#0',00
 
 FiSvBabelPM asc   '93/Babelfish PixelMap Export: the screen picture written through Babelfish, '
             asc   'Seven Hills Software',27,'s file translator system, in a format its '

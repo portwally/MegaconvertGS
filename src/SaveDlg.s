@@ -1053,7 +1053,7 @@ TxHxL3      asc   'End of line:'
 * page, two screens high, two wide), the largest original (bytes, lines).
 SvRecs      da    RecC1,RecC1,RecAPF,RecPack,RecPW,RecIcon,RecIcon,RecRIcon,RecRIcon
             da    RecHex,RecGIF,RecPNG,RecTIFF,RecDesk,RecPNG,RecPNG,RecPNG
-            da    RecHex,RecHex,RecHex,RecHex  ; (Apple II: stretched to its screen)
+            da    RecHex,RecHex,RecHex,RecHex,RecHex,RecHex  ; (Apple II: fitted to its screen)
 RecPW       dw    $0005
             db    $04,$04
             dw    0,0

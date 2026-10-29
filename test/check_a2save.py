@@ -9,10 +9,13 @@ PICTURES = [  # tag, file on the test disk, load format id, width, height
     ("DHR", "MCAPPLE:DHR.PIC", "dhr", 280, 192),
     ("DHB", "MCAPPLE:DHRBW.PIC", "dhrbw", 560, 192),
     ("HGB", "MCAPPLE:HGRBW.PIC", "hgrbw", 280, 192),
+    ("LOR", "MCNEWFMT:LORES", "lores", 280, 192),
+    ("DLR", "MCNEWFMT:DLORES", "dlores", 280, 192),
 ]
-FORMATS = ["hgr", "hgrbw", "dhr", "dhrbw"]
+FORMATS = ["hgr", "hgrbw", "dhr", "dhrbw", "lores", "dlores"]
 # saved as it was loaded: (tag, format) -> the original file
-SAME = {("DHR", "dhr"): "DHR.PIC", ("DHB", "dhrbw"): "DHRBW.PIC", ("HGB", "hgrbw"): "HGRBW.PIC"}
+SAME = {("DHR", "dhr"): "DHR.PIC", ("DHB", "dhrbw"): "DHRBW.PIC", ("HGB", "hgrbw"): "HGRBW.PIC",
+        ("LOR", "lores"): "../newfmt/LORES", ("DLR", "dlores"): "../newfmt/DLORES"}
 if sys.argv[1:] == ["commands"]:
     for tag, disk, fid, w, h in PICTURES:
         print(f"LOAD AS {fid} *:{disk}")
@@ -60,6 +63,10 @@ def near(v, cands):
             best = (d, k)
     return best[1]
 
+TOLO = [0, 1, 8, 9, 4, 5, 12, 13, 2, 3, 10, 11, 6, 7, 14, 15]
+def TEXTOFF(t):
+    return (t & 7) * 128 + (t >> 3) * 40
+
 def rowoff(y):
     return (y & 7) * 0x400 + (y >> 3 & 7) * 0x80 + (y >> 6) * 40
 
@@ -68,14 +75,16 @@ def model(rows, w, h, fmt):
     of the pixels it covers (channels 0-255, rounded down; columns i w / W up to (i + 1) w / W,
     lines y h / 192 up to (y + 1) h / 192, one at least), then with Floyd-Steinberg errors (7, 3, 5 and the rest of 16ths, rounded down; dropped at the
     edges) taken to the closest it can be."""
-    places = {"hgr": 140, "hgrbw": 280, "dhr": 140, "dhrbw": 560}[fmt]
+    places = {"hgr": 140, "hgrbw": 280, "dhr": 140, "dhrbw": 560, "lores": 40, "dlores": 80}[fmt]
+    lo = fmt.endswith("lores")
+    H = 48 if lo else 192
     bw = fmt.endswith("bw")
     top = 2550 if bw else 255
     nch = 1 if bw else 3
-    out = bytearray(8192 if fmt.startswith("hgr") else 16384)
+    out = bytearray({"hgr": 8192, "hgrbw": 8192, "dhr": 16384, "dhrbw": 16384, "lores": 1024, "dlores": 2048}[fmt])
     err = [[0] * (places + 2) for _ in range(nch)]          # for this line, at place + 1
-    for y in range(192):
-        r0, r1 = y * h // 192, (y + 1) * h // 192
+    for y in range(H):
+        r0, r1 = y * h // H, (y + 1) * h // H
         lines = rows[r0:max(r1, r0 + 1)]
         vals = []
         for i in range(places):
@@ -102,7 +111,9 @@ def model(rows, w, h, fmt):
                 cands = [0, 15, dotcol[2 * i], dotcol[2 * i + 1]] if fmt == "hgr" else list(range(16))
                 k = near(v, cands)
                 p = comps(A2PAL[cands[k]])
-                if fmt == "hgr":
+                if lo:
+                    dots.append(cands[k])
+                elif fmt == "hgr":
                     dots += [(0, 0), (1, 1), (1, 0), (0, 1)][k]
                 else:
                     n = cands[k]
@@ -118,6 +129,15 @@ def model(rows, w, h, fmt):
             nxt[ch][0] = 0
             nxt[ch][places + 1] = 0
         err = nxt
+        if lo:                                              # the text page: LoRes colour numbers
+            for i, n in enumerate(dots):
+                c = TOLO[n]
+                at = TEXTOFF(y >> 1) + (i >> 1 if fmt == "dlores" else i)
+                if fmt == "dlores":
+                    if i & 1: at += 1024
+                    else: c = (c >> 1 | c << 3) & 15
+                out[at] |= c << (4 if y & 1 else 0)
+            continue
         for g in range(len(dots) // 7):
             byte = sum(dots[7 * g + i] << i for i in range(7))
             if fmt == "hgr" and vote[g] > 0:
@@ -129,8 +149,14 @@ def model(rows, w, h, fmt):
     return bytes(out)
 
 def visible(data, size):
-    """The screen bytes of a HiRes page (or two): the low 7 bits, no screen holes."""
+    """The screen bytes of a HiRes page (or two): the low 7 bits, no screen holes; of a
+    text page (or two): all 8 bits, no screen holes."""
     keep = bytearray()
+    if size <= 2048:
+        for half in range(0, size, 1024):
+            for t in range(24):
+                keep += data[half + TEXTOFF(t):half + TEXTOFF(t) + 40]
+        return bytes(keep)
     for half in range(0, size, 8192):
         for y in range(192):
             keep += bytes(b & 0x7F for b in data[half + rowoff(y):half + rowoff(y) + 40])
@@ -153,11 +179,12 @@ for tag, disk, fid, w, h in PICTURES:
             ok = False
             diff = [i for i in range(len(want)) if i >= len(got) or got[i] != want[i]]
             res_ += f" ({len(got)} bytes, {len(diff)} differ, first at {diff[0] if diff else '-'})"
-        if not typ.upper().startswith("062000"):
-            res_ += f" (type {typ}, not $06/$2000)"; ok = False
+        want_aux = "060400" if fmt.endswith("lores") else "062000"
+        if not typ.upper().startswith(want_aux):
+            res_ += f" (type {typ}, not ${want_aux[:2]}/${want_aux[2:]})"; ok = False
         extra = ""
         if (tag, fmt) in SAME:
-            orig = open(os.path.join(root, "build", "fixtures", "apple", SAME[(tag, fmt)]), "rb").read()
+            orig = open(os.path.normpath(os.path.join(root, "build", "fixtures", "apple", SAME[(tag, fmt)])), "rb").read()
             same = visible(orig, len(want)) == visible(got, len(want))
             extra = "  saved as loaded" if same else "  NOT as loaded"
             ok &= same

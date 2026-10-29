@@ -597,6 +597,35 @@ for y in range(200):
 save("PIC.AMI", amica(koala), "amica", rows, 320, 200)
 
 # Named as a PICT, but a PPM: Open goes on to what it is.
+# ---- Apple II LoRes and Double LoRes: the text page, a block 7 x 4 (Double: 3 or 4 across) ----
+LRPAL = [0x000, 0xD03, 0x009, 0xD0D, 0x070, 0x555, 0x22F, 0x6AF,
+         0x852, 0xF60, 0xAAA, 0xF98, 0x0D0, 0xFF0, 0x0F9, 0xFFF]
+def lr_off(t): return (t & 7) * 128 + (t >> 3) * 40
+def lores(cols, double):
+    blocks = [[(bx * 3 + by * 5 + bx * by // 7) % 16 for bx in range(cols)] for by in range(48)]
+    data = bytearray(2048 if double else 1024)
+    for by in range(48):
+        for bx in range(cols):
+            c = blocks[by][bx]
+            at = lr_off(by >> 1) + (bx >> 1 if double else bx)
+            if double:
+                if bx & 1: at += 1024
+                else: c = (c >> 1 | c << 3) & 15          # auxiliary: bits turned right
+            data[at] |= c << (4 if by & 1 else 0)
+    ends = [(7 * (k + 1)) // (2 if double else 1) for k in range(cols)]
+    rows = []
+    for y in range(192):
+        row, k = [], 0
+        for x in range(280):
+            while x >= ends[k]: k += 1
+            row.append(shr(LRPAL[blocks[y >> 2][k]]))
+        rows.append(row)
+    return bytes(data), rows
+data, rows = lores(40, False)
+save("LORES", data, "lores", rows, 280, 192)
+data, rows = lores(80, True)
+save("DLORES", data, "dlores", rows, 280, 192)
+
 ppm_rows = scene(40, 30)
 save("NOTPICT.PCT", b"P6 40 30 255\n" + bytes(c for r in ppm_rows for p in r for c in p), "pnm", ppm_rows, 40, 30)
 

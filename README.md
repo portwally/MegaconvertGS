@@ -33,8 +33,8 @@ same result pixel for pixel.
 - **Load & convert:** many files or whole folders at once, loaded one after another, and
   saved automatically if you like.
 - **Save** as Apple Preferred, $C1, PackBytes, PaintWorks, Finder icons, icon resources,
-  a desktop background INIT, hex data, GIF, PNG, TIFF and BMP, and as Apple II HiRes and
-  Double HiRes screens.
+  a desktop background INIT, hex data, GIF, PNG, TIFF and BMP, and as Apple II HiRes,
+  Double HiRes, LoRes and Double LoRes screens.
 - **Extras:** Oscilloscope Art, Examine file (hex, text and histogram), the System info
   report, font lists and key chart, Preferences, and help for every menu item.
 
@@ -65,7 +65,7 @@ New in MegaconvertGS (not in SuperConvert) are marked with ★.
 
 | Computer | Formats |
 |---|---|
-| Apple II | HiRes and Double HiRes (colour or black & white), Print Shop graphics, ThunderScan scans, Works of Art pages (Springboard Publisher), TDM 40 and 80 column text screens |
+| Apple II | HiRes and Double HiRes (colour or black & white), ★ LoRes and Double LoRes, Print Shop graphics, ThunderScan scans, Works of Art pages (Springboard Publisher), TDM 40 and 80 column text screens |
 | Apple IIgs | Super Hi-Res ($C0 PackBytes and Apple Preferred, $C1), PaintWorks and Paintworks Gold, DreamGrafix (256 and 3200 colours), Print Shop IIgs colour graphics and library, Finder icons, AST and ComputerEyes digitizer files, "3200 color" pictures (plain, .3201 and compressed) |
 | Atari ST | Degas, Degas Elite, Neochrome, Tiny, Spectrum 512 (plain and compressed) |
 | Amiga | IFF ILBM (with HAM, Extra HalfBrite and 24-bit) |
@@ -89,10 +89,11 @@ files are not described anywhere.
 Apple Preferred ($C0/2), uncompressed screen ($C1), PackBytes ($C0/1), PaintWorks ($C0/0),
 Finder icon (a new file, or added to one), icon resource (★ a new file, or added to one),
 desktop background image INIT, hex data, GIF, PNG (with compression and comment options),
-TIFF (with SuperConvert's TIFF Save Options), ★ BMP and ★ Apple II HiRes and Double HiRes
-(colour or black & white). GIF, PNG, TIFF and BMP are written with square pixels, as the
-picture looks. The Apple II screens are fitted to 280 x 192 (Double HiRes: 140 x 192
-colour pixels or 560 x 192 dots) and dithered with error diffusion in the Apple II
+TIFF (with SuperConvert's TIFF Save Options), ★ BMP, ★ Apple II HiRes and Double HiRes
+(colour or black & white) and ★ Apple II LoRes and Double LoRes. GIF, PNG, TIFF and BMP
+are written with square pixels, as the picture looks. The Apple II screens are fitted to
+280 x 192 (Double HiRes: 140 x 192 colour pixels or 560 x 192 dots; LoRes: 40 x 48
+blocks; Double LoRes: 80 x 48) and dithered with error diffusion in the Apple II
 colours; HiRes colour works in dot pairs and picks each byte's colour pair. A picture
 already in Apple II colours (Remap's Other palettes have them) keeps them exactly. Not
 there yet: the Babelfish exports.

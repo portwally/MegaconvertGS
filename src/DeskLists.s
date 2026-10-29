@@ -50,7 +50,7 @@ TypeMems    =     *
             dw    13,0,0
 * Each type's formats: where its members are, how many.
 TypeFmts    da    FmMems0,FmMems1,FmMems2,FmMems3,FmMems4,FmMems5,FmMems6,FmMems7,FmMems8,FmMems9,FmMems10,FmMems11,FmMems12,FmMems13
-TypeCount   dw    9,12,6,1,7,5,5,3,3,3,4,1,9,2
+TypeCount   dw    11,12,6,1,7,5,5,3,3,3,4,1,9,2
 FmMems0     =     *
             adrl  FmName0x0
             db    $80,0
@@ -79,6 +79,12 @@ FmMems0     =     *
             adrl  FmName0x8
             db    0,0
             dw    fmtTDM80,1,Filt0x8
+            adrl  FmName0x9
+            db    0,0
+            dw    fmtLoRes,1,Filt0x9
+            adrl  FmName0x10
+            db    0,0
+            dw    fmtDLoRes,1,Filt0x10
 FmMems1     =     *
             adrl  FmName1x0
             db    $80,0
@@ -275,7 +281,7 @@ FmMems13     =     *
             adrl  FmName13x1
             db    0,0
             dw    54,1,Filt13x1
-NSaves      =     20
+NSaves      =     22
 SaveMems    =     *
             adrl  SvName0
             db    0,0
@@ -337,6 +343,12 @@ SaveMems    =     *
             adrl  SvName19
             db    0,0
             dw    20,1,0
+            adrl  SvName20
+            db    0,0
+            dw    21,1,0
+            adrl  SvName21
+            db    0,0
+            dw    22,1,0
 TyName0     dfb   15
             asc   'Apple II family'
 FmName0x0   dfb   19
@@ -357,6 +369,10 @@ FmName0x7   dfb   33
             asc   'TDM 40-column text screen capture'
 FmName0x8   dfb   33
             asc   'TDM 80-column text screen capture'
+FmName0x9   dfb   15
+            asc   'LoRes (40 x 48)'
+FmName0x10  dfb   22
+            asc   'Double LoRes (80 x 48)'
 TyName1     dfb   19
             asc   'Apple IIgs specific'
 FmName1x0   dfb   29
@@ -545,6 +561,10 @@ SvName18    dfb   27
             asc   'Apple II Double HiRes color'
 SvName19    dfb   27
             asc   'Apple II Double HiRes b & w'
+SvName20    dfb   14
+            asc   'Apple II LoRes'
+SvName21    dfb   21
+            asc   'Apple II Double LoRes'
 * File filters: types (A, B; $FFFF: a list), aux min, max, EOF min, max.
 Filt0x0     dw    $0806,$0000,$FFFF
             adrl  $1FF8,$2100
@@ -564,6 +584,10 @@ Filt0x7     dw    $0606,$0000,$FFFF
             adrl  $378,$400
 Filt0x8     dw    $0606,$0000,$FFFF
             adrl  $778,$800
+Filt0x9     dw    $0406,$0000,$FFFF
+            adrl  $3F8,$400
+Filt0x10    dw    $0406,$0000,$FFFF
+            adrl  $7F8,$800
 Filt1x0     dw    $FFFF
             da    FList1x0
 FList1x0   =     *

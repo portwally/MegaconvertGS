@@ -52,7 +52,7 @@ OLoaders    da    LoadDegas,LoadDegasE,LoadNeo,LoadTiny,LoadSPU,LoadSPC,LoadIFF
             da    LoadIPI,LoadQRT,LoadTIFF,LoadNone,LoadNone,LoadNone,LoadNone
             da    LoadTGA,LoadPICT,LoadZX,LoadMS2,LoadMS5,LoadMS7,LoadMS8
             da    LoadArtSt,LoadAAS,LoadCPC0,LoadCPC1,LoadCPC2
-            da    LoadFLI,LoadAmica,LoadMIC,LoadGR8,LoadGR9
+            da    LoadFLI,LoadAmica,LoadMIC,LoadGR8,LoadGR9,LoadLoRes,LoadDLoRes
 LoadNone    lda   #errNotImpl           ; (51-54: not in this segment)
             sec
             rts
@@ -304,6 +304,8 @@ SizeList    dw    32034,fmtDegas
             dw    8002,fmtC64PS
             dw    10018,fmtAAS
             dw    17409,fmtFLI
+            dw    1024,fmtLoRes
+            dw    2048,fmtDLoRes
             dw    7684,fmtMIC
 SizeEnd
 
@@ -2123,4 +2125,5 @@ MacBuf      ds    144
             put   MSX.s
             put   CPC.s
             put   Atari8.s
+            put   LoRes.s
             put   SegLib.s
