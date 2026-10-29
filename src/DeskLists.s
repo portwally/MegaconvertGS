@@ -281,7 +281,7 @@ FmMems13     =     *
             adrl  FmName13x1
             db    0,0
             dw    54,1,Filt13x1
-NSaves      =     22
+NSaves      =     26
 SaveMems    =     *
             adrl  SvName0
             db    0,0
@@ -349,6 +349,18 @@ SaveMems    =     *
             adrl  SvName21
             db    0,0
             dw    22,1,0
+            adrl  SvName22
+            db    0,0
+            dw    23,1,0
+            adrl  SvName23
+            db    0,0
+            dw    24,1,0
+            adrl  SvName24
+            db    0,0
+            dw    25,1,0
+            adrl  SvName25
+            db    0,0
+            dw    26,1,0
 TyName0     dfb   15
             asc   'Apple II family'
 FmName0x0   dfb   19
@@ -565,6 +577,14 @@ SvName20    dfb   14
             asc   'Apple II LoRes'
 SvName21    dfb   21
             asc   'Apple II Double LoRes'
+SvName22    dfb   28
+            asc   'Apple II HiRes color, packed'
+SvName23    dfb   28
+            asc   'Apple II HiRes b & w, packed'
+SvName24    dfb   35
+            asc   'Apple II Double HiRes color, packed'
+SvName25    dfb   35
+            asc   'Apple II Double HiRes b & w, packed'
 * File filters: types (A, B; $FFFF: a list), aux min, max, EOF min, max.
 Filt0x0     dw    $0806,$0000,$FFFF
             adrl  $1FF8,$2100

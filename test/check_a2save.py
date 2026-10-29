@@ -12,7 +12,12 @@ PICTURES = [  # tag, file on the test disk, load format id, width, height
     ("LOR", "MCNEWFMT:LORES", "lores", 280, 192),
     ("DLR", "MCNEWFMT:DLORES", "dlores", 280, 192),
 ]
-FORMATS = ["hgr", "hgrbw", "dhr", "dhrbw", "lores", "dlores"]
+FORMATS = ["hgr", "hgrbw", "dhr", "dhrbw", "lores", "dlores", "hgrp", "hgrbwp", "dhrp", "dhrbwp"]
+# Apple II files of type $08 (test/make_newfmt.py): each opened by itself must give the
+# picture it was made from, loaded as that format.
+OPENS = [("HGR.PK", "MCAPPLE:HGR.PIC", "hgr"), ("DHR.PK", "MCAPPLE:DHR.PIC", "dhr"),
+         ("FOT1", "MCAPPLE:HGR.PIC", "hgr"), ("FOT4", "MCAPPLE:HGR.PIC", "hgrbw"),
+         ("FOT2", "MCAPPLE:DHR.PIC", "dhrbw"), ("FOT3", "MCAPPLE:DHRBW.PIC", "dhr")]
 # saved as it was loaded: (tag, format) -> the original file
 SAME = {("DHR", "dhr"): "DHR.PIC", ("DHB", "dhrbw"): "DHRBW.PIC", ("HGB", "hgrbw"): "HGRBW.PIC",
         ("LOR", "lores"): "../newfmt/LORES", ("DLR", "dlores"): "../newfmt/DLORES"}
@@ -22,6 +27,11 @@ if sys.argv[1:] == ["commands"]:
         print(f"SAVE C1 *:MCOUT:{tag}.C")
         for fmt in FORMATS:
             print(f"SAVE AS {fmt} *:MCOUT:{tag}.{fmt.upper()}")
+    for k, (name, orig, fid) in enumerate(OPENS):
+        print(f"LOAD AS {fid} *:{orig}")
+        print(f"SAVE C1 *:MCOUT:O{k}A")
+        print(f"LOAD *:MCNEWFMT:{name}")
+        print(f"SAVE C1 *:MCOUT:O{k}B")
     print("SHOW")
     sys.exit()
 
@@ -148,6 +158,17 @@ def model(rows, w, h, fmt):
                 out[rowoff(y) + g // 2 + (8192 if g & 1 else 0)] = byte
     return bytes(out)
 
+def unpackbytes(d):
+    o, i = bytearray(), 0
+    while i < len(d):
+        f = d[i]; n = (f & 0x3F) + 1; i += 1
+        k = f >> 6
+        if k == 0: o += d[i:i + n]; i += n
+        elif k == 1: o += bytes([d[i]]) * n; i += 1
+        elif k == 2: o += d[i:i + 4] * n; i += 4
+        else: o += bytes([d[i]]) * (n * 4); i += 1
+    return bytes(o)
+
 def visible(data, size):
     """The screen bytes of a HiRes page (or two): the low 7 bits, no screen holes; of a
     text page (or two): all 8 bits, no screen holes."""
@@ -171,7 +192,10 @@ for tag, disk, fid, w, h in PICTURES:
     for fmt in FORMATS:
         name = f"{tag}.{fmt.upper()}"
         got, typ = ours(name)
-        want = model(rows, w, h, fmt)
+        packed = fmt.endswith("p")
+        want = model(rows, w, h, fmt[:-1] if packed else fmt)
+        if packed and got is not None:
+            got = unpackbytes(got)
         if got is None:
             print(f"{name:12} not saved"); ok = False; continue
         res_ = "OK" if got == want else "DIFFERENT"
@@ -179,7 +203,7 @@ for tag, disk, fid, w, h in PICTURES:
             ok = False
             diff = [i for i in range(len(want)) if i >= len(got) or got[i] != want[i]]
             res_ += f" ({len(got)} bytes, {len(diff)} differ, first at {diff[0] if diff else '-'})"
-        want_aux = "060400" if fmt.endswith("lores") else "062000"
+        want_aux = "060400" if fmt.endswith("lores") else ("084000" if fmt.startswith("hgr") else "084001") if packed else "062000"
         if not typ.upper().startswith(want_aux):
             res_ += f" (type {typ}, not ${want_aux[:2]}/${want_aux[2:]})"; ok = False
         extra = ""
@@ -189,5 +213,13 @@ for tag, disk, fid, w, h in PICTURES:
             extra = "  saved as loaded" if same else "  NOT as loaded"
             ok &= same
         print(f"{name:12} {typ:10} {res_}{extra}")
+log = open(os.path.join(root, "build", "test", "results", "MC.LOG#040000"), "rb").read().decode().split("\r")
+for k, (name, orig, fid) in enumerate(OPENS):
+    a, _ = ours(f"O{k}A")
+    b, _ = ours(f"O{k}B")
+    how = next((l.split(": ", 1)[1] for l in log if l.startswith(f"LOAD *:MCNEWFMT:{name}:")), "?")
+    good = a is not None and a == b
+    ok &= good
+    print(f"{name:12} opened by itself {'as ' + fid + ' OK' if good else 'DIFFERENT'}  ({how})")
 print("all OK" if ok else "FAILED")
 sys.exit(0 if ok else 1)

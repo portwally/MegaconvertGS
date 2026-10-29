@@ -35,13 +35,114 @@ DecodeApple ent
             bne   :table
             jsr   LoadWOA
             bra   :out
-:table      sec
+:table      sta   Want
+            jsr   Unpack8               ; (packed Apple II pictures: unpacked)
+            bcs   :out
+            lda   Want
+            sec
             sbc   #fmtHGR
             asl
             tax
             jsr   (Loaders,x)
+            jsr   Repack8
 :out        plb
             rtl
+
+* Unpack8: a HiRes or Double HiRes picture in a packed Apple II file (type
+* $08, aux type $4000: the 8192-byte screen packed with PackBytes; $4001:
+* the 16384 bytes of Double HiRes, the auxiliary half first) is unpacked
+* into a buffer, which stands for the file (fp, flen) while it loads.
+* Out: carry set and A = error if it doesn't unpack.
+Unpack8     stz   Packed8
+            lda   ftype
+            cmp   #$0008
+            beq   :t8
+:skip       clc
+            rts
+:t8
+            lda   faux
+            cmp   #$4000
+            beq   :hgr
+            cmp   #$4001
+            bne   :skip
+            lda   #16384
+            bra   :size
+:hgr        lda   #8192
+:size       sta   UPOut
+            sta   P8Len
+            lda   Want                  ; (only for the HiRes formats)
+            cmp   #fmtHGR
+            bcc   :skip
+            cmp   #fmtDHRBW+1
+            bcs   :skip
+            lda   flen+2
+            bne   :bad
+            lda   P8Len
+            jsr   NewOut
+            bcc   :buf
+            rts
+:buf        lda   OutP
+            sta   UPDst
+            lda   OutP+2
+            sta   UPDst+2
+            lda   flen
+            bmi   :bad                  ; (PackBytes takes up to 32767 bytes)
+            sta   UPLen
+            lda   fp
+            sta   UPPtr
+            lda   fp+2
+            sta   UPPtr+2
+            pha                         ; result: bytes used
+            PushLongAt UPPtr
+            lda   UPLen
+            pha
+            PushLong UPDst
+            PushLong UPOut
+            Tool  _UnPackBytes
+            pla
+            lda   UPOut                 ; all of the screen there?
+            bne   :short
+            lda   fp                    ; the buffer stands for the file
+            sta   P8Fp
+            lda   fp+2
+            sta   P8Fp+2
+            lda   flen
+            sta   P8Flen
+            lda   OutP
+            sta   fp
+            lda   OutP+2
+            sta   fp+2
+            lda   P8Len
+            sta   flen
+            inc   Packed8
+            clc
+            rts
+:short      jsr   FreeOut
+:bad        lda   #errNotPicture
+            sec
+            rts
+
+* Repack8: the file back as it was after Unpack8 (keeps carry and A).
+Repack8     php
+            pha
+            lda   Packed8
+            beq   :done
+            lda   P8Fp
+            sta   fp
+            lda   P8Fp+2
+            sta   fp+2
+            lda   P8Flen
+            sta   flen
+            jsr   FreeOut
+            stz   Packed8
+:done       pla
+            plp
+            rts
+
+Packed8     dw    0
+P8Len       dw    0
+P8Fp        adrl  0
+P8Flen      dw    0
 
 Loaders     da    LoadHGR,LoadHGRBW,LoadDHR,LoadDHRBW,LoadPSBW,LoadPSGS,LoadCGT
             da    LoadIcon,LoadTScan,LoadTDM40,LoadTDM80,LoadDG,LoadDG3200
@@ -104,8 +205,46 @@ Detect      stz   DGAuto
             clc
             rts
 :notC0      jsr   IsAPP
-            bcs   :sizes
+            bcs   :fot
             lda   #fmt3200C
+            clc
+            rts
+:fot        lda   ftype                 ; Apple II pictures, type $08: packed
+            cmp   #$0008                ; (aux type $4000, $4001), or with their
+            bne   :sizes                ; mode at +120 (1-7; 0 is taken for unset,
+            lda   faux                  ; as most files leave it so)
+            cmp   #$4000
+            bne   :fot1
+            lda   #fmtHGR
+            clc
+            rts
+:fot1       cmp   #$4001
+            bne   :fot2
+            lda   #fmtDHR
+            clc
+            rts
+:fot2       cmp   #$4000
+            bcs   :sizes
+            lda   flen+2
+            bne   :sizes
+            lda   flen
+            cmp   #8184
+            bcc   :sizes
+            ldy   #120
+            lda   [fp],y
+            and   #$00FF
+            beq   :sizes
+            cmp   #8
+            bcs   :sizes
+            and   #$0003
+            asl
+            tax
+            cpx   #4                    ; (Double HiRes: 16K of it there?)
+            bcc   :mode
+            lda   flen
+            cmp   #16376
+            bcc   :sizes
+:mode       lda   FotFmt,x
             clc
             rts
 :sizes      lda   flen+2                ; by size
@@ -152,6 +291,7 @@ Detect      stz   DGAuto
             sec
             rts
 
+FotFmt      dw    fmtHGRBW,fmtHGR,fmtDHRBW,fmtDHR   ; (the mode's 4 kinds)
 SizeLo      dw    8184,16376,572,1716,38400
 SizeHi      dw    8192,16384,572,1716,38400
 SizeFmt     dw    fmtHGR,fmtDHR,fmtPSBW,fmtPSGS,fmt3200

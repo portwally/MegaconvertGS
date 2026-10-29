@@ -33,7 +33,8 @@ svTIFF      =     12
 svDesk      =     13
 svBMP       =     16                    ; (14, 15: the Babelfish exports, not here)
 svLoRes     =     21                    ; (17-20: Apple II HiRes and Double HiRes;
-svDLoRes    =     22                    ; 21, 22: LoRes and Double LoRes)
+svDLoRes    =     22                    ; 21, 22: LoRes and Double LoRes;
+svDHRBWP    =     26                    ; 23-26: HiRes and Double HiRes packed)
 
 * SaveFormat: A = format. Out: carry clear, or carry set and A = error.
 SaveFormat  ent
@@ -46,7 +47,7 @@ SaveFormat  ent
             stz   ohnd+2
             sec
             sbc   #svPW
-            cmp   #svDLoRes-svPW+1
+            cmp   #svDHRBWP-svPW+1
             bcs   :bad
             asl
             tax
@@ -61,6 +62,7 @@ SaveFormat  ent
 :kinds      da    SavePW,SaveIcon,SaveIconAdd,SaveRIcon,SaveRIconAdd,SaveHex
             da    SaveGIF,SavePNG,SaveTIFF,SaveDesk,SaveNone,SaveNone,SaveBMP
             da    SaveHGR,SaveHGRBW,SaveDHR,SaveDHRBW,SaveLoRes,SaveDLoRes
+            da    SaveHGRP,SaveHGRBWP,SaveDHRP,SaveDHRBWP
 SaveNone    lda   #errNotImpl
             sec
             rts
@@ -555,7 +557,20 @@ SaveDHRBW   lda   #3
 SaveLoRes   lda   #4
             bra   SaveA2
 SaveDLoRes  lda   #6
-SaveA2      sta   A2Kind
+            bra   SaveA2
+SaveHGRP    lda   #$80                  ; (packed: type $08, aux type $4000 or
+            bra   SaveA2                ; $4001, the screen packed with PackBytes)
+SaveHGRBWP  lda   #$81
+            bra   SaveA2
+SaveDHRP    lda   #$82
+            bra   SaveA2
+SaveDHRBWP  lda   #$83
+SaveA2      tax
+            and   #$0080
+            sta   A2Pack
+            txa
+            and   #$007F
+            sta   A2Kind
             asl
             tax
             lda   A2Ws,x                ; places on a line
@@ -667,7 +682,66 @@ SaveA2      sta   A2Kind
             lda   A2Aux
             sta   oaux
             stz   oaux+2
+            lda   A2Pack
+            beq   :plain
+            jmp   A2Packed
+:plain      clc
+            rts
+
+* A2Packed: the screen just made (outp, outl, ohnd) packed with PackBytes
+* into a new buffer: type $08, aux type $4000 (HiRes) or $4001 (Double
+* HiRes, the auxiliary half first), as Apple's File Type Notes have them.
+A2Packed    lda   ohnd                  ; (the screen: kept until packed)
+            sta   PkHnd
+            lda   ohnd+2
+            sta   PkHnd+2
+            lda   outp
+            sta   PkSrc
+            lda   outp+2
+            sta   PkSrc+2
+            lda   outl
+            sta   PkLen
+            lsr                         ; room: the size and 1/32 more
+            lsr
+            lsr
+            lsr
+            lsr
             clc
+            adc   outl
+            adc   #16
+            sta   PkRoom
+            sta   n0
+            stz   n0+2
+            jsr   OutNew
+            bcc   :buf
+            pha
+            jsr   :free
+            pla
+            sec
+            rts
+:buf        pha                         ; result: bytes made
+            PushLong PkSrc              ; (where the screen is: moved on)
+            PushLong PkLen              ; (its length: counted down)
+            PushLongAt q0
+            lda   PkRoom
+            pha
+            Tool  _PackBytes
+            pla
+            sta   outl
+            stz   outl+2
+            jsr   :free
+            lda   #$0008
+            sta   otype
+            lda   #$4000
+            ldx   A2Kind
+            cpx   #2
+            bcc   :aux
+            inc
+:aux        sta   oaux
+            clc
+            rts
+:free       PushLongAt PkHnd
+            Tool  _DisposeHandle
             rts
 
 * AddRow: each place's colours on line PY (RowC) added to its sums (SumR,
@@ -1470,6 +1544,9 @@ A2Hs        dw    192,192,192,192,48,0,48
 A2Auxs      dw    $2000,$2000,$2000,$2000,$0400,0,$0400
 A2ToLo      db    0,1,8,9,4,5,12,13,2,3,10,11,6,7,14,15
 A2H         dw    0
+A2Pack      dw    0
+PkHnd       adrl  0
+PkRoom      dw    0
 A2Aux       dw    0
 A2Kind      dw    0
 A2W         dw    0
@@ -3012,10 +3089,7 @@ Adler       lda   AdA
             rts
 
 * CrcTable: the CRC-32 table (once).
-CrcTable    lda   CrcDone
-            bne   :done
-            inc   CrcDone
-            ldx   #0
+CrcTable    ldx   #0
 :entry      txa
             lsr
             lsr
@@ -3755,7 +3829,6 @@ OH          dw    0
 NCol        dw    0
 LineNo      dw    0
 Crc         adrl  0
-CrcDone     dw    0
 CrcT        dw    0
 LenAt       adrl  0
 DataAt      adrl  0
@@ -3827,10 +3900,11 @@ RI          dw    0
 HavePrev    dw    0
 CopyDist    dw    0
 MatchN      dw    0
-CrcLo       ds    1024                  ; (low and high words, 4 bytes apart)
-CrcHi       =     CrcLo+2
 CIdx        ds    8192
 HCode       ds    10008
+CrcLo       =     HCode+8000            ; PNG's CRC table (low and high words, 4
+CrcHi       =     CrcLo+2               ; bytes apart): made for each PNG save, as
+                                      ; GIF uses this space too)
 HPre        ds    10008
 SrcX        =     HCode                 ; (Apple II: each place's column,
 Dots        =     HPre                  ; and its line,

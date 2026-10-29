@@ -207,7 +207,7 @@ fmtGR9              =     71
 fmtLoRes            =     72
 fmtDLoRes           =     73
 fmtLast             =     73                 ; (the last format number)
-saveCount           =     23                 ; save numbers 1-22 (but 14, 15: Babelfish)
+saveCount           =     27                 ; save numbers 1-26 (but 14, 15: Babelfish)
 
 * The True color menu's filters (Filter.s), in menu order
 fxEqualize          =     0

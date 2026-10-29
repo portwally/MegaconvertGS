@@ -65,7 +65,7 @@ New in MegaconvertGS (not in SuperConvert) are marked with ★.
 
 | Computer | Formats |
 |---|---|
-| Apple II | HiRes and Double HiRes (colour or black & white), ★ LoRes and Double LoRes, Print Shop graphics, ThunderScan scans, Works of Art pages (Springboard Publisher), TDM 40 and 80 column text screens |
+| Apple II | HiRes and Double HiRes (colour or black & white; ★ packed, type $08), ★ LoRes and Double LoRes, Print Shop graphics, ThunderScan scans, Works of Art pages (Springboard Publisher), TDM 40 and 80 column text screens |
 | Apple IIgs | Super Hi-Res ($C0 PackBytes and Apple Preferred, $C1), PaintWorks and Paintworks Gold, DreamGrafix (256 and 3200 colours), Print Shop IIgs colour graphics and library, Finder icons, AST and ComputerEyes digitizer files, "3200 color" pictures (plain, .3201 and compressed) |
 | Atari ST | Degas, Degas Elite, Neochrome, Tiny, Spectrum 512 (plain and compressed) |
 | Amiga | IFF ILBM (with HAM, Extra HalfBrite and 24-bit) |
@@ -90,12 +90,14 @@ Apple Preferred ($C0/2), uncompressed screen ($C1), PackBytes ($C0/1), PaintWork
 Finder icon (a new file, or added to one), icon resource (★ a new file, or added to one),
 desktop background image INIT, hex data, GIF, PNG (with compression and comment options),
 TIFF (with SuperConvert's TIFF Save Options), ★ BMP, ★ Apple II HiRes and Double HiRes
-(colour or black & white) and ★ Apple II LoRes and Double LoRes. GIF, PNG, TIFF and BMP
+(colour or black & white, plain or ★ packed) and ★ Apple II LoRes and Double LoRes. GIF, PNG, TIFF and BMP
 are written with square pixels, as the picture looks. The Apple II screens are fitted to
 280 x 192 (Double HiRes: 140 x 192 colour pixels or 560 x 192 dots; LoRes: 40 x 48
 blocks; Double LoRes: 80 x 48) and dithered with error diffusion in the Apple II
 colours; HiRes colour works in dot pairs and picks each byte's colour pair. A picture
-already in Apple II colours (Remap's Other palettes have them) keeps them exactly. Not
+already in Apple II colours (Remap's Other palettes have them) keeps them exactly. The
+packed ones are Apple's own: type $08 (FOT), aux type $4000 or $4001, packed with
+PackBytes. Not
 there yet: the Babelfish exports.
 
 ## Speed

@@ -626,6 +626,31 @@ save("LORES", data, "lores", rows, 280, 192)
 data, rows = lores(80, True)
 save("DLORES", data, "dlores", rows, 280, 192)
 
+# ---- Apple II files of type $08: packed (aux type $4000, $4001) and with a mode byte at +120.
+# Not checked here (a2save loads each and compares it with the picture it was made from).
+def packbytes(d):
+    """PackBytes: runs of a byte (flag $40), else bytes as they are (flag $00), 64 at most."""
+    out, i = bytearray(), 0
+    while i < len(d):
+        n = 1
+        while i + n < len(d) and n < 64 and d[i + n] == d[i]: n += 1
+        if n >= 3:
+            out += bytes((0x40 | (n - 1), d[i])); i += n; continue
+        j = i
+        while j < len(d) and j - i < 64:
+            if j + 2 < len(d) and d[j] == d[j + 1] == d[j + 2]: break
+            j += 1
+        out += bytes((j - i - 1,)) + d[i:j]; i = j
+    return bytes(out)
+apple = os.path.join(sys.argv[1], "apple")
+if os.path.exists(os.path.join(apple, "DHRBW.PIC")):
+    pic = lambda n: open(os.path.join(apple, n), "rb").read()
+    companion("HGR.PK", packbytes(pic("HGR.PIC")[:8192].ljust(8192, b"\0")), "084000")
+    companion("DHR.PK", packbytes(pic("DHR.PIC")[:16384].ljust(16384, b"\0")), "084001")
+    for name, src, mode in (("FOT1", "HGR.PIC", 1), ("FOT4", "HGR.PIC", 4), ("FOT2", "DHR.PIC", 2), ("FOT3", "DHRBW.PIC", 3)):
+        d = bytearray(pic(src)); d[120] = mode
+        companion(name, bytes(d), "080000")
+
 ppm_rows = scene(40, 30)
 save("NOTPICT.PCT", b"P6 40 30 255\n" + bytes(c for r in ppm_rows for p in r for c in p), "pnm", ppm_rows, 40, 30)
 

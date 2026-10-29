@@ -198,6 +198,15 @@ segment includes.
   exactly its blocks and it saves back as it was; Open takes 1024 and 2048-byte files
   this way. The saves dither as the other Apple II ones, 40 or 80 places across and 48
   rows down, $06 files with aux type $0400.
+- **Packed Apple II pictures** (Apple's File Type Notes $08/$4000 and $08/$4001; save
+  numbers 23-26): the HiRes or Double HiRes screen (the auxiliary half first) packed with
+  PackBytes into a type $08 file. Saving makes the screen as the plain formats do, then
+  packs it into a new buffer. Loading (Apple.s Unpack8) unpacks such a file into a
+  buffer that stands for the file while the HiRes loaders read it, for Open and for the
+  four HiRes entries in Load formats. Open also reads the mode byte of other type $08
+  files (aux type below $4000, byte 120: 1-7 for HiRes colour or black & white, Double
+  HiRes colour or black & white, pages 1 and 2; 0, which most files leave, is taken as
+  unset). To fit, PNG's CRC table moved into GIF's tables and is made for each PNG.
 - **Four more Commodore 64 formats:** Art Studio (hires, 9009 bytes) and Advanced Art
   Studio (multicolour, 10018 bytes), the same parts as Doodle and Koala in another order;
   FLI Graph (17409 bytes: new screen colours on every line; the first three columns, which

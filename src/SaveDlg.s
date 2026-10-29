@@ -1054,6 +1054,7 @@ TxHxL3      asc   'End of line:'
 SvRecs      da    RecC1,RecC1,RecAPF,RecPack,RecPW,RecIcon,RecIcon,RecRIcon,RecRIcon
             da    RecHex,RecGIF,RecPNG,RecTIFF,RecDesk,RecPNG,RecPNG,RecPNG
             da    RecHex,RecHex,RecHex,RecHex,RecHex,RecHex  ; (Apple II: fitted to its screen)
+            da    RecHex,RecHex,RecHex,RecHex
 RecPW       dw    $0005
             db    $04,$04
             dw    0,0

@@ -110,6 +110,7 @@ FiPICT      asc   '93/QuickDraw picture (PICT): the Macintosh',27,'s picture for
 SaveInfo    da    0,FiSvC1,FiSvAPF,FiSvPack,FiSvPW,FiSvIcon,FiSvIconAdd,FiSvRIcon
             da    FiSvRIcAdd,FiSvHex,FiSvGIF,FiSvPNG,FiSvTIFF,FiSvDesk,FiSvBabelTC
             da    FiSvBabelPM,FiSvBMP,FiSvHGR,FiSvHGRBW,FiSvDHR,FiSvDHRBW,FiSvLoRes,FiSvDLoRes
+            da    FiSvHGRP,FiSvHGRBWP,FiSvDHRP,FiSvDHRBWP
 
 * Load formats
 
@@ -164,7 +165,9 @@ FiJPEG      asc   '93/JPEG (JFIF): the usual format for photographs (.JPG), comp
 FiHGR       asc   '93/HiRes color: the Apple II high resolution screen, 8192 bytes (usually a BIN '
             asc   'or FOT file): 280 x 192 dots in black, white, violet, green, blue and orange, '
             asc   'the colors worked out from the dots and their neighbors as on a color monitor.'
-            asc   0D,'Loaded as 280 x 192 in 320 mode./^#0',00
+            asc   0D,'Loaded as 280 x 192 in 320 mode. Also read packed with PackBytes (type $08, '
+            asc   'aux type $4000); a type $08 file whose byte 120 says black & white or Double '
+            asc   'HiRes opens that way./^#0',00
 
 FiHGRBW     asc   '93/HiRes black & white: the Apple II high resolution screen (8192 bytes, '
             asc   'usually a BIN or FOT file) as a monochrome monitor shows it, each of its 280 x '
@@ -173,7 +176,8 @@ FiHGRBW     asc   '93/HiRes black & white: the Apple II high resolution screen (
 FiDHR       asc   '93/Double HiRes color: the double high resolution screen of the Apple IIe, IIc '
             asc   'and IIgs, 16384 bytes, the auxiliary memory half first: 140 x 192 pixels in 16 '
             asc   'colors, each pixel made of 4 dots.',0D,'Loaded in 320 mode with the Apple II '
-            asc   'colors, each pixel doubled across: 280 x 192./^#0',00
+            asc   'colors, each pixel doubled across: 280 x 192. Also read packed with PackBytes '
+            asc   '(type $08, aux type $4001)./^#0',00
 
 FiDHRBW     asc   '93/Double HiRes black & white: the Apple II double high resolution screen '
             asc   '(16384 bytes, the auxiliary half first) as a monochrome monitor shows it, each '
@@ -496,6 +500,24 @@ FiSvDLoRes  asc   '93/Double LoRes: the low resolution screen of the Apple IIe, 
             asc   'memory half first: 80 x 48 blocks in 16 colors.',0D,'The picture is fitted to '
             asc   'the Apple II screen and dithered with error diffusion; a picture in the Apple II '
             asc   'colors keeps them./^#0',00
+
+FiSvHGRP    asc   '93/HiRes color, packed: the Apple II high resolution screen packed with '
+            asc   'PackBytes, ProDOS type $08 (FOT), aux type $4000, as Apple',27,'s File Type Note '
+            asc   'has it.',0D,'The picture is made as for HiRes color (280 x 192, dithered in its six '
+            asc   'colors), then packed./^#0',00
+
+FiSvHGRBWP  asc   '93/HiRes black & white, packed: the Apple II high resolution screen packed with '
+            asc   'PackBytes, ProDOS type $08 (FOT), aux type $4000.',0D,'The picture is made as for '
+            asc   'HiRes black & white, then packed./^#0',00
+
+FiSvDHRP    asc   '93/Double HiRes color, packed: the double high resolution screen packed with '
+            asc   'PackBytes, the auxiliary memory half first, ProDOS type $08 (FOT), aux type '
+            asc   '$4001, as Apple',27,'s File Type Note has it.',0D,'The picture is made as for Double '
+            asc   'HiRes color (140 x 192 in 16 colors), then packed./^#0',00
+
+FiSvDHRBWP  asc   '93/Double HiRes black & white, packed: the double high resolution screen packed '
+            asc   'with PackBytes, the auxiliary half first, ProDOS type $08 (FOT), aux type $4001.'
+            asc   0D,'The picture is made as for Double HiRes black & white, then packed./^#0',00
 
 FiSvBabelPM asc   '93/Babelfish PixelMap Export: the screen picture written through Babelfish, '
             asc   'Seven Hills Software',27,'s file translator system, in a format its '

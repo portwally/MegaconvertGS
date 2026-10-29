@@ -77,7 +77,9 @@ EXTRA_FILTERS["fmtDLoRes"] = bytes.fromhex("000000000000060400000000" + "f807000
 EXTRA_FILTERS["fmtZX"] = bytes.fromhex("000000000000060400000000" + "00180000" + "001b0000" + "0000ffff")
 EXTRA_SAVES = [(7, "Icon resource (new file)"), (16, "BMP (Windows bitmap)"), (17, "Apple II HiRes color"),
                (18, "Apple II HiRes black & white"), (19, "Apple II Double HiRes color"),
-               (20, "Apple II Double HiRes b & w"), (21, "Apple II LoRes"), (22, "Apple II Double LoRes")]
+               (20, "Apple II Double HiRes b & w"), (21, "Apple II LoRes"), (22, "Apple II Double LoRes"),
+               (23, "Apple II HiRes color, packed"), (24, "Apple II HiRes b & w, packed"),
+               (25, "Apple II Double HiRes color, packed"), (26, "Apple II Double HiRes b & w, packed")]
 
 types = DATA["computerTypes"]
 assert [t["name"] for t in types] == [n for n, _ in TYPES], "computer types differ"

@@ -112,7 +112,10 @@ byte) or against a model written from SuperConvert's documented behaviour:
 - `a2save` saves screens in the Apple II save formats and compares every byte with a
   model of them (`test/check_a2save.py`: averaging, error diffusion, the HiRes colour
   pairs, the LoRes text page); Double HiRes, HiRes black & white, LoRes and Double LoRes
-  pictures loaded from Apple II files must save back as they were.
+  pictures loaded from Apple II files must save back as they were. The packed saves must
+  unpack to the plain ones; packed files (written by `test/make_newfmt.py`'s PackBytes)
+  and type $08 files with a mode byte must open by themselves as the picture they were
+  made from.
 - `save` saves several pictures in every save format and compares the files with GS
   Remap's, made by `test/sc4save` (a small tool on GS Remap's engine, built with Swift).
 - `remap2` remaps pictures with each graphic mode, palette, rendering and some scale
