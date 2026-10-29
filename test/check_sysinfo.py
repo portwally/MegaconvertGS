@@ -13,7 +13,7 @@ if not names:
 report("the report saved as a text file (TXT, aux 0)", None if names[0].endswith("#040000") else names[0])
 text = open(os.path.join(res, "MCOUT", names[0]), "rb").read().decode("latin-1")
 lines = text.split("\r")
-report("its title, with the version", None if lines[0] == "MegaconvertGS 1.1 System Info:" else repr(lines[0]))
+report("its title, with the version", None if lines[0] == "MegaconvertGS 1.2 System Info:" else repr(lines[0]))
 heads = ["MEMORY USAGE:  TotalMem=", "LOAD FILES IN MEMORY:  ", "STARTED TOOLSETS:  ",
          "MISCELLANEOUS:  GS/OS v", "BATTERY RAM (non-255 values):  "]
 starts = [next((i for i, l in enumerate(lines) if l.startswith(h)), None) for h in heads]
