@@ -2473,7 +2473,7 @@ ExtrasMenu  asc   '>>  Extras  \N8',00
             asc   '--System info report...\N345',00
             asc   '.',00
 
-AboutText   asc   '93/MegaconvertGS 0.9',0D,'An image converter for the Apple IIgs.',0D,'Walter Tengler, 2026',0D,0D
+AboutText   asc   '93/MegaconvertGS 1.0',0D,'An image converter for the Apple IIgs.',0D,'Walter Tengler, 2026',0D,0D
             asc   'A successor to SuperConvert by Jason Harper and Ian Brumby, '
             asc   'published with the kind permission of Ian Brumby./^#0',00
 TxtProblem  asc   '52/The file could not be read or saved (error ',00
