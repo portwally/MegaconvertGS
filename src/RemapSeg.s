@@ -974,6 +974,8 @@ MakePlanes  lda   PlHist                ; (counting: from nothing)
 * PlaneFill: the planes' lines from the true colour picture (colours,
 * counted into Hist if PlHist; greys unless NoGrey).
 PlaneFill   stz   P50OK                 ; (XA3, XN: Reduce's tables go)
+            stz   FcN                   ; (FastCols: no row heights yet)
+            stz   FcN+2
             lda   SrcW                  ; which source columns make each output one
             ldx   SpanW
             jsr   SpanStart
@@ -1369,7 +1371,10 @@ ScaleRow     ldx   #SpCur-SpQ            ; the row's span (its stepping state)
             lda   NoGrey
             beq   :gen
             jmp   :two
-:gen        ldx   #0
+:gen        jsr   FastCols              ; every box from a quotient table:
+            bcs   :slow                 ; the quicker row
+            jmp   FastRow
+:slow       ldx   #0
 :pix        stx   PixX
             lda   RowN                  ; one source pixel: read, or the same as
             cmp   #1                    ; the column before's
@@ -1799,6 +1804,279 @@ ScaleRow     ldx   #SpCur-SpQ            ; the row's span (its stepping state)
             bcs   :twd
             jmp   :tw
 :twd        rts
+
+fsR         =     $F0                   ; (FastRow: the sums)
+fsG         =     $F2
+fsB         =     $F4
+r1          =     $F6                   ; (FastRow: the second and third
+r2          =     $FA                   ;   source lines)
+
+* FastCols: for the box height RowN, each column's quotient table (its
+* place in the pool) in Cur, or in Nxt for a second height (both free
+* while the planes are filled); carry set if a box has none (more than 64
+* pixels, or no room in the pool): ScaleRow's other way. FcAt = the one.
+FastCols    ldy   #0                    ; (a height made already)
+:find       lda   FcN,y
+            cmp   RowN
+            beq   :have
+            iny
+            iny
+            cpy   #4
+            bcc   :find
+            ldy   FcNext                ; (else made in turn, 0 or 2)
+            lda   RowN
+            sta   FcN,y
+            lda   FcBase,y
+            sec                         ; (written at Cur + FcOff)
+            sbc   #Cur
+            sta   FcOff
+            lda   #0
+            sta   FcBad,y
+            tya
+            eor   #2
+            sta   FcNext
+            phy
+            ldx   #0
+:col        phx
+            lda   XN,x
+            ldx   RowN
+            jsr   Mul16
+            plx
+            lda   MLo
+            cmp   #65
+            bcs   :bad
+            sta   Divisor
+            phx
+            jsr   QTable
+            plx
+            bcs   :bad
+            pha
+            txa
+            clc
+            adc   FcOff
+            tay
+            pla
+            sta   Cur,y
+            inx
+            inx
+            cpx   ROutW2
+            bcc   :col
+            ply
+            bra   :have
+:bad        ply
+            lda   #1
+            sta   FcBad,y
+:have       lda   FcBase,y
+            sta   FcAt
+            lda   FcBad,y
+            lsr                         ; (carry: no tables)
+            rts
+
+* FastRow: ScaleRow's general way when every box has a quotient table:
+* the sums (16 bits: at most 64 pixels), their quotients and SetLine. Up
+* to three source lines: each from its own pointer (q1, r1, r2), summed
+* across by Col1-Col3; taller boxes step one pointer down the lines.
+FastRow     lda   FcAt                  ; (the column's table, from FcAt)
+            sta   :qa+1
+            sta   :qb+1
+            lda   q0                    ; the lines' pointers
+            sta   q1
+            clc
+            adc   tstride
+            sta   r1
+            lda   q0+2
+            sta   q1+2
+            adc   #0
+            sta   r1+2
+            lda   r1
+            clc
+            adc   tstride
+            sta   r2
+            lda   r1+2
+            adc   #0
+            sta   r2+2
+            lda   RowN
+            cmp   #4
+            bcs   :tall
+            asl
+            tay
+            lda   ColT-2,y
+            sta   :jb+1
+            ldx   #0
+:px         ldy   XA3,x
+            lda   XN,x
+            sta   u2
+            stz   fsR
+            stz   fsG
+            stz   fsB
+            clc                         ; (no add carries: the sums stay
+:jb         jsr   Col1                  ; under 16384)
+            lda   QPool
+            clc
+:qa         adc   Cur,x
+            jsr   Quots
+            inx
+            inx
+            cpx   ROutW2
+            bcc   :px
+            rts
+:tall       ldx   #0                    ; (taller: one pointer stepped down)
+:tx         lda   q0
+            sta   q1
+            lda   q0+2
+            sta   q1+2
+            lda   RowN
+            sta   u1
+            stz   fsR
+            stz   fsG
+            stz   fsB
+:r          ldy   XA3,x
+            lda   XN,x
+            sta   u2
+            clc
+            jsr   Col1
+            dec   u1
+            beq   :avg
+            lda   q1                    ; the next source line
+            clc
+            adc   tstride
+            sta   q1
+            bcc   :r
+            inc   q1+2
+            bra   :r
+:avg        lda   QPool
+            clc
+:qb         adc   Cur,x
+            jsr   Quots
+            inx
+            inx
+            cpx   ROutW2
+            bcc   :tx
+            rts
+
+* Quots: CR, CG, CB from the sums through the table at QPool + A, then
+* SetLine. Keeps X.
+Quots       sta   q2
+            lda   QPool+2
+            adc   #0
+            sta   q2+2
+            ldy   fsR
+            lda   [q2],y
+            and   #$00FF
+            sta   CR
+            ldy   fsG
+            lda   [q2],y
+            and   #$00FF
+            sta   CG
+            ldy   fsB
+            lda   [q2],y
+            and   #$00FF
+            sta   CB
+            jmp   SetLine
+
+* Col1-Col3: u2 source pixels across from Y, on one to three lines, added
+* to fsR, fsG, fsB (carry clear, and left so).
+Col1
+            lda   [q1],y
+            and   #$00FF
+            adc   fsR
+            sta   fsR
+            iny
+            lda   [q1],y
+            and   #$00FF
+            adc   fsG
+            sta   fsG
+            iny
+            lda   [q1],y
+            and   #$00FF
+            adc   fsB
+            sta   fsB
+            iny
+            dec   u2
+            bne   Col1
+            rts
+Col2
+            lda   [q1],y
+            and   #$00FF
+            adc   fsR
+            sta   fsR
+            lda   [r1],y
+            and   #$00FF
+            adc   fsR
+            sta   fsR
+            iny
+            lda   [q1],y
+            and   #$00FF
+            adc   fsG
+            sta   fsG
+            lda   [r1],y
+            and   #$00FF
+            adc   fsG
+            sta   fsG
+            iny
+            lda   [q1],y
+            and   #$00FF
+            adc   fsB
+            sta   fsB
+            lda   [r1],y
+            and   #$00FF
+            adc   fsB
+            sta   fsB
+            iny
+            dec   u2
+            bne   Col2
+            rts
+Col3
+            lda   [q1],y
+            and   #$00FF
+            adc   fsR
+            sta   fsR
+            lda   [r1],y
+            and   #$00FF
+            adc   fsR
+            sta   fsR
+            lda   [r2],y
+            and   #$00FF
+            adc   fsR
+            sta   fsR
+            iny
+            lda   [q1],y
+            and   #$00FF
+            adc   fsG
+            sta   fsG
+            lda   [r1],y
+            and   #$00FF
+            adc   fsG
+            sta   fsG
+            lda   [r2],y
+            and   #$00FF
+            adc   fsG
+            sta   fsG
+            iny
+            lda   [q1],y
+            and   #$00FF
+            adc   fsB
+            sta   fsB
+            lda   [r1],y
+            and   #$00FF
+            adc   fsB
+            sta   fsB
+            lda   [r2],y
+            and   #$00FF
+            adc   fsB
+            sta   fsB
+            iny
+            dec   u2
+            bne   Col3
+            rts
+ColT        da    Col1,Col2,Col3
+
+FcN         dw    0,0                   ; (FastCols: the two heights, their
+FcBad       dw    0,0                   ; tables unusable, where they are,
+FcBase      da    Cur,Nxt               ; the next to make, this row's)
+FcNext      dw    0
+FcAt        dw    0
+FcOff       dw    0
 
 * DivFor: DivWay's answer for a box A pixels across and RowN down
 * (Divisor, DMeth, DShift, DD16), kept for 16 sizes (the low 4 bits of

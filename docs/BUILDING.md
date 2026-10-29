@@ -177,6 +177,8 @@ command logs each command's ticks); `test/speed/` holds the models and exactness
 for the speed plan. `test/jpegtime.sh` times opening JPEGs (photographs made from
 `JPEG_PHOTO`, any picture ImageMagick reads, 640 x 480 and 320 x 200, baseline and
 progressive, one cut short, and the true suite's JPEGs) and checks each against libjpeg.
+`test/remaptime.sh` times fitted remaps of the two pictures larger than the screen and
+compares every screen with the ones a run with `REMAP_REF=1` kept (`build/remapref`).
 `PROFILE=file` on any `test/run.sh` run has `test/dump.lua` note where the processor is
 about 60 times a second; `python3 test/profile.py file [lines]` maps that through the
 assembler listings to routines (and source lines).

@@ -683,6 +683,31 @@ about 60 times a second, and the script maps that through the assembler listings
 What is left of the 640 x 480 photograph's Open: the IDCT about 23 s, the fitted remap's
 box averages 15 s, the colour rows 14 s, the Huffman decoding and dequantising 10 s.
 
+### The fitted remap, second round
+
+Measured with `test/remaptime.sh`: HUGE.PNG (700 x 500) and BIG.PNG (400 x 300) remapped,
+fitted, in each mode (and greys, closest match; and scale steps 4 x 4), every screen the
+same bytes as before (and the true and remap2 suites still match GS Remap):
+
+| Remap | Before | Now |
+|---|---:|---:|
+| 700 x 500, 320 mode | 26.7 | 16.4 |
+| 700 x 500, 640 mode | 37.2 | 22.8 |
+| 700 x 500, multipalette | 41.6 | 31.3 |
+| 400 x 300, 320 mode | 13.4 | 10.7 |
+| The twelve remaps | 282.5 | 203.9 |
+| Opening the 640 x 480 JPEG photograph | 82.9 | 73.9 |
+
+- **A quotient table for every box:** at the start of a line, each column's table (its
+  place in the pool) for its box, width x height, worked out once for each box height (at
+  most two when shrinking: in Cur and Nxt, free while the planes are filled), instead of
+  finding the way to divide for every pixel (the widths alternate, so its cache missed).
+- **The averages:** three table loads, no call for each channel.
+- **Up to three source lines:** a pointer for each, set once a line, and Col1-Col3 sum
+  across them, instead of stepping one pointer down the lines for every pixel; the sums
+  on the direct page, one CLC for all of them (they stay under 16384).
+- Boxes more than 64 pixels, or no room in the pool: the way before.
+
 ### Saving and the monochrome conversions
 
 Measured with `test/timing.sh` (the `TIMING 1` test command logs each command's ticks), on

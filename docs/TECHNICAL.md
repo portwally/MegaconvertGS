@@ -150,7 +150,8 @@ segment includes.
 - **Speed:** remapping, opening PNG and JPEG files, saving, the monochrome conversions,
   two filters and the image window made faster with the same results
   ([speed-plan.md](speed-plan.md)); a second round for JPEG (Huffman lookups, the IDCT and
-  colour rows), and progressive JPEGs larger than about 256 x 128 opened.
+  colour rows), and progressive JPEGs larger than about 256 x 128 opened; a second round
+  for the fitted remap (each column's quotient table worked out once a line).
 - **Formats SuperConvert didn't have:** Truevision Targa (TGA: colour-mapped, true colour
   and grey, 8 to 32 bits, run-length coded or not) and Macintosh PICT (version 1 and 2,
   with or without the 512-byte header: the bit maps and pixel maps in it, 1 to 32 bits)
