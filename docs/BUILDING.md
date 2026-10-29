@@ -109,8 +109,8 @@ byte) or against a model written from SuperConvert's documented behaviour:
   TGA from `sips` and two PICTs from ImageMagick. Each is loaded by its format and by
   itself, and checked pixel for pixel (the screen images in the saved screen's colours).
 - `a2save` saves screens in the Apple II save formats and compares every byte with a
-  model of them (`test/check_a2save.py`); Double HiRes pictures loaded from Apple II
-  files must save back as they were.
+  model of them (`test/check_a2save.py`: averaging, error diffusion, the HiRes colour
+  pairs); Double HiRes pictures loaded from Apple II files must save back as they were.
 - `save` saves several pictures in every save format and compares the files with GS
   Remap's, made by `test/sc4save` (a small tool on GS Remap's engine, built with Swift).
 - `remap2` remaps pictures with each graphic mode, palette, rendering and some scale

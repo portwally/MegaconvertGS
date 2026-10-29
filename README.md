@@ -91,10 +91,11 @@ Finder icon (a new file, or added to one), icon resource (★ a new file, or add
 desktop background image INIT, hex data, GIF, PNG (with compression and comment options),
 TIFF (with SuperConvert's TIFF Save Options), ★ BMP and ★ Apple II HiRes and Double HiRes
 (colour or black & white). GIF, PNG, TIFF and BMP are written with square pixels, as the
-picture looks. The Apple II screens are stretched to 280 x 192 (Double HiRes: 140 x 192
-colour pixels or 560 x 192 dots), each place taking the closest Apple II colour, or a dot
-on where the picture is bright; remap to the Apple II colours first for the best
-result. Not there yet: the Babelfish exports.
+picture looks. The Apple II screens are fitted to 280 x 192 (Double HiRes: 140 x 192
+colour pixels or 560 x 192 dots) and dithered with error diffusion in the Apple II
+colours; HiRes colour works in dot pairs and picks each byte's colour pair. A picture
+already in Apple II colours (Remap's Other palettes have them) keeps them exactly. Not
+there yet: the Babelfish exports.
 
 ## Speed
 

@@ -1,9 +1,6 @@
 # Checks MegaconvertGS's Apple II save formats (test/a2save.sh): each saved file against a
-# model of Save.s's rules, made from the screen saved as $C1 beside it. The picture is
-# stretched to the Apple II screen, each place taking the middle of its part of the
-# picture; colours go to the closest Apple II colour (HiRes: of six), black & white dots
-# are on where 3R + 6G + B is at least 75. Pictures loaded from Apple II files must also
-# save back as they were.
+# model of Save.s's rules (model() below), made from the screen saved as $C1 beside it.
+# Pictures loaded from Apple II files must also save back as they were.
 import os, sys
 PICTURES = [  # tag, file on the test disk, load format id, width, height
     ("S32", "MCTEST:S320.C1", "c1", 320, 200),
@@ -11,10 +8,11 @@ PICTURES = [  # tag, file on the test disk, load format id, width, height
     ("HGR", "MCAPPLE:HGR.PIC", "hgr", 280, 192),
     ("DHR", "MCAPPLE:DHR.PIC", "dhr", 280, 192),
     ("DHB", "MCAPPLE:DHRBW.PIC", "dhrbw", 560, 192),
+    ("HGB", "MCAPPLE:HGRBW.PIC", "hgrbw", 280, 192),
 ]
 FORMATS = ["hgr", "hgrbw", "dhr", "dhrbw"]
 # saved as it was loaded: (tag, format) -> the original file
-SAME = {("DHR", "dhr"): "DHR.PIC", ("DHB", "dhrbw"): "DHRBW.PIC"}
+SAME = {("DHR", "dhr"): "DHR.PIC", ("DHB", "dhrbw"): "DHRBW.PIC", ("HGB", "hgrbw"): "HGRBW.PIC"}
 if sys.argv[1:] == ["commands"]:
     for tag, disk, fid, w, h in PICTURES:
         print(f"LOAD AS {fid} *:{disk}")
@@ -50,49 +48,80 @@ def colours(scr, w, h):
         rows.append(row)
     return rows
 
-def near(c, cands):
-    r, g, b = c >> 8 & 15, c >> 4 & 15, c & 15
+def comps(c):
+    return [(c >> 8 & 15) * 17, (c >> 4 & 15) * 17, (c & 15) * 17]
+
+def near(v, cands):
+    """The closest of cands to channels v (squared differences / 4, the first of equals)."""
     best = None
-    for k in cands:
-        p = A2PAL[k]
-        d = ((p >> 8 & 15) - r) ** 2 + ((p >> 4 & 15) - g) ** 2 + ((p & 15) - b) ** 2
+    for k, n in enumerate(cands):
+        d = sum((abs(x - y) >> 2) ** 2 for x, y in zip(comps(A2PAL[n]), v))
         if best is None or d < best[0]:
             best = (d, k)
     return best[1]
-
-def bright(c):
-    return 1 if 3 * (c >> 8 & 15) + 6 * (c >> 4 & 15) + (c & 15) >= 75 else 0
 
 def rowoff(y):
     return (y & 7) * 0x400 + (y >> 3 & 7) * 0x80 + (y >> 6) * 40
 
 def model(rows, w, h, fmt):
-    places = {"hgr": 280, "hgrbw": 280, "dhr": 140, "dhrbw": 560}[fmt]
+    """Save.s's Apple II saver: the picture stretched to the screen, each place the average
+    of the pixels it covers (channels 0-255, rounded down; columns i w / W up to (i + 1) w / W,
+    lines y h / 192 up to (y + 1) h / 192, one at least), then with Floyd-Steinberg errors (7, 3, 5 and the rest of 16ths, rounded down; dropped at the
+    edges) taken to the closest it can be."""
+    places = {"hgr": 140, "hgrbw": 280, "dhr": 140, "dhrbw": 560}[fmt]
+    bw = fmt.endswith("bw")
+    top = 2550 if bw else 255
+    nch = 1 if bw else 3
     out = bytearray(8192 if fmt.startswith("hgr") else 16384)
+    err = [[0] * (places + 2) for _ in range(nch)]          # for this line, at place + 1
     for y in range(192):
-        src = rows[(2 * y + 1) * h // 384]
-        vals = [src[(2 * i + 1) * w // (2 * places)] for i in range(places)]
-        if fmt == "hgr":
-            v = [near(c, HCAND) for c in vals]
-            for b in range(40):
-                seven = v[7 * b:7 * b + 7]
-                bal = sum(1 for c in seven if c in (12, 3)) - sum(1 for c in seven if c in (9, 6))
-                byte = 0x80 if bal > 0 else 0
-                for i, c in enumerate(seven):
-                    x = 7 * b + i
-                    on = c == 15 or (c in (9, 12) and x % 2 == 0) or (c in (6, 3) and x % 2 == 1)
-                    if on: byte |= 1 << i
-                out[rowoff(y) + b] = byte
-            continue
-        if fmt == "dhr":
-            dots = []
-            for c in vals:
-                k = near(c, range(16))
-                dots += [k >> 3 & 1, k >> 2 & 1, k >> 1 & 1, k & 1]
-        else:
-            dots = [bright(c) for c in vals]
+        r0, r1 = y * h // 192, (y + 1) * h // 192
+        lines = rows[r0:max(r1, r0 + 1)]
+        vals = []
+        for i in range(places):
+            x0, x1 = i * w // places, (i + 1) * w // places
+            px = [comps(line[x]) for line in lines for x in range(x0, max(x1, x0 + 1))]
+            vals.append([sum(p[ch] for p in px) // len(px) for ch in range(3)])
+        nxt = [[0] * (places + 2) for _ in range(nch)]
+        if fmt == "hgr":                                    # each byte's colour pair
+            vote = [0] * 40
+            for i, c in enumerate(vals):
+                k = HCAND[near(c, HCAND)]
+                vote[2 * i // 7] += 1 if k in (12, 3) else -1 if k in (9, 6) else 0
+            dotcol = [(12 if d % 2 == 0 else 3) if vote[d // 7] > 0 else (9 if d % 2 == 0 else 6) for d in range(280)]
+        dots = []
+        carry = [0] * nch
+        for i, c in enumerate(vals):
+            base = [3 * c[0] + 6 * c[1] + c[2]] if bw else c
+            v = [min(max(x + err[ch][i + 1] + carry[ch], 0), top) for ch, x in enumerate(base)]
+            if bw:
+                on = v[0] >= 1275
+                p = [2550 if on else 0]
+                dots.append(1 if on else 0)
+            else:
+                cands = [0, 15, dotcol[2 * i], dotcol[2 * i + 1]] if fmt == "hgr" else list(range(16))
+                k = near(v, cands)
+                p = comps(A2PAL[cands[k]])
+                if fmt == "hgr":
+                    dots += [(0, 0), (1, 1), (1, 0), (0, 1)][k]
+                else:
+                    n = cands[k]
+                    dots += [n >> 3 & 1, n >> 2 & 1, n >> 1 & 1, n & 1]
+            for ch in range(nch):
+                e = v[ch] - p[ch]
+                e7, e3, e5 = 7 * e >> 4, 3 * e >> 4, 5 * e >> 4
+                carry[ch] = e7
+                nxt[ch][i] += e3
+                nxt[ch][i + 1] += e5
+                nxt[ch][i + 2] += e - e7 - e3 - e5
+        for ch in range(nch):                                # (the edges' errors dropped)
+            nxt[ch][0] = 0
+            nxt[ch][places + 1] = 0
+        err = nxt
         for g in range(len(dots) // 7):
             byte = sum(dots[7 * g + i] << i for i in range(7))
+            if fmt == "hgr" and vote[g] > 0:
+                byte |= 0x80
             if fmt.startswith("hgr"):
                 out[rowoff(y) + g] = byte
             else:

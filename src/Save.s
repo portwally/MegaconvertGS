@@ -565,79 +565,90 @@ SaveA2      sta   A2Kind
             rts
 :buf        ldx   n0                    ; (all dots off)
             jsr   PutZeros
-            ldx   #8190                 ; no colours matched yet
-            lda   #$FFFF
-:clr        sta   CIdx,x
+            ldx   #3598                 ; no errors yet
+:clr        stz   E0,x
             dex
             dex
             bpl   :clr
-            lda   pw                    ; the column of each place: its
-            asl                         ; middle, (2i + 1) pw / 2W
-            sta   A2Step
-            lda   A2W
-            asl
-            sta   A2W2
-            stz   t1
-            lda   pw
-            sta   t2
-            ldx   #0
-:cx         lda   t2
-:cn         cmp   A2W2
-            bcc   :cs
-            sbc   A2W2
-            inc   t1
-            bra   :cn
-:cs         clc
-            adc   A2Step
-            sta   t2
-            lda   t1
+            stz   t1                    ; the columns of each place: from
+            stz   t2                    ; i pw / W up to (i + 1) pw / W (one
+            ldx   #0                    ; at least)
+:cx         lda   t1
             asl
             sta   SrcX,x                ; (as an index into RowC)
+            lda   t2
+            clc
+            adc   pw
+:cn         cmp   A2W
+            bcc   :cs
+            sbc   A2W
+            inc   t1
+            bra   :cn
+:cs         sta   t2
+            lda   t1
+            asl
+            sec
+            sbc   SrcX,x
+            lsr
+            bne   :cnt
+            inc
+:cnt        sta   SrcN,x
             inx
             inx
             txa
             lsr
             cmp   A2W
             bcc   :cx
-            lda   ph                    ; the lines: (2y + 1) ph / 384
-            asl
-            sta   A2StepY
-            sta   A2AccY
-            lsr
-            sta   A2AccY
-            stz   A2SY
-            lda   #$FFFF
-            sta   A2Last
+            stz   A2SY                  ; the lines: from y ph / 192 up to
+            stz   A2AccY                ; (y + 1) ph / 192 (one at least)
             stz   A2Y
-:row        lda   A2AccY
-:rn         cmp   #384
+:row        lda   A2SY
+            sta   PY
+            lda   A2AccY
+            clc
+            adc   ph
+:rn         cmp   #192
             bcc   :rs
-            sbc   #384
+            sbc   #192
             inc   A2SY
             bra   :rn
-:rs         clc
-            adc   A2StepY
-            sta   A2AccY
+:rs         sta   A2AccY
             lda   A2SY
-            cmp   A2Last
-            beq   :have
-            sta   A2Last
-            sta   PY
-            jsr   RowCols               ; (the picture's line)
-:have       jsr   A2Line
+            sec
+            sbc   PY
+            bne   :nr
+            inc
+:nr         sta   A2NR
+            ldx   A2W                   ; no sums yet
+            dex
+            txa
+            asl
+            tax
+:zs         stz   SumR,x
+            stz   SumG,x
+            stz   SumB,x
+            dex
+            dex
+            bpl   :zs
+            lda   A2NR
+            sta   A2RL
+:add        jsr   RowCols               ; (each of the picture's lines)
+            jsr   AddRow
+            inc   PY
+            dec   A2RL
+            bne   :add
+            jsr   Average
+            jsr   A2Line
             lda   A2Y
             jsr   HRowOff
             sta   A2Off
-            lda   A2Kind
-            bne   :dots
-            jsr   PackHGR
-            bra   :next
-:dots       jsr   PackDots
-:next       inc   A2Y
+            jsr   PackDots
+            inc   A2Y
             lda   A2Y
             cmp   #192
-            bcc   :row
-            lda   #$0006
+            bcs   :done
+            jmp   :row
+:done       lda   #$0006
             sta   otype
             lda   #$2000
             sta   oaux
@@ -645,27 +656,285 @@ SaveA2      sta   A2Kind
             clc
             rts
 
-* A2Line: Dots = the line's places (RowC): colour numbers, or dots on
-* (1) and off; Double HiRes colour then spread to 4 dots a pixel.
-A2Line      ldx   #0
-            ldy   #0
-:s          phx
+* AddRow: each place's colours on line PY (RowC) added to its sums (SumR,
+* SumG, SumB: channels 0-255).
+AddRow      ldx   #0
+:p          stx   A2I2
+            lda   SrcN,x
+            sta   A2N
             lda   SrcX,x
+            tay
+:px         lda   RowC,y
+            sta   A2C
+            xba
+            and   #$000F
+            asl
             tax
-            lda   RowC,x
-            jsr   A2Value
-            plx
+            lda   T17,x
+            ldx   A2I2
+            clc
+            adc   SumR,x
+            sta   SumR,x
+            lda   A2C
+            lsr
+            lsr
+            lsr
+            and   #$001E
+            tax
+            lda   T17,x
+            ldx   A2I2
+            clc
+            adc   SumG,x
+            sta   SumG,x
+            lda   A2C
+            asl
+            and   #$001E
+            tax
+            lda   T17,x
+            ldx   A2I2
+            clc
+            adc   SumB,x
+            sta   SumB,x
+            iny
+            iny
+            dec   A2N
+            bne   :px
+            inx
+            inx
+            txa
+            lsr
+            cmp   A2W
+            bcc   :p
+            rts
+
+* Average: each place's sums / its pixels (columns x lines), rounded down.
+Average     ldx   #0
+:p          lda   SrcN,x
+            ldy   A2NR
+:m          dey
+            beq   :n
+            clc
+            adc   SrcN,x
+            bra   :m
+:n          sta   A2Cnt
+            cmp   #1
+            beq   :next
+            lda   SumR,x
+            jsr   A2Div
+            sta   SumR,x
+            lda   SumG,x
+            jsr   A2Div
+            sta   SumG,x
+            lda   SumB,x
+            jsr   A2Div
+            sta   SumB,x
+:next       inx
+            inx
+            txa
+            lsr
+            cmp   A2W
+            bcc   :p
+            rts
+
+* A2Div: A / A2Cnt (2-15; A up to 3825), rounded down: halved while the
+* count is even, then by 3 from a table, else bit by bit. Keeps X.
+A2Div       ldy   A2Cnt
+:even       pha
+            tya
+            lsr
+            bcs   :odd
+            tay
+            pla
+            lsr
+            bra   :even
+:odd        pla
+            cpy   #1
+            beq   :done
+            cpy   #3
+            bne   :slow
+            cmp   #766
+            bcs   :slow
+            tay
+            lda   Third,y
+            and   #$00FF
+:done       rts
+:slow       sta   A2DS
+            tya
+            asl
+            asl
+            asl
+            asl
+            asl
+            asl
+            asl
+            sta   A2DD                  ; (the divisor x 128: 8 bits of answer)
+            stz   A2DQ
+            ldy   #8
+:l          asl   A2DQ
+            lda   A2DS
+            cmp   A2DD
+            bcc   :no
+            sbc   A2DD
+            sta   A2DS
+            inc   A2DQ
+:no         lsr   A2DD
+            dey
+            bne   :l
+            lda   A2DQ
+            rts
+
+* A2Line: Dots = the line's places (RowC through SrcX), each with the
+* errors of the places before it spread on (Floyd-Steinberg: 7/16 to the
+* right, 3/16, 5/16 and 1/16 to the line below), then the closest it can be:
+* a colour number (Double HiRes), on (1) or off (black & white: 3R + 6G + B,
+* 0-2550, at least half), or a HiRes dot pair (black, white, or the
+* colour of the even or odd dot in its byte's colour pair). Errors at the
+* edges are dropped. Double HiRes colour is then spread to 4 dots a pixel.
+A2Line      lda   A2Kind
+            bne   :nh
+            jsr   HgrPlan               ; HiRes colour: each byte's colours
             sep   #$20
             mx    %10
-            sta   Dots,y
+            stz   CandL                 ; (a pair: black, white, the two colours)
+            lda   #15
+            sta   CandL+1
+            rep   #$20
+            mx    %00
+            lda   #4
+            sta   NC
+            bra   :go
+:nh         ldx   #0                    ; Double HiRes: all 16
+:all        txa
+            sep   #$20
+            mx    %10
+            sta   CandL,x
             rep   #$20
             mx    %00
             inx
-            inx
-            iny
-            cpy   A2W
-            bcc   :s
+            cpx   #16
+            bcc   :all
+            stx   NC
+:go         ldx   #4
+:z          stz   Car,x
+            stz   E1v,x
+            dex
+            dex
+            bpl   :z
+            stz   A2I
+:place      lda   A2I
+            asl
+            sta   A2I2
             lda   A2Kind
+            lsr
+            bcc   :rgb
+            jmp   :bw
+:rgb        ldy   A2I2                  ; colour: each channel, 0-255, with
+            lda   SumR,y
+            clc
+            adc   E0+2,y
+            clc
+            adc   Car
+            bpl   :Rp
+            lda   #0
+:Rp         cmp   #256
+            bcc   :Ro
+            lda   #255
+:Ro         sta   VR
+            lda   SumG,y
+            clc
+            adc   E0+1202,y
+            clc
+            adc   Car+2
+            bpl   :Gp
+            lda   #0
+:Gp         cmp   #256
+            bcc   :Go
+            lda   #255
+:Go         sta   VG
+            lda   SumB,y
+            clc
+            adc   E0+2402,y
+            clc
+            adc   Car+4
+            bpl   :Bp
+            lda   #0
+:Bp         cmp   #256
+            bcc   :Bo
+            lda   #255
+:Bo         sta   VB
+            lda   A2Kind
+            bne   :near
+            lda   A2I2                  ; HiRes: this pair's two colours
+            tax
+            lda   Dots,x
+            sta   CandL+2
+:near       jsr   Near
+            lda   BestI
+            sta   A2Out
+            lda   VR
+            sec
+            sbc   PR
+            ldx   #0
+            jsr   Spread
+            lda   VG
+            sec
+            sbc   PG
+            ldx   #2
+            jsr   Spread
+            lda   VB
+            sec
+            sbc   PB
+            ldx   #4
+            jsr   Spread
+            lda   A2Kind
+            bne   :one
+            lda   A2K                   ; HiRes: the pair's dots
+            asl
+            tay
+            ldx   A2I2
+            lda   PairBits,y
+            sta   Dots,x
+            bra   :nextp
+:bw         ldy   A2I2                  ; black & white: 3R + 6G + B, 0-2550,
+            lda   SumR,y                ; with the errors brought here
+            asl
+            adc   SumR,y
+            sta   VR
+            lda   SumG,y
+            asl
+            adc   SumG,y
+            asl
+            adc   VR
+            adc   SumB,y
+            clc
+            adc   E0+2,y
+            clc
+            adc   Car
+            bpl   :bp
+            lda   #0
+:bp         cmp   #2550
+            bcc   :bo
+            lda   #2550
+:bo         stz   A2Out
+            cmp   #1275
+            bcc   :dark
+            sbc   #2550
+            inc   A2Out
+:dark       ldx   #0
+            jsr   Spread
+:one        ldx   A2I
+            sep   #$20
+            mx    %10
+            lda   A2Out
+            sta   Dots,x
+            rep   #$20
+            mx    %00
+:nextp      inc   A2I
+            lda   A2I
+            cmp   A2W
+            bcs   :end
+            jmp   :place
+:end        lda   A2Kind
             cmp   #2
             bne   :done
             ldy   #139                  ; (from the end: the pixels' places
@@ -678,9 +947,9 @@ A2Line      ldx   #0
             phx
 :eb         lda   A2V
             and   A2Mask
-            beq   :z
+            beq   :z0
             lda   #1
-:z          sep   #$20
+:z0         sep   #$20
             mx    %10
             sta   Dots,x
             rep   #$20
@@ -697,142 +966,42 @@ A2Line      ldx   #0
             bpl   :e
 :done       rts
 
-* A2Value: A = a 12-bit colour -> its colour number (HiRes: of black,
-* white, violet, green, blue, orange; Double HiRes: of all 16), or 1
-* where it is bright (3R + 6G + B of 150 at least 75), else 0. Keeps Y.
-A2Value     sta   A2C
-            lda   A2Kind
-            lsr
-            bcc   :near
-            lda   A2C
-            xba
-            and   #$000F
-            sta   A2V
-            asl
-            adc   A2V
-            sta   A2D
-            lda   A2C
-            lsr
-            lsr
-            lsr
-            lsr
-            and   #$000F
-            sta   A2V
-            asl
-            adc   A2V
-            asl
-            clc
-            adc   A2D
-            sta   A2D
-            lda   A2C
-            and   #$000F
-            clc
-            adc   A2D
-            cmp   #75
-            lda   #0
-            bcc   :dark
-            inc
-:dark       rts
-:near       lda   A2C
-            asl
-            tax
-            lda   CIdx,x                ; (worked out before)
-            bmi   :work
-            rts
-:work       phy
-            lda   A2C
-            xba
-            and   #$000F
-            sta   A2R
-            lda   A2C
-            lsr
-            lsr
-            lsr
-            lsr
-            and   #$000F
-            sta   A2G
-            lda   A2C
-            and   #$000F
-            sta   A2B
-            lda   #$FFFF
-            sta   A2Best
+* HgrPlan: each HiRes byte's colour pair, by its pairs' closest colours (of
+* the six, before any errors): blue and orange where more want them than
+* violet and green (Vote > 0); then Dots = each dot's colour when on.
+HgrPlan     ldx   #78
+:z          stz   Vote,x
+            dex
+            dex
+            bpl   :z
             ldx   #0
-:c          lda   A2Kind
-            bne   :all
+:h          lda   HCand,x
+            sep   #$20
+            mx    %10
+            sta   CandL,x
+            rep   #$20
+            mx    %00
+            inx
             cpx   #6
-            bcs   :done
-            lda   HCand,x
-            and   #$00FF
-            bra   :try
-:all        cpx   #16
-            bcs   :done
-            txa
-:try        sta   A2V
-            asl
-            tay
-            lda   A2Pal,y
-            sta   A2P
-            xba
-            and   #$000F
-            sec
-            sbc   A2R
-            jsr   Square
-            sta   A2D
-            lda   A2P
-            lsr
-            lsr
-            lsr
-            lsr
-            and   #$000F
-            sec
-            sbc   A2G
-            jsr   Square
-            clc
-            adc   A2D
-            sta   A2D
-            lda   A2P
-            and   #$000F
-            sec
-            sbc   A2B
-            jsr   Square
-            clc
-            adc   A2D
-            cmp   A2Best
-            bcs   :nx
-            sta   A2Best
-            lda   A2V
-            sta   A2BestI
-:nx         inx
-            bra   :c
-:done       lda   A2C
+            bcc   :h
+            stx   NC
+            stz   A2I
+            stz   A2B
+            stz   A2Rem
+:p          lda   A2I
             asl
             tax
-            lda   A2BestI
-            sta   CIdx,x
-            ply
-            rts
-
-* Square: A = -15 to 15 -> its square. Keeps X and Y.
-Square      cmp   #0
-            bpl   :p
-            eor   #$FFFF
-            inc
-:p          asl
-            phx
+            lda   SumR,x
+            sta   VR
+            lda   SumG,x
+            sta   VG
+            lda   SumB,x
+            sta   VB
+            jsr   Near
+            lda   A2B
+            asl
             tax
-            lda   Squares,x
-            plx
-            rts
-
-* PackHGR: the HiRes colour line (Dots: colour numbers) into its 40
-* bytes at A2Off.
-PackHGR     ldx   #0
-:byte       stz   A2Bal                 ; blue, orange against violet, green
-            lda   #7
-            sta   A2N
-            phx
-:b1         lda   Dots,x
-            and   #$00FF
+            lda   BestI
             cmp   #12
             beq   :plus
             cmp   #3
@@ -840,60 +1009,202 @@ PackHGR     ldx   #0
             cmp   #9
             beq   :minus
             cmp   #6
-            bne   :nb
-:minus      dec   A2Bal
-            bra   :nb
-:plus       inc   A2Bal
-:nb         inx
-            dec   A2N
-            bne   :b1
-            plx
-            stz   A2Bits
-            lda   A2Bal
-            bmi   :lo
-            beq   :lo
-            lda   #$80
-            sta   A2Bits
-:lo         lda   #1
-            sta   A2Mask
-            lda   #7
-            sta   A2N
-:b2         lda   Dots,x
-            and   #$00FF
-            beq   :off                  ; black
-            cmp   #15
-            beq   :on
-            cmp   #9
-            beq   :even
-            cmp   #12
-            beq   :even
-            txa                         ; green, orange: odd dots
-            lsr
-            bcs   :on
-            bra   :off
-:even       txa                         ; violet, blue: even dots
-            lsr
-            bcs   :off
-:on         lda   A2Bits
-            ora   A2Mask
-            sta   A2Bits
-:off        asl   A2Mask
-            inx
-            dec   A2N
-            bne   :b2
-            lda   A2Off
+            bne   :nv
+:minus      dec   Vote,x
+            bra   :nv
+:plus       inc   Vote,x
+:nv         lda   A2Rem                 ; the next pair's even dot: its byte
+            clc
+            adc   #2
+            cmp   #7
+            bcc   :r
+            sbc   #7
+            inc   A2B
+:r          sta   A2Rem
+            inc   A2I
+            lda   A2I
+            cmp   #140
+            bcc   :p
+            ldx   #0                    ; each dot's colour
+            stz   A2B
+            stz   A2Rem
+:d          lda   A2B
+            asl
             tay
-            sep   #$20
+            lda   Vote,y
+            beq   :vg
+            bmi   :vg
+            txa
+            lsr
+            lda   #3                    ; orange (odd), blue (even)
+            bcs   :set
+            lda   #12
+            bra   :set
+:vg         txa
+            lsr
+            lda   #6                    ; green (odd), violet (even)
+            bcs   :set
+            lda   #9
+:set        sep   #$20
             mx    %10
-            lda   A2Bits
-            sta   [outp],y
+            sta   Dots,x
             rep   #$20
             mx    %00
-            inc   A2Off
+            inc   A2Rem
+            lda   A2Rem
+            cmp   #7
+            bcc   :dn
+            stz   A2Rem
+            inc   A2B
+:dn         inx
             cpx   #280
+            bcc   :d
+            rts
+
+* Near: the closest to VR, VG, VB of the NC colours in CandL (by the sum
+* of the squared channel differences / 4; the first of equals; a colour
+* left as soon as its sum so far is no better): BestI, its place A2K, its
+* channels PR, PG, PB.
+Near        lda   #$FFFF
+            sta   A2Best
+            stz   A2Kc
+:c          ldx   A2Kc
+            cpx   NC
             bcs   :done
-            jmp   :byte
-:done       rts
+            lda   CandL,x
+            and   #$00FF
+            asl
+            tay
+            lda   PalR8,y
+            sec
+            sbc   VR
+            bpl   :1
+            eor   #$FFFF
+            inc
+:1          lsr
+            lsr
+            asl
+            tax
+            lda   Squares,x
+            cmp   A2Best
+            bcs   :nx
+            sta   A2D
+            lda   PalG8,y
+            sec
+            sbc   VG
+            bpl   :2
+            eor   #$FFFF
+            inc
+:2          lsr
+            lsr
+            asl
+            tax
+            lda   Squares,x
+            clc
+            adc   A2D
+            cmp   A2Best
+            bcs   :nx
+            sta   A2D
+            lda   PalB8,y
+            sec
+            sbc   VB
+            bpl   :3
+            eor   #$FFFF
+            inc
+:3          lsr
+            lsr
+            asl
+            tax
+            lda   Squares,x
+            clc
+            adc   A2D
+            cmp   A2Best
+            bcs   :nx
+            sta   A2Best
+            sty   A2BY
+            lda   A2Kc
+            sta   A2K
+:nx         inc   A2Kc
+            bra   :c
+:done       ldy   A2BY
+            lda   PalR8,y
+            sta   PR
+            lda   PalG8,y
+            sta   PG
+            lda   PalB8,y
+            sta   PB
+            tya
+            lsr
+            sta   BestI
+            rts
+
+* Spread: error A of channel X (0, 2, 4) at place A2I2/2: 7/16 to the next
+* place, 3/16 below left, 5/16 below, the rest below right (each rounded
+* down).
+Spread      sta   A2E
+            asl
+            asl
+            asl
+            sec
+            sbc   A2E
+            cmp   #$8000
+            ror
+            cmp   #$8000
+            ror
+            cmp   #$8000
+            ror
+            cmp   #$8000
+            ror
+            sta   A2E7
+            sta   Car,x
+            lda   A2E
+            asl
+            clc
+            adc   A2E
+            cmp   #$8000
+            ror
+            cmp   #$8000
+            ror
+            cmp   #$8000
+            ror
+            cmp   #$8000
+            ror
+            sta   A2E3
+            lda   A2E
+            asl
+            asl
+            clc
+            adc   A2E
+            cmp   #$8000
+            ror
+            cmp   #$8000
+            ror
+            cmp   #$8000
+            ror
+            cmp   #$8000
+            ror
+            sta   A2E5
+            lda   A2I2
+            clc
+            adc   ChOff,x
+            tay
+            lda   E0,y                  ; below left
+            clc
+            adc   A2E3
+            sta   E0,y
+            lda   A2E5                  ; below (and the place before's 1/16)
+            clc
+            adc   E1v,x
+            sta   E0+2,y
+            lda   A2E                   ; the rest, below right
+            sec
+            sbc   A2E7
+            sec
+            sbc   A2E3
+            sec
+            sbc   A2E5
+            sta   E1v,x
+            rts
 
 * PackDots: the line's dots (Dots: 1 on), 7 a byte from bit 0, into its
 * bytes at A2Off; Double HiRes: the auxiliary half, then the main one.
@@ -914,7 +1225,18 @@ PackDots    ldx   #0
             inx
             dec   A2N
             bne   :b
+            lda   A2Kind                ; HiRes colour: the byte's colour pair
+            bne   :pair
             lda   A2Grp
+            asl
+            tay
+            lda   Vote,y
+            beq   :pair
+            bmi   :pair
+            lda   A2Bits
+            ora   #$80
+            sta   A2Bits
+:pair       lda   A2Grp
             ldy   A2Kind
             cpy   #2
             bcc   :put
@@ -977,32 +1299,100 @@ A2Pal       dw    $000,$D03,$852,$F60,$070,$555,$0D0,$FF0
             dw    $009,$D0D,$AAA,$F98,$22F,$6AF,$0F9,$FFF
 HCand       db    0,15,9,6,12,3
 Squares     dw    0,1,4,9,16,25,36,49,64,81,100,121,144,169,196,225
-A2Ws        dw    280,280,140,560
+            dw    256,289,324,361,400,441,484,529,576,625,676,729,784,841,900,961
+            dw    1024,1089,1156,1225,1296,1369,1444,1521,1600,1681,1764,1849,1936,2025,2116,2209
+            dw    2304,2401,2500,2601,2704,2809,2916,3025,3136,3249,3364,3481,3600,3721,3844,3969
+* The Apple II colours' channels, 0-255.
+PalR8       dw    0,221,136,255,0,85,0,255
+            dw    0,221,170,255,34,102,0,255
+PalG8       dw    0,0,85,102,119,85,221,255
+            dw    0,0,170,153,34,170,255,255
+PalB8       dw    0,51,34,0,0,85,0,0
+            dw    153,221,170,136,255,255,153,255
+T17         dw    0,17,34,51,68,85,102,119,136,153,170,187,204,221,238,255
+* Third: n / 3 for n = 0-765.
+Third       db    0,0,0,1,1,1,2,2,2,3,3,3,4,4,4,5,5,5,6,6,6,7,7,7
+            db    8,8,8,9,9,9,10,10,10,11,11,11,12,12,12,13,13,13,14,14,14,15,15,15
+            db    16,16,16,17,17,17,18,18,18,19,19,19,20,20,20,21,21,21,22,22,22,23,23,23
+            db    24,24,24,25,25,25,26,26,26,27,27,27,28,28,28,29,29,29,30,30,30,31,31,31
+            db    32,32,32,33,33,33,34,34,34,35,35,35,36,36,36,37,37,37,38,38,38,39,39,39
+            db    40,40,40,41,41,41,42,42,42,43,43,43,44,44,44,45,45,45,46,46,46,47,47,47
+            db    48,48,48,49,49,49,50,50,50,51,51,51,52,52,52,53,53,53,54,54,54,55,55,55
+            db    56,56,56,57,57,57,58,58,58,59,59,59,60,60,60,61,61,61,62,62,62,63,63,63
+            db    64,64,64,65,65,65,66,66,66,67,67,67,68,68,68,69,69,69,70,70,70,71,71,71
+            db    72,72,72,73,73,73,74,74,74,75,75,75,76,76,76,77,77,77,78,78,78,79,79,79
+            db    80,80,80,81,81,81,82,82,82,83,83,83,84,84,84,85,85,85,86,86,86,87,87,87
+            db    88,88,88,89,89,89,90,90,90,91,91,91,92,92,92,93,93,93,94,94,94,95,95,95
+            db    96,96,96,97,97,97,98,98,98,99,99,99,100,100,100,101,101,101,102,102,102,103,103,103
+            db    104,104,104,105,105,105,106,106,106,107,107,107,108,108,108,109,109,109,110,110,110,111,111,111
+            db    112,112,112,113,113,113,114,114,114,115,115,115,116,116,116,117,117,117,118,118,118,119,119,119
+            db    120,120,120,121,121,121,122,122,122,123,123,123,124,124,124,125,125,125,126,126,126,127,127,127
+            db    128,128,128,129,129,129,130,130,130,131,131,131,132,132,132,133,133,133,134,134,134,135,135,135
+            db    136,136,136,137,137,137,138,138,138,139,139,139,140,140,140,141,141,141,142,142,142,143,143,143
+            db    144,144,144,145,145,145,146,146,146,147,147,147,148,148,148,149,149,149,150,150,150,151,151,151
+            db    152,152,152,153,153,153,154,154,154,155,155,155,156,156,156,157,157,157,158,158,158,159,159,159
+            db    160,160,160,161,161,161,162,162,162,163,163,163,164,164,164,165,165,165,166,166,166,167,167,167
+            db    168,168,168,169,169,169,170,170,170,171,171,171,172,172,172,173,173,173,174,174,174,175,175,175
+            db    176,176,176,177,177,177,178,178,178,179,179,179,180,180,180,181,181,181,182,182,182,183,183,183
+            db    184,184,184,185,185,185,186,186,186,187,187,187,188,188,188,189,189,189,190,190,190,191,191,191
+            db    192,192,192,193,193,193,194,194,194,195,195,195,196,196,196,197,197,197,198,198,198,199,199,199
+            db    200,200,200,201,201,201,202,202,202,203,203,203,204,204,204,205,205,205,206,206,206,207,207,207
+            db    208,208,208,209,209,209,210,210,210,211,211,211,212,212,212,213,213,213,214,214,214,215,215,215
+            db    216,216,216,217,217,217,218,218,218,219,219,219,220,220,220,221,221,221,222,222,222,223,223,223
+            db    224,224,224,225,225,225,226,226,226,227,227,227,228,228,228,229,229,229,230,230,230,231,231,231
+            db    232,232,232,233,233,233,234,234,234,235,235,235,236,236,236,237,237,237,238,238,238,239,239,239
+            db    240,240,240,241,241,241,242,242,242,243,243,243,244,244,244,245,245,245,246,246,246,247,247,247
+            db    248,248,248,249,249,249,250,250,250,251,251,251,252,252,252,253,253,253,254,254,254,255
+A2Kc        dw    0
+A2NR        dw    0
+A2RL        dw    0
+A2Cnt       dw    0
+A2DS        dw    0
+A2DD        dw    0
+A2DQ        dw    0
+A2I2        dw    0
+A2BY        dw    0
+PairBits    dw    $0000,$0101,$0001,$0100 ; (HiRes pair: black, white, even, odd)
+ChOff       dw    0,1200,2400
+CandL       ds    16
+Vote        ds    80
+VR          dw    0
+VG          dw    0
+VB          dw    0
+PR          dw    0
+PG          dw    0
+PB          dw    0
+Car         dw    0,0,0
+E1v         dw    0,0,0
+A2I         dw    0
+A2K         dw    0
+A2Out       dw    0
+NC          dw    0
+BestI       dw    0
+A2Rem       dw    0
+A2E         dw    0
+A2E1        dw    0
+A2E3        dw    0
+A2E5        dw    0
+A2E7        dw    0
+A2Ws        dw    140,280,140,560
 A2Dots      dw    280,280,560,560
 A2Sizes     dw    8192,8192,16384,16384
 A2Kind      dw    0
 A2W         dw    0
-A2W2        dw    0
 A2DotN      dw    0
-A2Step      dw    0
-A2StepY     dw    0
 A2AccY      dw    0
 A2SY        dw    0
-A2Last      dw    0
 A2Y         dw    0
 A2Off       dw    0
 A2C         dw    0
 A2V         dw    0
 A2D         dw    0
 A2P         dw    0
-A2R         dw    0
-A2G         dw    0
 A2B         dw    0
 A2Best      dw    0
-A2BestI     dw    0
 A2Mask      dw    0
 A2Bits      dw    0
-A2Bal       dw    0
 A2N         dw    0
 A2Grp       dw    0
 
@@ -3350,7 +3740,12 @@ CIdx        ds    8192
 HCode       ds    10008
 HPre        ds    10008
 SrcX        =     HCode                 ; (Apple II: each place's column,
-Dots        =     HPre                  ; and its line)
+Dots        =     HPre                  ; and its line,
+E0          =     HChr                  ; the errors for the next line,
+SumR        =     HChr+3600             ; each place's colour)
+SumG        =     HChr+4800
+SumB        =     HChr+6000
+SrcN        =     HCode+1200            ; (and its number of columns)
 HChr        ds    10008
 CurRaw      =     HChr                  ; PNG lines (DeflateM): this one, the one
 PrevRaw     =     HChr+1286             ; above (in GIF's table: PNG doesn't use it)

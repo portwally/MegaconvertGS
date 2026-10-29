@@ -457,27 +457,25 @@ FiSvBMP     asc   '93/BMP: a Windows bitmap for today',27,'s computers, ProDOS t
 
 FiSvHGR     asc   '93/HiRes color: the Apple II high resolution screen, ProDOS type $06 (BIN), '
             asc   'aux type $2000, 8192 bytes: 280 x 192 dots in black, white, violet, green, blue '
-            asc   'and orange.',0D,'The picture is stretched to the Apple II screen and each '
-            asc   'place takes the closest of the six colors; a byte of 7 dots shows blue and '
-            asc   'orange or violet and green, whichever more of them want. Remap to those colors '
-            asc   'first for the best result./^#0',00
+            asc   'and orange.',0D,'The picture is fitted to the Apple II screen and dithered '
+            asc   'with error diffusion, a pair of dots at a time; each byte of 7 dots shows blue '
+            asc   'and orange or violet and green, whichever its part of the picture is closer to./^#0',00
 
 FiSvHGRBW   asc   '93/HiRes black & white: the Apple II high resolution screen, ProDOS type $06 '
-            asc   '(BIN), aux type $2000, 8192 bytes: 280 x 192 dots.',0D,'The picture is '
-            asc   'stretched to the Apple II screen; a dot is on where the color there is bright '
-            asc   '(half of white or more). Make a monochrome image and a screen from it first to '
-            asc   'dither it./^#0',00
+            asc   '(BIN), aux type $2000, 8192 bytes: 280 x 192 dots.',0D,'The picture is fitted '
+            asc   'to the Apple II screen and dithered with error diffusion; a black & white '
+            asc   'picture keeps its dots where they fit./^#0',00
 
 FiSvDHR     asc   '93/Double HiRes color: the double high resolution screen of the Apple IIe, IIc '
             asc   'and IIgs, ProDOS type $06 (BIN), aux type $2000, 16384 bytes, the auxiliary '
-            asc   'memory half first: 140 x 192 pixels in 16 colors.',0D,'The picture is '
-            asc   'stretched to the Apple II screen and each pixel takes the closest Apple II '
-            asc   'color. Remap to those colors first for the best result./^#0',00
+            asc   'memory half first: 140 x 192 pixels in 16 colors.',0D,'The picture is fitted '
+            asc   'to the Apple II screen and dithered with error diffusion; a picture in the '
+            asc   'Apple II colors keeps them./^#0',00
 
 FiSvDHRBW   asc   '93/Double HiRes black & white: the Apple II double high resolution screen, '
             asc   'ProDOS type $06 (BIN), aux type $2000, 16384 bytes, the auxiliary half first: '
-            asc   '560 x 192 dots.',0D,'The picture is stretched to the Apple II screen; a dot is '
-            asc   'on where the color there is bright (half of white or more)./^#0',00
+            asc   '560 x 192 dots.',0D,'The picture is fitted to the Apple II screen and dithered '
+            asc   'with error diffusion./^#0',00
 
 FiSvBabelPM asc   '93/Babelfish PixelMap Export: the screen picture written through Babelfish, '
             asc   'Seven Hills Software',27,'s file translator system, in a format its '

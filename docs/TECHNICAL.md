@@ -173,12 +173,21 @@ segment includes.
   a larger one a CPC screen.
 - **Apple II save formats** (Save.s, save numbers 17-20): HiRes and Double HiRes, colour
   and black & white, as $06 files with aux type $2000 (Double HiRes: the auxiliary half
-  first), written so Apple.s loads them back. The picture is stretched to the Apple II
-  screen, each place taking the middle of its part of it; colour places take the closest
-  Apple II colour (HiRes: of its six; a byte's top bit set where more of its dots want
-  blue or orange than violet or green), black & white dots are on where 3R + 6G + B is at
-  least half of white. The segment was at the 64K limit: the new code uses GIF's LZW
-  tables for its line buffers, and PNG's two line buffers moved into GIF's tables too.
+  first), written so Apple.s loads them back. Each place on the Apple II screen (140 or
+  280 across, 192 down) takes the average of the picture's pixels it covers (point
+  sampling an already dithered picture made stripes), then Floyd-Steinberg error
+  diffusion (7, 3, 5 and the rest of 16ths, rounded down, dropped at the edges) to the
+  closest colour by the squared channel differences / 4: one of the 16 in Double HiRes; a
+  dot pair in HiRes (black, white, or the colour of its even or odd dot), each byte's
+  colour pair chosen first by its pairs' closest colours (blue and orange where more want
+  them than violet and green); 3R + 6G + B against half of white for black & white. A
+  picture in the Apple II colours (Remap's Other palettes "Apple II LoRes/Double HiRes
+  colors" and "Apple II HiRes colors" hold exactly them) has no errors to spread, and
+  Double HiRes pictures save back as they were loaded. Divisions by 2, 3 and 4 have
+  shortcuts. On a 2.8 MHz IIgs a 320 x 200 screen takes 37 s (HiRes colour), 17 s (HiRes
+  black & white), 41 s (Double HiRes colour) and 30 s (Double HiRes black & white). The
+  segment was at the 64K limit: the new code keeps its line buffers in GIF's LZW tables,
+  and PNG's two line buffers moved there too.
 - **Four more Commodore 64 formats:** Art Studio (hires, 9009 bytes) and Advanced Art
   Studio (multicolour, 10018 bytes), the same parts as Doodle and Koala in another order;
   FLI Graph (17409 bytes: new screen colours on every line; the first three columns, which
