@@ -14,6 +14,9 @@ and Ian Brumby, and follows its windows, menus and conversions. Where GS Remap (
 reimplementation of SuperConvert's conversions) has a function, MegaconvertGS gives the
 same result pixel for pixel.
 
+**[Read the user manual (PDF)](docs/MegaconvertGS-Manual.pdf)**: a guided tour, every menu and window, and a
+reference of all load and save formats, with colour screenshots.
+
 ## Features
 
 - **Nearly 70 load formats** from fourteen computer types, chosen in the Load formats window or
@@ -65,8 +68,8 @@ New in MegaconvertGS (not in SuperConvert) are marked with ★.
 
 | Computer | Formats |
 |---|---|
-| Apple II | HiRes and Double HiRes (colour or black & white; ★ packed, type $08), ★ LoRes and Double LoRes, Print Shop graphics, ThunderScan scans, Works of Art pages (Springboard Publisher), TDM 40 and 80 column text screens |
-| Apple IIgs | Super Hi-Res ($C0 PackBytes and Apple Preferred, $C1), PaintWorks and Paintworks Gold, DreamGrafix (256 and 3200 colours), Print Shop IIgs colour graphics and library, Finder icons, AST and ComputerEyes digitizer files, "3200 color" pictures (plain, .3201 and compressed) |
+| Apple II | HiRes and Double HiRes (colour or black & white; ★ packed, type $08; ★ LZ4FH-packed HiRes; ★ Double HiRes as NAME.BIN + NAME.AUX pairs, Dazzle Draw / A2FC and A2FM files and bmp2dhr's .DHR pieces), ★ LoRes and Double LoRes, Print Shop graphics, ThunderScan scans, Works of Art pages (Springboard Publisher), TDM 40 and 80 column text screens |
+| Apple IIgs | Super Hi-Res ($C0 PackBytes and Apple Preferred, ★ whole when larger than a screen or with 3200 colours, $C1), PaintWorks and Paintworks Gold, DreamGrafix (256 and 3200 colours), Print Shop IIgs colour graphics and library, Finder icons, AST and ComputerEyes digitizer files, "3200 color" pictures (plain, .3201 and compressed) |
 | Atari ST | Degas, Degas Elite, Neochrome, Tiny, Spectrum 512 (plain and compressed) |
 | Amiga | IFF ILBM (with HAM, Extra HalfBrite and 24-bit) |
 | Commodore 64/128 | Doodle, Koala, Print Shop screens (and other 8002-byte hires bitmaps), ★ Art Studio (and Interpaint and other 9002-byte hires pictures), ★ Advanced Art Studio, ★ FLI Graph, ★ Amica Paint |
