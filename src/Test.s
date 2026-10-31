@@ -10,6 +10,7 @@
 *   SAVE C1 path         save as an uncompressed screen
 *   SAVE PACK path       save as a PackBytes screen
 *   SAVE RGB path        save a true colour picture as raw RGB bytes
+*   SHOT path            save the screen as it shows (windows, menus) as a $C1 file
 *   REMAP                remap to 320 mode, calculated palette, pattern dither
 *   REMAP QUICK          quick remap (a one-screen preview)
 *   REMAP WITH m p a h v o  remap with mode m (0 320, 1 640, 2 640 dither, 3 multi),
@@ -339,7 +340,15 @@ DoCommand   lda   #CmdBuf
             bcs   :rgbErr
             jmp   :saved
 :rgbErr     jmp   :error
-:notRGB     lda   #CmdRemapTxt
+:notRGB     lda   #CmdShotTxt
+            jsr   Match
+            bcs   :notShot
+            jsr   MakePath              ; SHOT path: the screen as it shows
+            jsr   SaveShot
+            bcs   :shotErr
+            jmp   :saved
+:shotErr    jmp   :error
+:notShot    lda   #CmdRemapTxt
             jsr   Match
             bcs   :notRemap
             pha
@@ -1494,6 +1503,28 @@ SaveRGB     lda   IsTrue
             sta   WLen+2
             jmp   WriteFile
 
+* SaveShot: the Super Hi-Res display (bank $E1 from $2000: pixels, SCBs,
+* colour tables) saved as a $C1 file, without the pointer (for the manual).
+SaveShot    Tool  _HideCursor
+            lda   #$00C1
+            sta   WType
+            stz   WAux
+            stz   WAux+2
+            lda   #$2000
+            sta   WData
+            lda   #$00E1
+            sta   WData+2
+            lda   #32768
+            sta   WLen
+            stz   WLen+2
+            jsr   WriteFile
+            php
+            pha
+            Tool  _ShowCursor
+            pla
+            plp
+            rts
+
 * MakePath: PathBuf = GS/OS string of CmdBuf from offset A on.
 MakePath    tay
             ldx   #0
@@ -1738,6 +1769,7 @@ CmdSaveDlgTxt asc 'SAVEDLG ',00
 CmdSaveWarnTxt asc 'SAVEWARN',00
 CmdNameTxt  asc   'NAME ',00
 CmdBFNameTxt asc  'BFNAME',00
+CmdShotTxt  asc   'SHOT ',00
 CmdBFLastTxt asc  'BFLAST',00
 CmdSysInfoTxt asc 'SYSINFO ',00
 CmdExamineTxt asc 'EXAMINE ',00

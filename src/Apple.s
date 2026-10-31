@@ -44,6 +44,7 @@ DecodeApple ent
             asl
             tax
             jsr   (Loaders,x)
+            jsr   PieceSize
             jsr   Repack8
 :out        plb
             rtl
@@ -54,13 +55,31 @@ DecodeApple ent
 * into a buffer, which stands for the file (fp, flen) while it loads.
 * Out: carry set and A = error if it doesn't unpack.
 Unpack8     stz   Packed8
-            lda   ftype
+            stz   PieceW
+            lda   Want                  ; (a bmp2dhr picture piece: on a
+            cmp   #fmtDHR               ; screen of its own)
+            beq   :piece
+            cmp   #fmtDHRBW
+            bne   :notPiece
+:piece      jsr   IsPiece
+            bcs   :notPiece
+            jmp   UnPiece
+:notPiece   lda   ftype
             cmp   #$0008
             beq   :t8
 :skip       clc
             rts
 :t8
             lda   faux
+            cmp   #$8066                ; (LZ4FH: HiRes, fadden's fhpack)
+            bne   :pb
+            lda   Want
+            cmp   #fmtHGR
+            beq   :lz
+            cmp   #fmtHGRBW
+            bne   :skip
+:lz         jmp   UnLZ4
+:pb         lda   faux
             cmp   #$4000
             beq   :hgr
             cmp   #$4001
@@ -219,8 +238,13 @@ Detect      stz   DGAuto
             clc
             rts
 :fot1       cmp   #$4001
-            bne   :fot2
+            bne   :fotLZ
             lda   #fmtDHR
+            clc
+            rts
+:fotLZ      cmp   #$8066                ; LZ4FH: HiRes (UnLZ4)
+            bne   :fot2
+            lda   #fmtHGR
             clc
             rts
 :fot2       cmp   #$4000
@@ -247,7 +271,22 @@ Detect      stz   DGAuto
 :mode       lda   FotFmt,x
             clc
             rts
-:sizes      lda   flen+2                ; by size
+:sizes      jsr   IsPiece               ; a bmp2dhr picture piece ("DHR",
+            bcs   :notPiece             ; or "DHM", black & white)
+            cmp   #'M'
+            beq   :pieceBW
+            lda   #fmtDHR
+            clc
+            rts
+:pieceBW    lda   #fmtDHRBW
+            clc
+            rts
+:notPiece   jsr   IsA2FM                ; ".A2FM": Double HiRes black & white
+            bcs   :bySize
+            lda   #fmtDHRBW
+            clc
+            rts
+:bySize     lda   flen+2                ; by size
             bne   :big
             lda   flen
             ldx   #0
@@ -277,6 +316,8 @@ Detect      stz   DGAuto
             lda   flen
             cmp   #$EE00
             bcc   :none
+            jsr   IsPNM                 ; (a 320 x 200 PPM is that size too)
+            bcc   :none
             lda   #fmtCEyes
             clc
             rts
@@ -284,6 +325,8 @@ Detect      stz   DGAuto
             bne   :none
             lda   flen
             bne   :none
+            jsr   IsPNM
+            bcc   :none
             lda   #fmtCEyes
             clc
             rts
@@ -355,6 +398,329 @@ HiResRow    sta   t0
             clc
             adc   t1
             rts
+
+*-------------------------------------------------------------
+* More Apple II pictures: bmp2dhr's picture pieces, .A2FM names, LZ4FH
+*-------------------------------------------------------------
+
+* IsPiece: carry clear if the file is a bmp2dhr Double HiRes picture piece
+* (Bill Buckels' DHR format): "DHR" (or "DHM", a black & white mask), the
+* bytes a row (both halves, 4 for 7 dots: 4-80), the rows (1-192), then
+* each row's auxiliary half and main half. A = 'R' or 'M'.
+IsPiece     lda   flen+2
+            bne   :long
+            lda   flen
+            cmp   #5+4
+            bcc   :no
+:long       lda   [fp]
+            cmp   #$4844                ; "DH"
+            bne   :no
+            ldy   #2
+            lda   [fp],y
+            and   #$00FF
+            cmp   #'R'
+            beq   :id
+            cmp   #'M'
+            bne   :no
+:id         sta   t3
+            ldy   #3                    ; width: 4-80, a multiple of 4
+            lda   [fp],y
+            and   #$00FF
+            beq   :no
+            cmp   #81
+            bcs   :no
+            bit   #3
+            bne   :no
+            sta   PieceW
+            ldy   #4                    ; rows: 1-192
+            lda   [fp],y
+            and   #$00FF
+            beq   :no
+            cmp   #193
+            bcs   :no
+            sta   PieceH
+            ldx   PieceW                ; all there?
+            jsr   Mul16
+            lda   MLo
+            clc
+            adc   #5
+            ldx   flen+2
+            bne   :yes
+            cmp   flen
+            beq   :yes
+            bcs   :no
+:yes        lda   t3
+            clc
+            rts
+:no         stz   PieceW
+            sec
+            rts
+
+* UnPiece: the piece placed at the top left of a Double HiRes screen (16384
+* bytes, the auxiliary half first, black elsewhere), which stands for the
+* file while it loads; PieceSize then gives the picture the piece's size.
+UnPiece     lda   PieceW
+            pha
+            lda   PieceH
+            pha
+            lda   #16384
+            jsr   NewOut
+            plx
+            stx   PieceH
+            plx
+            stx   PieceW
+            bcc   :buf
+            stz   PieceW
+            rts
+:buf        lda   PieceW
+            lsr
+            sta   t2                    ; bytes a half row
+            lda   #5
+            sta   u0                    ; where in the file
+            stz   u2                    ; the row
+:row        lda   u2
+            jsr   HiResRow
+            sta   u3
+            sta   u1                    ; its auxiliary half
+            jsr   Copy
+            lda   u3                    ; its main half
+            clc
+            adc   #8192
+            sta   u1
+            jsr   Copy
+            inc   u2
+            lda   u2
+            cmp   PieceH
+            bcc   :row
+            lda   #16384
+            jmp   InBuf
+
+* UnLZ4: an LZ4FH file (type $08, aux type $8066; fadden's fhpack) unpacked
+* into the 8192 bytes of HiRes, which stand for the file while it loads.
+* After the magic byte $66, sequences: a token (literal bytes in its high
+* 4 bits, 15: plus the next byte; match length - 4 in its low 4 bits, 15:
+* plus the next byte, which is 253 for no match and 254 for the end), the
+* literal bytes, then (a match) its place in the output, from its start
+* (2 bytes, low first). Anything outside the file or the screen: damaged.
+UnLZ4       lda   flen+2
+            bne   :bad0
+            lda   flen
+            cmp   #2
+            bcc   :bad0
+            lda   [fp]
+            and   #$00FF
+            cmp   #$66
+            bne   :bad0
+            lda   #8192
+            jsr   NewOut
+            bcc   :buf
+            rts
+:bad0       lda   #errCorrupt
+            sec
+            rts
+:badJ       jmp   :bad
+:buf        lda   #1
+            sta   u0                    ; in the file
+            stz   u1                    ; in the screen
+:seq        jsr   In                    ; the token
+            bcs   :badJ
+            sta   LzTok
+            lsr
+            lsr
+            lsr
+            lsr
+            cmp   #15
+            bne   :lit
+            jsr   In
+            bcs   :badJ
+            clc
+            adc   #15
+:lit        sta   t2                    ; the literal bytes: room for them?
+            clc
+            adc   u0
+            bcs   :badJ
+            cmp   flen
+            beq   :litIn
+            bcs   :badJ
+:litIn      lda   t2
+            clc
+            adc   u1
+            cmp   #8193
+            bcs   :badJ
+            jsr   Copy
+            lda   LzTok                 ; the match
+            and   #$000F
+            cmp   #15
+            bne   :match
+            jsr   In
+            bcs   :badJ
+            cmp   #253                  ; none
+            bne   :some
+            jmp   :seq
+:some
+            cmp   #254                  ; the end
+            beq   :end
+            clc
+            adc   #15
+:match      clc
+            adc   #4
+            sta   t2
+            jsr   In                    ; its place
+            bcs   :bad
+            sta   t3
+            jsr   In
+            bcs   :bad
+            xba
+            ora   t3
+            sta   u2
+            clc
+            adc   t2
+            cmp   #8193
+            bcs   :bad
+            lda   u1
+            clc
+            adc   t2
+            cmp   #8193
+            bcs   :bad
+            ldx   t2                    ; copied a byte at a time (it may
+:m          ldy   u2                    ; overlap what it makes)
+            lda   [OutDP],y
+            ldy   u1
+            sep   #$20
+            mx    %10
+            sta   [OutDP],y
+            rep   #$20
+            mx    %00
+            inc   u2
+            inc   u1
+            dex
+            bne   :m
+            jmp   :seq
+:bad        jsr   FreeOut
+            lda   #errCorrupt
+            sec
+            rts
+:end        lda   #8192
+
+* InBuf: the work buffer (A bytes) stands for the file until Repack8.
+InBuf       sta   P8Len
+            lda   fp
+            sta   P8Fp
+            lda   fp+2
+            sta   P8Fp+2
+            lda   flen
+            sta   P8Flen
+            lda   OutP
+            sta   fp
+            lda   OutP+2
+            sta   fp+2
+            lda   P8Len
+            sta   flen
+            inc   Packed8
+            clc
+            rts
+
+* In: the file's next byte (at u0) in A; carry set past its end.
+In          ldy   u0
+            cpy   flen
+            bcs   :out
+            lda   [fp],y
+            and   #$00FF
+            inc   u0
+            clc
+:out        rts
+
+* Copy: t2 bytes from the file at u0 to the work buffer at u1 (both move on).
+Copy        ldx   t2
+            beq   :done
+:c          ldy   u0
+            lda   [fp],y
+            ldy   u1
+            sep   #$20
+            mx    %10
+            sta   [OutDP],y
+            rep   #$20
+            mx    %00
+            inc   u0
+            inc   u1
+            dex
+            bne   :c
+:done       rts
+
+* PieceSize: after a piece loaded, the picture its size (280 x 192 Double
+* HiRes: 7 / 2 pixels a byte in colour, 7 in black & white). Keeps carry, A.
+PieceSize   php
+            pha
+            lda   PieceW
+            beq   :out
+            ldx   #7
+            jsr   Mul16                 ; bytes x 7 (dots)
+            lda   MLo
+            ldx   Is640
+            bne   :bw
+            lsr
+:bw         sta   pw
+            lda   PieceH
+            sta   ph
+:out        pla
+            plp
+            rts
+
+* IsA2FM: carry clear if the name ends in ".A2FM" (any case) and the file
+* holds Double HiRes: bmp2dhr's black & white single file.
+IsA2FM      lda   flen+2
+            bne   :no
+            lda   flen
+            cmp   #16376
+            bcc   :no
+            cmp   #16385
+            bcs   :no
+            lda   [pathp]
+            cmp   #6
+            bcc   :no
+            inc                         ; (the last character: length + 1)
+            tay
+            ldx   #4
+:c          lda   [pathp],y
+            and   #$00FF
+            cmp   #'a'
+            bcc   :up
+            and   #$00DF
+:up         sep   #$20
+            mx    %10
+            cmp   A2FMText,x
+            rep   #$20
+            mx    %00
+            bne   :no
+            dey
+            dex
+            bpl   :c
+            clc
+            rts
+:no         sec
+            rts
+A2FMText    asc   '.A2FM'
+
+* IsPNM: carry clear if the file starts like a PBM, PGM or PPM ("P1"-"P6").
+IsPNM       lda   [fp]
+            and   #$00FF
+            cmp   #'P'
+            bne   :no
+            ldy   #1
+            lda   [fp],y
+            and   #$00FF
+            cmp   #'1'
+            bcc   :no
+            cmp   #'7'
+            bcs   :no
+            clc
+            rts
+:no         sec
+            rts
+
+PieceW      dw    0                     ; (a piece: bytes a row, rows)
+PieceH      dw    0
+LzTok       dw    0
 
 *-------------------------------------------------------------
 * Apple II HiRes

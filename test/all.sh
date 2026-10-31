@@ -44,4 +44,5 @@ suite tiffopt ./test/tiffopt.sh
 suite newfmt ./test/newfmt.sh
 suite a2save ./test/a2save.sh
 suite babel ./test/babel.sh
+suite a2more ./test/a2more.sh
 exit $failed

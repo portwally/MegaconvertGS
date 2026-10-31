@@ -39,6 +39,7 @@ DecodeFile  jsr   ClearScreen
             stz   pw                    ; (a smaller picture says its size)
             stz   ph
             stz   p640
+            jsr   PairDHR               ; (.BIN and .AUX: one Double HiRes)
             lda   ForceFmt              ; a format chosen in Load formats
             beq   :auto
             jmp   DecodeForced
@@ -65,8 +66,12 @@ DecodeFile  jsr   ClearScreen
 :apf        jsr   IsAPF
             bcs   :guess
             jsr   DecodeAPF
-            bcs   :guess
-            lda   #fmtAPF
+            bcc   :apfOK1
+            cmp   #0                    ; (an error: said; not one: on)
+            beq   :guess
+            sec
+            rts
+:apfOK1     lda   #fmtAPF
             clc
             rts
 :notC0      cmp   #$00C1
@@ -129,8 +134,12 @@ DecodeFile  jsr   ClearScreen
 :notRaw     jsr   IsAPF
             bcs   :notAPF
             jsr   DecodeAPF
-            bcs   :fail
-            lda   #fmtAPF
+            bcc   :apfOK2
+            cmp   #0
+            beq   :fail
+            sec
+            rts
+:apfOK2     lda   #fmtAPF
             clc
             rts
 :notAPF     jsr   DecodePacked
@@ -194,8 +203,12 @@ DecodeForced cmp  #fmtWOA              ; (Works of Art: the Apple segment)
 :apf        jsr   IsAPF
             bcs   :fail
             jsr   DecodeAPF
-            bcs   :fail
-            lda   #fmtAPF
+            bcc   :apfOK3
+            cmp   #0
+            beq   :fail
+            sec
+            rts
+:apfOK3     lda   #fmtAPF
             clc
             rts
 :packed     jsr   DecodePacked
@@ -275,6 +288,234 @@ SegNo       dw    0
 * IPI: a picture in three files, name.R, name.G and name.B, each a
 * square of 8-bit samples (256 or 512 a side). Any one may be opened.
 *-------------------------------------------------------------
+
+* PairDHR: a Double HiRes picture in two files, NAME.BIN (main memory)
+* and NAME.AUX (auxiliary memory), 8184 or 8192 bytes each (Beagle
+* Graphics; bmp2dhr's option A): either one opened, with no format chosen
+* or a Double HiRes one, and the other one there too, become one 16384-byte
+* file, the auxiliary half first, as Double HiRes is read (no format
+* chosen: Double HiRes colour). Else nothing changes: a lone .BIN is HiRes.
+PairDHR     lda   ForceFmt
+            beq   :fmt
+            cmp   #fmtDHR
+            beq   :fmt
+            cmp   #fmtDHRBW
+            beq   :fmt
+:no         rts
+:fmt        jsr   PairSize
+            bcs   :no
+            lda   PathPtr
+            sta   p0
+            lda   PathPtr+2
+            sta   p0+2
+            lda   [p0]                  ; "x.BIN" or "x.AUX", any case
+            cmp   #5
+            bcc   :no
+            cmp   #255
+            bcs   :no
+            sta   t0
+            dec                         ; (the dot: length - 2, after the
+            dec                         ;  length word)
+            tay
+            lda   [p0],y
+            and   #$00FF
+            cmp   #'.'
+            bne   :no
+            iny
+            jsr   :up
+            sta   t1
+            iny
+            jsr   :up
+            xba
+            ora   t1
+            sta   t1                    ; the first two letters
+            iny
+            jsr   :up
+            sta   t2                    ; the third
+            stz   PairAux
+            lda   t1
+            cmp   #$4942               ; "BI"
+            bne   :aux
+            lda   t2
+            cmp   #'N'
+            bne   :no
+            bra   :name
+:aux        cmp   #$5541               ; "AU"
+            bne   :no
+            lda   t2
+            cmp   #'X'
+            bne   :no
+            inc   PairAux
+:name       ldy   #0                    ; the other one's name: a copy, the
+:copy       lda   [p0],y                ; three letters changed (each in
+            sta   IpiPath,y             ; its own case)
+            iny
+            iny
+            cpy   #258
+            bcc   :copy
+            lda   PairAux
+            asl
+            asl
+            tax                         ; (0: "AUX" wanted, 4: "BIN")
+            ldy   t0
+            iny
+            iny
+            iny
+            sty   t3                    ; past the last letter
+            ldy   t0
+            dey
+:letter     lda   [p0],y
+            and   #$0020                ; (lower case: bit 5)
+            ora   PairOther,x
+            sep   #$20
+            mx    %10
+            sta   IpiPath,y
+            rep   #$20
+            mx    %00
+            inx
+            iny
+            cpy   t3
+            bcc   :letter
+            lda   PathPtr               ; the other one read (this one kept)
+            sta   PairPath
+            lda   PathPtr+2
+            sta   PairPath+2
+            ldx   #0
+:keep       lda   FileH,x
+            sta   PairOwn,x
+            inx
+            inx
+            cpx   #12
+            bcc   :keep
+            lda   FileType
+            sta   PairType
+            lda   FileAux
+            sta   PairTAux
+            lda   #IpiPath
+            sta   PathPtr
+            lda   #^IpiPath
+            sta   PathPtr+2
+            jsr   ReadFile
+            php
+            lda   PairPath
+            sta   PathPtr
+            lda   PairPath+2
+            sta   PathPtr+2
+            plp
+            bcs   :alone
+            jsr   PairSize
+            bcc   :both
+            jsr   FreeFile              ; (not a half: this one alone)
+:alone      ldx   #0
+:back       lda   PairOwn,x
+            sta   FileH,x
+            inx
+            inx
+            cpx   #12
+            bcc   :back
+            bra   :types
+:both       lda   #16384                ; both: one picture, black where a
+            sta   n0                    ; half is 8184 bytes
+            stz   n0+2
+            jsr   NewBuffer
+            bcs   :alone2
+            lda   #0
+            ldy   #16382
+:zero       sta   [p0],y
+            dey
+            dey
+            bpl   :zero
+            lda   PairOwnP              ; this one's half (kept)
+            sta   p1
+            lda   PairOwnP+2
+            sta   p1+2
+            lda   PairOwn+8
+            ldx   PairAux
+            jsr   :copyHalf
+            lda   FileP                 ; the other one's
+            sta   p1
+            lda   FileP+2
+            sta   p1+2
+            lda   PairAux
+            eor   #1
+            tax
+            lda   FileLen
+            jsr   :copyHalf
+            jsr   FreeFile              ; both files go: the picture stays
+            PushLongAt PairOwn
+            Tool  _DisposeHandle
+            lda   n1
+            sta   FileH
+            lda   n1+2
+            sta   FileH+2
+            lda   p0
+            sta   FileP
+            lda   p0+2
+            sta   FileP+2
+            lda   #16384
+            sta   FileLen
+            stz   FileLen+2
+            lda   ForceFmt
+            bne   :types
+            lda   #fmtDHR
+            sta   ForceFmt
+:types      lda   PairType
+            sta   FileType
+            lda   PairTAux
+            sta   FileAux
+            rts
+:alone2     jsr   FreeFile
+            jmp   :alone
+:copyHalf   sta   t1                    ; A bytes from p1 to the picture's
+            lda   p0                    ; auxiliary half (X = 1) or main
+            cpx   #0                    ; half (X = 0)
+            bne   :at
+            clc
+            adc   #8192
+:at         sta   p2
+            lda   p0+2
+            sta   p2+2
+            ldy   #0
+            sep   #$20
+            mx    %10
+:c          lda   [p1],y
+            sta   [p2],y
+            iny
+            cpy   t1
+            bcc   :c
+            rep   #$20
+            mx    %00
+            rts
+:up         lda   [p0],y                ; a character, in upper case
+            and   #$00FF
+            cmp   #'a'
+            bcc   :u
+            cmp   #'z'+1
+            bcs   :u
+            and   #$00DF
+:u          rts
+
+* PairSize: carry clear if the file read is 8184-8192 bytes long.
+PairSize    lda   FileLen+2
+            bne   :no
+            lda   FileLen
+            cmp   #8184
+            bcc   :no
+            cmp   #8193
+            bcs   :no
+            clc
+            rts
+:no         sec
+            rts
+
+PairOther   asc   'AUX',00,'BIN',00     ; (the other one's letters)
+PairAux     dw    0                     ; (the file opened is the .AUX)
+PairPath    adrl  0
+PairType    dw    0
+PairTAux    dw    0
+PairOwn     adrl  0                     ; (FileH, FileP, FileLen as read)
+PairOwnP    adrl  0
+            adrl  0
 
 * IsIPIName: carry clear if the path ends in .R, .G or .B (any case).
 IsIPIName   lda   PathPtr
@@ -817,8 +1058,10 @@ IsAPF       lda   FileLen+2
 :no         sec
             rts
 
-* DecodeAPF: finds the MAIN block and unpacks it.
-DecodeAPF   lda   FileP
+* DecodeAPF: finds the MAIN block (and a MULTIPAL block: a colour table
+* for every line) and unpacks it.
+DecodeAPF   stz   MPalN
+            lda   FileP
             sta   p1                    ; p1 = current block
             lda   FileP+2
             sta   p1+2
@@ -830,6 +1073,8 @@ DecodeAPF   lda   FileP
             adc   FileLen+2
             sta   p3+2
             stz   FoundMain
+            bra   :block
+:doneJ      jmp   :done                 ; (far)
 :block      clc                         ; room for a block header?
             lda   p1
             adc   #5
@@ -838,7 +1083,7 @@ DecodeAPF   lda   FileP
             adc   #0
             sta   n0+2
             jsr   PastEnd
-            bcs   :done
+            bcs   :doneJ
             lda   [p1]                  ; n1 = block length
             sta   n1
             ldy   #2
@@ -847,7 +1092,7 @@ DecodeAPF   lda   FileP
             bne   :big
             lda   n1
             cmp   #5
-            bcc   :done
+            bcc   :doneJ
 :big        clc                         ; n0 = next block
             lda   p1
             adc   n1
@@ -856,10 +1101,12 @@ DecodeAPF   lda   FileP
             adc   n1+2
             sta   n0+2
             jsr   PastEnd
-            bcs   :done
+            bcs   :doneJ
             ldy   #4                    ; named "MAIN"?
             lda   [p1],y
             and   #$00FF
+            cmp   #8
+            beq   :multi
             cmp   #4
             bne   :next
             ldy   #5
@@ -870,27 +1117,48 @@ DecodeAPF   lda   FileP
             lda   [p1],y
             cmp   #$4E49                ; "IN"
             bne   :next
-            lda   n0                    ; ParseMain uses n0
-            pha
-            lda   n0+2
-            pha
-            jsr   ParseMain
-            pla
-            sta   n0+2
-            pla
-            sta   n0
+            lda   p1                    ; (parsed when all are known)
+            sta   MainAt
+            lda   p1+2
+            sta   MainAt+2
             inc   FoundMain
+            bra   :next
+:multi      ldy   #5                    ; "MULTIPAL": count, then the tables
+            lda   [p1],y
+            cmp   #$554D                ; "MU"
+            bne   :next
+            ldy   #11
+            lda   [p1],y
+            cmp   #$4C41                ; "AL"
+            bne   :next
+            ldy   #13
+            lda   [p1],y
+            sta   MPalN
+            lda   p1
+            clc
+            adc   #15
+            sta   MPalAt
+            lda   p1+2
+            adc   #0
+            sta   MPalAt+2
 :next       lda   n0
             sta   p1
             lda   n0+2
             sta   p1+2
-            bra   :block
+            jmp   :block
 :done       lda   FoundMain
             beq   :fail
+            lda   MainAt
+            sta   p1
+            lda   MainAt+2
+            sta   p1+2
+            jsr   ParseMain
+            bcs   :err
             clc
             rts
-:fail       sec
-            rts
+:fail       lda   #0                    ; (0: not one; else an error, such
+            sec                         ; as no memory for a large one)
+:err        rts
 
 * PastEnd: carry set if n0 is beyond p3.
 PastEnd     lda   p3+2
@@ -923,6 +1191,10 @@ ParseMain   clc                         ; p2 = block contents
             sta   NumTables
             lda   #6
             jsr   AddP2
+            lda   p2                    ; (the tables, for a true colour one)
+            sta   TabAt
+            lda   p2+2
+            sta   TabAt+2
             lda   ScreenP               ; colour tables (at most 16)
             sta   p0
             lda   ScreenP+2
@@ -1011,10 +1283,14 @@ ParseMain   clc                         ; p2 = block contents
             bcc   :bprOK
             lda   #640
 :bprOK      sta   BytesPerLine
-            stz   LineNo
+            jsr   ApfBig                ; larger than a screen, or 3200 colors:
+            bcc   :lines0               ; a true colour picture
+            rts
+:lines0     stz   LineNo
 :line       lda   LineNo
             cmp   NumLines
             bcc   :more
+            clc
             rts
 :more       lda   Dir                   ; directory entry: packed size, mode
             sta   p0
@@ -1034,10 +1310,12 @@ ParseMain   clc                         ; p2 = block contents
             beq   :mode
             lda   #$80
             sta   LineMode
-:mode       lda   LineNo
+:mode       lda   ApfTrueOn
+            bne   :unpack
+            lda   LineNo
             cmp   #200
             bcs   :skip
-            lda   p2                    ; unpack the line into LineBuf
+:unpack     lda   p2                    ; unpack the line into LineBuf
             sta   UPSrc
             lda   p2+2
             sta   UPSrc+2
@@ -1050,11 +1328,247 @@ ParseMain   clc                         ; p2 = block contents
             lda   BytesPerLine
             sta   UPSize
             jsr   Unpack
-            jsr   PutLine
+            lda   ApfTrueOn
+            beq   :put
+            jsr   ApfTrueLine
+            bra   :skip
+:put        jsr   PutLine
 :skip       lda   PackedLen
             jsr   AddP2
             inc   LineNo
             bra   :line
+
+* ApfBig: an Apple Preferred picture larger than the screen (wider than 320
+* pixels in 320 mode or 640 in 640 mode, or taller than 200 lines), or with
+* a MULTIPAL block (a colour table for each line: 3200 colors), becomes a
+* true colour picture of its whole size, each line in its own colours, as
+* GS Remap reads it (PaintWorks Gold's 640 mode files stay screens).
+*   out: carry set and A = error if it can't be made
+ApfBig      stz   ApfTrueOn
+            lda   Force640
+            bne   :screen
+            lda   MPalN                 ; a table for every line?
+            beq   :size
+            cmp   NumLines
+            bcs   :true
+:size       lda   NumLines
+            cmp   #201
+            bcs   :true
+            lda   MasterMode
+            and   #$0080
+            beq   :w320
+            lda   PixPerLine
+            cmp   #641
+            bcs   :true
+            bra   :screen
+:w320       lda   PixPerLine
+            cmp   #321
+            bcs   :true
+:screen     clc
+            rts
+:true       lda   MasterMode            ; (no wider than a line holds)
+            and   #$0080
+            beq   :two
+            lda   BytesPerLine
+            asl
+            asl
+            bra   :cap
+:two        lda   BytesPerLine
+            asl
+:cap        cmp   PixPerLine
+            bcc   :w
+            lda   PixPerLine
+:w          sta   TrueW
+            lda   NumLines
+            sta   TrueH
+            jsr   NewTrue               ; (IsTrue, TrueP, TrueStride)
+            bcs   :err
+            stz   TrueTall              ; 640 mode: pixels twice as tall
+            lda   MasterMode
+            and   #$0080
+            beq   :sq
+            inc   TrueTall
+:sq         lda   TrueP
+            sta   ApfRow
+            lda   TrueP+2
+            sta   ApfRow+2
+            inc   ApfTrueOn
+            clc
+:err        rts
+
+* ApfTrueLine: LineBuf (line LineNo, mode LineMode) into the true colour
+* picture's next row: its colours from MULTIPAL's table for the line, else
+* MAIN's table its mode names (table 0 if there aren't that many).
+ApfTrueLine lda   MPalN
+            beq   :main
+            lda   LineNo                ; MULTIPAL + line x 32
+            xba
+            and   #$00FF
+            lsr
+            lsr
+            lsr
+            sta   t1                    ; (the high word of line x 32)
+            lda   LineNo
+            asl
+            asl
+            asl
+            asl
+            asl
+            clc
+            adc   MPalAt
+            sta   q1
+            lda   MPalAt+2
+            adc   t1
+            sta   q1+2
+            bra   :lut
+:main       lda   LineMode
+            and   #$000F
+            cmp   NumTables
+            bcc   :tab
+            lda   #0
+:tab        asl
+            asl
+            asl
+            asl
+            asl
+            clc
+            adc   TabAt
+            sta   q1
+            lda   TabAt+2
+            adc   #0
+            sta   q1+2
+:lut        ldy   #0                    ; the 16 colours as RGB
+            ldx   #0
+:entry      lda   [q1],y
+            sta   t2
+            xba
+            and   #$000F
+            jsr   :x17
+            sta   ApfLUT,x
+            lda   t2
+            lsr
+            lsr
+            lsr
+            lsr
+            and   #$000F
+            jsr   :x17
+            sta   ApfLUT+1,x
+            lda   t2
+            and   #$000F
+            jsr   :x17
+            sta   ApfLUT+2,x
+            iny
+            iny
+            inx
+            inx
+            inx
+            cpx   #48
+            bcc   :entry
+            lda   ApfRow
+            sta   q0
+            lda   ApfRow+2
+            sta   q0+2
+            stz   t2                    ; t2: the pixel; Y: its RGB
+            ldy   #0
+:pix        lda   t2
+            cmp   TrueW
+            bcc   :inRow
+            jmp   :next
+:inRow      lda   LineMode
+            and   #$0080
+            bne   :p640
+            lda   t2                    ; 320 mode: a nibble, the high one first
+            lsr
+            tax
+            lda   LineBuf,x
+            and   #$00FF
+            sta   t3
+            lda   t2
+            and   #1
+            bne   :lo
+            lda   t3
+            lsr
+            lsr
+            lsr
+            lsr
+            bra   :idx
+:lo         lda   t3
+            and   #$000F
+            bra   :idx
+:p640       lda   t2                    ; 640 mode: two bits, the colours
+            lsr                         ; 8-11, 12-15, 0-3, 4-7 by place
+            lsr
+            tax
+            lda   LineBuf,x
+            and   #$00FF
+            sta   t3
+            lda   t2
+            and   #3
+            tax
+            beq   :sh
+:shift      asl   t3
+            asl   t3
+            dex
+            bne   :shift
+:sh         lda   t3
+            and   #$00C0
+            lsr
+            lsr
+            lsr
+            lsr
+            lsr
+            lsr
+            sta   t3
+            lda   t2
+            and   #3
+            tax
+            lda   ApfBase,x
+            and   #$00FF
+            clc
+            adc   t3
+:idx        sta   t3                    ; x 3
+            asl
+            adc   t3
+            tax
+            sep   #$20
+            mx    %10
+            lda   ApfLUT,x
+            sta   [q0],y
+            iny
+            lda   ApfLUT+1,x
+            sta   [q0],y
+            iny
+            lda   ApfLUT+2,x
+            sta   [q0],y
+            iny
+            rep   #$20
+            mx    %00
+            inc   t2
+            jmp   :pix
+:next       lda   ApfRow                ; the next row
+            clc
+            adc   TrueStride
+            sta   ApfRow
+            bcc   :out
+            inc   ApfRow+2
+:out        rts
+:x17        sta   t3                    ; (A x 17)
+            asl
+            asl
+            asl
+            asl
+            clc
+            adc   t3
+            rts
+
+ApfBase     db    8,12,0,4
+ApfLUT      ds    50
+ApfRow      adrl  0
+ApfTrueOn   dw    0
+MainAt      adrl  0
+MPalAt      adrl  0
+MPalN       dw    0
+TabAt       adrl  0
 
 * PutLine: copies LineBuf to picture line LineNo and sets its SCB.
 PutLine     lda   ScreenP

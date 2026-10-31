@@ -171,6 +171,9 @@ byte) or against a model written from SuperConvert's documented behaviour:
 - `deskinit` saves desktop background INITs and checks each as an OMF load file holding
   MegaconvertGS's own INIT and the packed desktop message.
 - `help` works the help window; `tiffopt` the TIFF Save Options.
+- `a2more` loads LZ4FH-packed HiRes (`test/make_a2more.py` packs it as fhpack does),
+  Double HiRes .BIN + .AUX pairs, bmp2dhr's .DHR and .DHM pieces, an .A2FM file and a
+  320 x 200 PPM, each compared with the same picture's plain file loaded as before.
 - `babel` installs Babelfish on the test disk (Seven Hills' freeware archive,
   `babelfish.bxy` from speccie.uk, in `build/babelfish/` or `~/Downloads/`, or named by
   `BABELFISH`; without it the suite is skipped; `nulib2` unpacks it) and imports and

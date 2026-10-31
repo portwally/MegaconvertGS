@@ -1894,8 +1894,13 @@ DeskTest    ent
             clc
             adc   #2
             sta   ScriptP
-            jsr   (TestTab,x)
-            plb
+            cpx   #5*2                  ; no image window: only the log
+            beq   :go                   ; (the others work on the window)
+            lda   ScrWin
+            ora   ScrWin+2
+            beq   :out
+:go         jsr   (TestTab,x)
+:out        plb
             rtl
 TestTab     da    TNone,TTool,TType,TZoom,TDrag,TLog,TAct,TKey,TOrigin,TZone
             da    TPal,TScb,TRedraw

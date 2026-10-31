@@ -7,6 +7,7 @@ MERLIN32="${MERLIN32:-$HOME/Downloads/Merlin32_v1.2_b2/MacOs/Merlin32}"
 [ -x "$MERLIN32" ] || MERLIN32="$HOME/Downloads/Merlin32_v1.2_b2 2/MacOs/Merlin32"
 mkdir -p "$ROOT/build"
 python3 -I "$ROOT/test/labels.py" "$ROOT/src"      # (duplicate local labels: Merlin takes the first)
+python3 -I "$ROOT/test/check_texts.py" "$ROOT/src/FormatInfo.s" || exit 1   # (no / ^ # in the Info texts)
 cd "$ROOT/src"
 "$MERLIN32" -V "$ROOT/src/macros" link.s > "$ROOT/build/merlin.log" 2>&1 || { tail -20 "$ROOT/build/merlin.log"; exit 1; }
 grep -iE "error" "$ROOT/build/merlin.log" && exit 1

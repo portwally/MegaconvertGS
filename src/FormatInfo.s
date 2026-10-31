@@ -118,8 +118,8 @@ SaveInfo    da    0,FiSvC1,FiSvAPF,FiSvPack,FiSvPW,FiSvIcon,FiSvIconAdd,FiSvRIco
 FiSHR       asc   '93/SuperHiRes ($C0 PNT, $C1 PIC): reads the common Super Hi-Res files and '
             asc   'works out by itself which kind each one is: ProDOS type $C0 with aux type '
             asc   '$0000 (PaintWorks), $0001 (PackBytes) or $0002 (Apple Preferred), or type $C1 '
-            asc   'with aux type $0000 (a plain screen).',0D,'Loaded as it is, up to one '
-            asc   'screen./^#0',00
+            asc   'with aux type $0000 (a plain screen).',0D,'Loaded as it is; an Apple Preferred '
+            asc   'picture larger than the screen or with 3200 colors as a true color one./^#0',00
 
 FiC1        asc   '93/$C1 screen: the Super Hi-Res screen saved byte for byte, 32768 bytes: the '
             asc   'pixels, the 200 SCBs (each line',27,'s mode and color table) and 16 color '
@@ -130,7 +130,8 @@ FiC1        asc   '93/$C1 screen: the Super Hi-Res screen saved byte for byte, 3
 FiAPF       asc   '93/Apple Preferred: the standard IIgs picture format, ProDOS type $C0 (PNT), '
             asc   'aux type $0002, used by most IIgs paint programs. Its MAIN block holds the '
             asc   'color tables and the lines, each packed with PackBytes and with its own mode.'
-            asc   0D,'MegaconvertGS loads up to one screen of it and cuts off the rest./^#0',00
+            asc   0D,'One larger than the screen, or with a MULTIPAL block (a color table for '
+            asc   'each line: 3200 colors), becomes a true color picture of its whole size./^#0',00
 
 FiPacked    asc   '93/PackBytes screen: a whole $C1 screen (32768 bytes) packed with the IIgs '
             asc   'toolbox routine PackBytes, ProDOS type $C0 (PNT), aux type $0001. Rarely used, '
@@ -163,12 +164,11 @@ FiJPEG      asc   '93/JPEG (JFIF): the usual format for photographs (.JPG), comp
             asc   'pixels wide and 4096 tall (progressive ones as far as memory allows).',0D,'It becomes a true '
             asc   'color picture, remapped to fit a 320 mode screen./^#0',00
 
-FiHGR       asc   '93/HiRes color: the Apple II high resolution screen, 8192 bytes (usually a BIN '
-            asc   'or FOT file): 280 x 192 dots in black, white, violet, green, blue and orange, '
-            asc   'the colors worked out from the dots and their neighbors as on a color monitor.'
-            asc   0D,'Loaded as 280 x 192 in 320 mode. Also read packed with PackBytes (type $08, '
-            asc   'aux type $4000); a type $08 file whose byte 120 says black & white or Double '
-            asc   'HiRes opens that way./^#0',00
+FiHGR       asc   '93/HiRes color: the Apple II high resolution screen, 8192 bytes: 280 x 192 '
+            asc   'dots in black, white, violet, green, blue and orange, worked out from the dots '
+            asc   'and their neighbors as on a color monitor.',0D,'Loaded as 280 x 192 in 320 mode. '
+            asc   'Also packed (PackBytes: $08, $4000; LZ4FH: $08, $8066); a $08 file with byte 120 '
+            asc   'set to black & white or Double HiRes opens so./^#0',00
 
 FiHGRBW     asc   '93/HiRes black & white: the Apple II high resolution screen (8192 bytes, '
             asc   'usually a BIN or FOT file) as a monochrome monitor shows it, each of its 280 x '
@@ -176,13 +176,14 @@ FiHGRBW     asc   '93/HiRes black & white: the Apple II high resolution screen (
 
 FiDHR       asc   '93/Double HiRes color: the double high resolution screen of the Apple IIe, IIc '
             asc   'and IIgs, 16384 bytes, the auxiliary memory half first: 140 x 192 pixels in 16 '
-            asc   'colors, each pixel made of 4 dots.',0D,'Loaded in 320 mode with the Apple II '
-            asc   'colors, each pixel doubled across: 280 x 192. Also read packed with PackBytes '
-            asc   '(type $08, aux type $4001)./^#0',00
+            asc   'colors, each pixel made of 4 dots.',0D,'Loaded in 320 mode, each pixel doubled '
+            asc   'across: 280 x 192. Also read packed with PackBytes ($08, $4001), as two files '
+            asc   '(NAME.BIN, main, and NAME.AUX) and as bmp2dhr pieces (.DHR)./^#0',00
 
 FiDHRBW     asc   '93/Double HiRes black & white: the Apple II double high resolution screen '
             asc   '(16384 bytes, the auxiliary half first) as a monochrome monitor shows it, each '
-            asc   'of its 560 x 192 dots white or black.',0D,'Loaded as 560 x 192 in 640 mode./^#0'
+            asc   'of its 560 x 192 dots white or black.',0D,'Loaded as 560 x 192 in 640 mode. '
+            asc   'Also NAME.BIN with NAME.AUX; Open reads .A2FM files and .DHM masks so./^#0'
             asc   00
 
 FiPSBW      asc   '93/Print Shop graphic: a graphic from Broderbund',27,'s original Print Shop '
@@ -385,7 +386,7 @@ FiWOA       asc   '93/Works of Art: black and white clip art from Springboard Pu
 
 FiBabelTC   asc   '93/Babelfish True Color Import: a picture read through Babelfish, Seven Hills '
             asc   'Software',27,'s file translator system, as a true color image. Babelfish',27,'s '
-            asc   'own dialog chooses the file and the translator (PBM/PGM/PPM, ComputerEyes, '
+            asc   'own dialog chooses the file and the translator (PBM, PGM and PPM, ComputerEyes, '
             asc   'Visionary ...). Babelfish must be installed./^#0',00
 
 FiBabelPM   asc   '93/Babelfish PixelMap Import: a picture read through Babelfish, Seven Hills '
@@ -463,7 +464,7 @@ FiSvDesk    asc   '93/Desktop background image INIT: the picture saved as a star
 
 FiSvBabelTC asc   '93/Babelfish True Color Export: the true color picture written through '
             asc   'Babelfish, Seven Hills Software',27,'s file translator system, in a format its '
-            asc   'translators offer (PBM/PGM/PPM). Babelfish must be installed./^#0'
+            asc   'translators offer (PBM, PGM and PPM). Babelfish must be installed./^#0'
             asc   00
 
 FiSvBMP     asc   '93/BMP: a Windows bitmap for today',27,'s computers, ProDOS type $06 (BIN), '

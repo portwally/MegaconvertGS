@@ -231,6 +231,27 @@ segment includes.
   C64 picture disks.
 - **A title picture at start-up** (`MCGS.Title`, a $C1 screen beside the program: until
   a click, a key or 3 seconds; none if the file isn't there).
+- **More Apple II pictures** (Apple.s, Formats.s PairDHR; CiderPress2, fhpack and
+  bmp2dhr's sources): LZ4FH, fadden's packed HiRes (type $08, aux type $8066: magic $66,
+  then tokens of literal and match lengths, a match's place counted from the screen's
+  start), unpacked into the 8192 bytes HiRes is read from; Double HiRes in two files,
+  NAME.BIN (main memory) and NAME.AUX (auxiliary), 8184 or 8192 bytes each (Beagle
+  Graphics, bmp2dhr's option A), joined when either is opened with no format or a Double
+  HiRes one chosen (a lone .BIN stays HiRes); bmp2dhr's picture pieces ("DHR" or "DHM",
+  the bytes a row, 4 for 7 dots, the rows, then each row's auxiliary and main halves)
+  placed on a black screen, the picture the piece's size; .A2FM names as Double HiRes
+  black & white. Dazzle Draw's and bmp2dhr's A2FC files are the 16384-byte Double HiRes
+  read before. Open now takes a 320 x 200 PPM, which is a ComputerEyes file's size, for
+  what it is. The build refuses / ^ # inside an Info on format text (AlertWindow's
+  codes), which had broken the two True Color Babelfish texts in 1.4.
+- **Apple Preferred pictures larger than the screen or with 3200 colors** (Formats.s
+  ApfBig): all blocks are found first, then MAIN is read; a picture wider than a screen
+  (320 pixels in 320 mode, 640 in 640 mode), taller than 200 lines, or with a MULTIPAL
+  block holding a colour table for every line becomes a true colour picture of its whole
+  size, each line in its MULTIPAL table or else the MAIN table its mode names, as GS
+  Remap reads them (it was cut to one screen, and MULTIPAL left out). PaintWorks Gold's
+  640 mode files stay screens. The image window's test commands (`DESK`) do nothing
+  without the window (zoom with no picture had crashed).
 - **Babelfish** (Babel.s; superconvert-formats-extra.md 4 and Seven Hills' programming
   manual, the PDF beside the freeware archive at speccie.uk): SuperConvert's four
   External entries. Load & convert opens Babelfish's Open dialog (BFGetFile) and the

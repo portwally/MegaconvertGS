@@ -151,7 +151,13 @@ TakeImages  lda   dhave
 
 * ImgChanged: after any change of image, type, zoom or pixel size: the
 * size, the title, the info bar, everything drawn again.
-ImgChanged  lda   Shown                 ; a type that exists (else the first)
+ImgChanged  lda   ScrWin                ; (no image window, or nothing in
+            ora   ScrWin+2              ; it: nothing to do; the zoom or
+            beq   :none                 ; tool chosen stays for later)
+            lda   Have
+            bne   :some
+:none       rts
+:some       lda   Shown                 ; a type that exists (else the first)
             asl
             tax
             lda   Have
